@@ -36,7 +36,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface{
     }
     public function add_area($request,$governorate){
         $governorate=Governorates::findOrFail($governorate->id);
-        $governorate->areas()->createMany($request->area);
+        $governorate->areas()->createMany($request->areas);
         return $governorate->areas;
     }
     public function add_neighborhoods($request,$area){

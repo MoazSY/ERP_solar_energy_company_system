@@ -35,11 +35,16 @@ class UniqueAcrossTables  implements ValidationRule
                 $column = 'company_email';
             }elseif($table === 'solar_companies' &&( $this->column === 'company_phone'|| $this->column === 'phoneNumber')){
                 $column = 'company_phone';
-            }elseif($table === 'agencies' &&( $this->column === 'agency_email'|| $this->column === 'email')){
+            }elseif($table === 'agencies' &&( $this->column === 'agency_email'|| $this->column === 'email'||$this->column === 'company_email')){
                 $column = 'agency_email';
-            }elseif($table === 'agencies' &&( $this->column === 'agency_phone'|| $this->column === 'phoneNumber')){
+            }elseif($table === 'agencies' &&( $this->column === 'agency_phone'|| $this->column === 'phoneNumber'|| $this->column === 'company_phone')){
                 $column = 'agency_phone';
-            }else{
+            }elseif(($table=== 'system_admins' || $table=== 'solar_company_managers' || $table=== 'agency_managers' || $table=== 'customers' || $table=== 'employees')&&($this->column==='company_email'|| $this->column === 'agency_email')){
+                $column = 'email';
+            }elseif(($table=== 'system_admins' || $table=== 'solar_company_managers' || $table=== 'agency_managers' || $table=== 'customers' || $table=== 'employees')&&($this->column==='company_phone'|| $this->column === 'agency_phone')){
+                $column = 'phoneNumber';
+            }
+            else{
                 $column = $this->column;
             }
             $query = DB::table($table)->where($column, $value);

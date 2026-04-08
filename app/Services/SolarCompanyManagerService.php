@@ -40,32 +40,33 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
     $company_manager=Auth::guard('company_manager')->user();
     $profile=$this->solarCompanyManagerRepositoryInterface->company_manager_profile($company_manager->id);
      $image=$profile[0]->image;
-     $company_logo=$profile[1]->company_logo;
-     $identification_image=$profile[0]->identification_image;
-     if($company_logo==null){
+     $company=$profile[1];
+     $company=$company->map(function($item){
+        $company_logo=$item->company_logo;
+        if($company_logo==null){
         $company_logoUrl=null;
-     }else{
-         $company_logoUrl=asset('storage/'.$company_logo);
-     }
+        }else{
+        $company_logoUrl=asset('storage/'.$company_logo);
+        }
+        return ['company'=>$item,'company_logoUrl'=>$company_logoUrl];
+     });
+     $identification_image=$profile[0]->identification_image;
      if($identification_image==null){
             $identification_imageUrl=null;
      }else{
          $identification_imageUrl=asset('storage/'.$identification_image);
-
      }
          if($image==null)
             $imageUrl=null;
-         else
-         $imageUrl=asset('storage/'.$image);
+            else
+            $imageUrl=asset('storage/'.$image);
 
-         $company_logoUrl=asset('storage/'.$company_logo);
-         $company_logoUrl=asset('storage/'.$company_logo);
-         return ['company_manager'=>$profile[0],'solar_company'=>$profile[1],'imageUrl'=>$imageUrl,'identification_imageUrl'=>$identification_imageUrl,'company_logoUrl'=>$company_logoUrl];
+         return ['company_manager'=>$profile[0],'imageUrl'=>$imageUrl,'identification_imageUrl'=>$identification_imageUrl,'solar_company'=>$company];
     }
         public function update_profile($request,$data){
         $company_manager_id=Auth::guard('company_manager')->user()->id;
         $company_manager=Solar_company_manager::findOrFail($company_manager_id);
-        
+
         if($request->hasFile('identification_image')){
              $originalName=$request->file('identification_image')->getClientOriginalName();
             $path=$request->file('identification_image')->storeAs('CompanyManager/identification_image',$originalName,'public');
@@ -105,7 +106,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
 
 
     public function Company_register($request,$data){
-        $company_manager_id=Auth::guard('admin')->user()->id;
+        $company_manager_id=Auth::guard('company_manager')->user()->id;
         $company_mamager=Solar_company_manager::findOrFail($company_manager_id);
         if($request->hasFile('company_logo')){
         $company_logo=$request->file('company_logo')->getClientOriginalName();
@@ -141,7 +142,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         $solarCompany->fresh();
         $solarCompany->save();
         return [$solarCompany,$company_logo_URL];
- 
+
     }
     public function company_address($request,$solarCompany){
         $company_address=$this->solarCompanyManagerRepositoryInterface->company_address($request,$solarCompany);

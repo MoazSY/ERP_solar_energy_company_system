@@ -27,6 +27,13 @@ class OtpService{
         $array=['otp'=>$otp,'user'=>$user,'status'=>'pending'];
         if($otp_type=="WhatsApp"){
         $local_phone=$request->input('phoneNumber');
+                if (Cache::has('otp_lock_'.$local_phone)) {
+            return [
+                'status' => false,
+                'message' => 'Please wait before requesting another OTP'
+            ];
+        }
+            cache()->put('otp_lock_'.$local_phone,true,now()->addMinute(1));
 
         $url = env('WHATSAPP_API_URL') . '/' . env('WHATSAPP_INSTANCE_ID') . '/messages/chat';
         $intrnalPhone='963'.substr($local_phone,1);
@@ -60,12 +67,11 @@ class OtpService{
      public function VerifyOtp($request,$otp_type)
     {
         if($otp_type=="WhatsApp"){
-        $column_type='phone_number';
+        $column_type='phoneNumber';
         $localPhone = $request->input('phoneNumber');
-        $column_value=$localPhone;
         $internalPhone = '963' . substr($localPhone, 1);
+        $column_value=$internalPhone;
         $cachedOtp = cache('otp_'.$internalPhone);
-
         }
         elseif($otp_type=="Email"){
         $column_type='email';
@@ -125,11 +131,11 @@ class OtpService{
             return null;
         }
         if($userStatus=="user_not_register"){
-        return ["message" => "code verify successfully but user not register in system", 'verify' => true,"user"=>null,'user_status'=>$userStatus];
+        return ["message" => "code verify successfully but user not register in system", 'verify' => true,"user"=>null,'user_status'=>$userStatus];// هناالمستخدم غير مسجل بالنظام لكن يتحقق من الكود لكي يسجل دخول وهو غير مسجل في النظام
         }
 
         cache()->forget('otp_' . $column_value);
-        return ["message" => "code verify successfully", 'verify' => true,"user"=>$user,'user_status'=>$userStatus];
+        return ["message" => "code verify successfully login successfully", 'verify' => true,"user"=>$user,'user_status'=>$userStatus];// هنا المستخدم مسجل في النظام ويتحقق من الكود من اجل ان يسجل دخوله
         }
         elseif($forRegister && $otp==$request->otp){
         $cachedOtp['status']='verified';
@@ -139,7 +145,7 @@ class OtpService{
          Cache::put('otp_'. $email, $cachedOtp, now()->addMinutes(10));
 
         }
-        return ["message" => "code verify successfully", 'verify' => true,"user"=>null,'user_status'=>null];
+        return ["message" => "code verify successfully ready to register", 'verify' => true,"user"=>null,'user_status'=>null]; // هنا المستخدم غير مسجل في النظام ويتحقق من الكود من اجل ان يسجل
 
         }
     }

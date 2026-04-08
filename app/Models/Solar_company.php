@@ -82,6 +82,6 @@ class Solar_company extends Model
     }
         public function addresses() : MorphMany
     {
-        return $this->morphMany(Address::class, 'entityType');
+        return $this->morphMany(Address::class, 'entity_type');
     }
 }
