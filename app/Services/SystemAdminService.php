@@ -157,35 +157,45 @@ class SystemAdminService
 
     public function show_all_company_registerd()
     {
-        $all_company = $this->SystemAdminRepositoryInterface->show_all_company_registerd();
-        $result = $all_company->filter(function ($c) {
-            return $c->has('proccess_register')->where('status', 'approved')->exists();
-        })->map(function ($company) {
+        $all_company = Solar_company::whereHas('proccess_register', function ($q) {
+            $q->where('status', 'approved');
+        })
+            ->with('proccess_register')
+            ->get();
+
+        $result = $all_company->map(function ($company) {
             $company_logo = $company->company_logo;
-            if ($company_logo == null) {
-                $company_logoUrl = null;
-            } else {
-                $company_logoUrl = asset('storage/' . $company_logo);
-            }
-            return ['company' => $company, 'company_logoUrl' => $company_logoUrl];
+
+            return [
+                'company' => $company,
+                'company_logoUrl' => $company_logo
+                    ? asset('storage/' . $company_logo)
+                    : null
+            ];
         });
+
         return $result;
     }
 
     public function show_all_agency_registerd()
     {
-        $all_agency = $this->SystemAdminRepositoryInterface->show_all_agency_registerd();
-        $result = $all_agency->filter(function ($a) {
-            return $a->has('proccess_register')->where('status', 'approved')->exists();
-        })->map(function ($agency) {
+        $all_agency = Agency::whereHas('proccess_register', function ($q) {
+            $q->where('status', 'approved');
+        })
+            ->with('proccess_register')
+            ->get();
+
+        $result = $all_agency->map(function ($agency) {
             $agency_logo = $agency->agency_logo;
-            if ($agency_logo == null) {
-                $agency_logoUrl = null;
-            } else {
-                $agency_logoUrl = asset('storage/' . $agency_logo);
-            }
-            return ['agency' => $agency, 'agency_logoUrl' => $agency_logoUrl];
+
+            return [
+                'agency' => $agency,
+                'agency_logoUrl' => $agency_logo
+                    ? asset('storage/' . $agency_logo)
+                    : null
+            ];
         });
+
         return $result;
     }
 
@@ -228,6 +238,7 @@ class SystemAdminService
     public function show_subscribtions_policies()
     {
         $generalPolicies = Subscribe_polices::whereDoesntHave('customSubscribes')->get();
+        return $generalPolicies;
     }
 
     public function show_custom_subscribtions_policies()
@@ -248,8 +259,8 @@ class SystemAdminService
         $company_agency_subscribe = Company_agency_subscribe::where('subscribe_policy_id', $policy->id)->where('is_active', true)->get();
         $subscriber = $company_agency_subscribe->map(function ($subscribe) {
             return [
-                'subscriber' => $subscribe->subscribeable,  // الكيان المشترك (شركة أو وكالة)
-                'subscriber_type' => $subscribe->subscribeable_type,  // نوع الكيان (solar_company أو agency)
+                'subscriber' => $subscribe->subscribable,  // الكيان المشترك (شركة أو وكالة)
+                'subscriber_type' => $subscribe->subscribable_type,  // نوع الكيان (solar_company أو agency)
                 'subscription_details' => $subscribe  // تفاصيل الاشتراك
             ];
         });
@@ -259,22 +270,33 @@ class SystemAdminService
     public function show_subscribtions_policies_for_entity($request)
     {
         if ($request->entity_type == 'solar_company') {
-            $company = Solar_company::findOrFail($request->entity_id);
+            $entity = Solar_company::findOrFail($request->entity_id);
         } elseif ($request->entity_type == 'agency') {
-            $company = Agency::findOrFail($request->entity_id);
+            $entity = Agency::findOrFail($request->entity_id);
         } else {
             return null;
         }
-        $subscriptions = $company->companyAgencySubscribes()->with(['subscribePolicy', 'customSubscribes'])->get();
 
-        // إضافة مؤشر لمعرفة إذا كان الاشتراك مخصصًا أم عامًا
+        $subscriptions = $entity
+            ->companyAgencySubscribes()
+            ->with(['subscribePolicy.customSubscribes' => function ($query) use ($entity) {
+                $query
+                    ->where('subscribeable_type', get_class($entity))
+                    ->where('subscribeable_id', $entity->id)
+                    ->where('is_active', true);
+            }])
+            ->get();
+
         $result = $subscriptions->map(function ($subscription) {
+            $policy = $subscription->subscribePolicy;
             return [
                 'subscription' => $subscription,
-                'is_custom' => $subscription->customSubscribes->isNotEmpty(),  // true إذا كان مخصصًا
-                'custom_details' => $subscription->customSubscribes  // تفاصيل الاشتراك المخصص إن وجد
+                // 'policy' => $policy,
+                'is_custom' => $policy ? $policy->customSubscribes->isNotEmpty() : false,
+                // 'custom_details' => $policy ? $policy->customSubscribes : collect()
             ];
         });
+
         return $result;
     }
 }

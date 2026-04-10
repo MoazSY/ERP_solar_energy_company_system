@@ -19,6 +19,7 @@ Route::post('company_manager_register', [SolarCompanyManager::class, 'Register']
 Route::get('get_governorates', [System_admin::class, 'get_governorates']);
 Route::get('get_areas/{governorates}', [System_admin::class, 'get_areas']);
 Route::get('get_neighborhoods/{area}', [System_admin::class, 'get_neighborhoods']);
+Route::get('show_subscribtions_policies', [System_admin::class, 'show_subscribtions_policies']);
 Route::post('login', [OtpController::class, 'login']);
 
 Route::post('logout', [OtpController::class, 'logout'])->middleware('auth:sanctum');
@@ -35,6 +36,13 @@ Route::middleware('check_admin')->group(function () {
     Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
     Route::post('proccess_company_register', [System_admin::class, 'proccess_company_register']);
     Route::post('subscriptions_policy', [System_admin::class, 'subscriptions_policy']);
+    Route::post('update_subscriptions_policy/{subscribe_polices}', [System_admin::class, 'update_subscriptions_policy']);
+     Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);
+     Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
+     Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
+     Route::get('show_custom_subscribtions_policies', [System_admin::class, 'show_custom_subscribtions_policies']);
+     Route::post('show_subscribtions_policies_for_entity', [System_admin::class, 'show_subscribtions_policies_for_entity']);
+    Route::get('show_subscribers_of_policy/{policy}', [System_admin::class, 'show_subscribers_of_policy']);
 });
 
 Route::middleware('check_company_manager')->group(function () {
@@ -43,6 +51,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('company_manager/update_profile', [SolarCompanyManager::class, 'update_profile']);
     Route::post('Update_company/{solarCompany}', [SolarCompanyManager::class, 'Update_company']);
     Route::post('Add_company_address/{solarCompany}', [SolarCompanyManager::class, 'Add_company_address']);
+    Route::post('company_subscribe_in_policy',[SolarCompanyManager::class, 'subscribe_in_policy']);
 });
 
 Route::middleware('check_agency_manager')->group(function () {
@@ -51,4 +60,5 @@ Route::middleware('check_agency_manager')->group(function () {
     Route::post('agency_manager/update_profile', [AgencyManagerController::class, 'update_profile']);
     Route::post('Update_agency/{agency}', [AgencyManagerController::class, 'Update_agency']);
     Route::post('Add_agency_address/{agency}', [AgencyManagerController::class, 'Add_agency_address']);
+    Route::post('agency_subscribe_in_policy',[AgencyManagerController::class, 'subscribe_in_policy']);
 });

@@ -288,16 +288,16 @@ class System_admin extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $policy = $this->SystemAdminService->update_subscriptions_policy($request, $subscribe_polices);
+        $data=$validate->validated();
+        $policy = $this->SystemAdminService->update_subscriptions_policy($data, $subscribe_polices);
         return response()->json(['message' => 'subscription policy updated successfully', 'policy' => $policy]);
     }
 
-    public function show_all_company_registerd($entity_type)
+    public function show_all_company_registerd()
     {
         $registerd_companies = $this->SystemAdminService->show_all_company_registerd();
         return response()->json(['message' => 'all registerd companies', 'registerd_companies' => $registerd_companies]);
     }
-
     public function show_all_agency_registerd()
     {
         $registerd_agencies = $this->SystemAdminService->show_all_agency_registerd();

@@ -125,7 +125,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
 
     public function subscriptions_policy($request, $admin)
     {
-        $subscription_policy = $admin->subscribe_policies()->create([
+        $subscription_policy = $admin->subscribePolices()->create([
             'name' => $request->name,
             'description' => $request->description,
             'apply_to' => $request->apply_to,
@@ -143,19 +143,9 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
 
     public function update_subscriptions_policy($request, $admin, $policy)
     {
-        $policy->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'apply_to' => $request->apply_to,
-            'subscription_fee' => $request->subscription_fee,
-            'currency' => $request->currency,
-            'duration_value' => $request->duration_value,
-            'duration_type' => $request->duration_type,
-            'is_active' => $request->is_active,
-            'is_trial_granted' => $request->is_trial_granted,
-            // 'trial_duration_value' => $request->trial_duration_value,
-            // 'trial_duration_type' => $request->trial_duration_type,
-        ]);
+    $policy->update($request);
+    $policy->fresh();
+    $policy->save();
 
         return $policy;
     }
