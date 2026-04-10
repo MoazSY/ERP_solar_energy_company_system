@@ -105,7 +105,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
     }
 
 
-    public function Company_register($request,$data){
+        public function Company_register($request,$data){
         $company_manager_id=Auth::guard('company_manager')->user()->id;
         $company_mamager=Solar_company_manager::findOrFail($company_manager_id);
         if($request->hasFile('company_logo')){
@@ -147,5 +147,12 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
     public function company_address($request,$solarCompany){
         $company_address=$this->solarCompanyManagerRepositoryInterface->company_address($request,$solarCompany);
         return $company_address;
+    }
+    public function subscribe_in_policy($request){
+        $company_manager_id=Auth::guard('company_manager')->user()->id;
+        $company_manager=Solar_company_manager::findOrFail($company_manager_id);
+        $company=$company_manager->solarCompanies()->first();
+        $subscribe=$this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request,$company);
+        return $subscribe;
     }
 }

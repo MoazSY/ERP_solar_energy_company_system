@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Model;
 
 class Agency extends Model
 {
@@ -25,10 +26,31 @@ class Agency extends Model
         'working_hours_end',
     ];
 
+    public function proccess_register()
+    {
+        return $this->morphMany(Company_Agency_rigester::class, 'registerable');
+    }
+
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'entity_type');
+    }
+
+    public function companyAgencySubscribes(): MorphMany
+    {
+        return $this->morphMany(Company_agency_subscribe::class, 'subscribable');
+    }
+
+    public function customSubscribes(): MorphMany
+    {
+        return $this->morphMany(Custom_subscribe::class, 'subscribeable');
+    }
+
     public function agencyManager(): BelongsTo
     {
         return $this->belongsTo(Agency_manager::class, 'agency_manager_id');
     }
+
     public function conflictInvoices(): HasMany
     {
         return $this->hasMany(Conflict_invoice::class, 'agency_id');

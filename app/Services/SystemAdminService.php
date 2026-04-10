@@ -3,8 +3,10 @@ namespace App\Services;
 
 use App\Models\Agency;
 use App\Models\Areas;
+use App\Models\Company_agency_subscribe;
 use App\Models\Neighborhood;
 use App\Models\Solar_company;
+use App\Models\Subscribe_polices;
 use App\Models\System_admin;
 use App\Repositories\SystemAdminRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
@@ -84,7 +86,6 @@ class SystemAdminService
 
     public function add_area($request, $governorate)
     {
-
         foreach ($request->areas as $areaData) {
             $exists = Areas::where('governorate_id', $governorate->id)
                 ->where('name', $areaData['name'])
@@ -142,6 +143,52 @@ class SystemAdminService
         return $result;
     }
 
+    public function UnActive_agency()
+    {
+        $agencies = $this->SystemAdminRepositoryInterface->UnActive_agency();
+        $result = $agencies->map(fn($agency) => [
+            'agency_logo' => $agency->agency_logo != null
+                ? asset('storage/' . $agency->agency_logo)
+                : null,
+            'un_active_agency' => $agency
+        ]);
+        return $result;
+    }
+
+    public function show_all_company_registerd()
+    {
+        $all_company = $this->SystemAdminRepositoryInterface->show_all_company_registerd();
+        $result = $all_company->filter(function ($c) {
+            return $c->has('proccess_register')->where('status', 'approved')->exists();
+        })->map(function ($company) {
+            $company_logo = $company->company_logo;
+            if ($company_logo == null) {
+                $company_logoUrl = null;
+            } else {
+                $company_logoUrl = asset('storage/' . $company_logo);
+            }
+            return ['company' => $company, 'company_logoUrl' => $company_logoUrl];
+        });
+        return $result;
+    }
+
+    public function show_all_agency_registerd()
+    {
+        $all_agency = $this->SystemAdminRepositoryInterface->show_all_agency_registerd();
+        $result = $all_agency->filter(function ($a) {
+            return $a->has('proccess_register')->where('status', 'approved')->exists();
+        })->map(function ($agency) {
+            $agency_logo = $agency->agency_logo;
+            if ($agency_logo == null) {
+                $agency_logoUrl = null;
+            } else {
+                $agency_logoUrl = asset('storage/' . $agency_logo);
+            }
+            return ['agency' => $agency, 'agency_logoUrl' => $agency_logoUrl];
+        });
+        return $result;
+    }
+
     public function proccess_company_register($request)
     {
         $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
@@ -151,5 +198,83 @@ class SystemAdminService
         } else
             $agency = Agency::findOrFail($request->entity_id);
         return $this->SystemAdminRepositoryInterface->proccess_company_register($request, $admin, $agency);
+    }
+
+    public function subscriptions_policy($request)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->subscriptions_policy($request, $admin);
+    }
+
+    public function update_subscriptions_policy($request, $policy)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->update_subscriptions_policy($request, $admin, $policy);
+    }
+
+    public function custom_subscribe_policy($request)
+    {
+        if ($request->entity_type == 'solar_company') {
+            $company = Solar_company::findOrFail($request->entity_id);
+        } elseif ($request->entity_type == 'agency') {
+            $company = Agency::findOrFail($request->entity_id);
+        } else {
+            return null;
+        }
+        $custom_subscribe = $this->SystemAdminRepositoryInterface->custom_subscribe_policy($request, $company);
+        return $custom_subscribe;
+    }
+
+    public function show_subscribtions_policies()
+    {
+        $generalPolicies = Subscribe_polices::whereDoesntHave('customSubscribes')->get();
+    }
+
+    public function show_custom_subscribtions_policies()
+    {
+        $customPolicies = Subscribe_polices::whereHas('customSubscribes', function ($query) {
+            $query->where('is_active', true);  // سياسات لها اشتراك مخصص فعال
+        })
+            ->with(['customSubscribes' => function ($query) {
+                $query->where('is_active', true);
+            }, 'customSubscribes.subscribeable'])  //  تحميل الكيان المرتبط
+            ->get();
+
+        return $customPolicies;
+    }
+
+    public function show_subscribers_of_policy($policy)
+    {
+        $company_agency_subscribe = Company_agency_subscribe::where('subscribe_policy_id', $policy->id)->where('is_active', true)->get();
+        $subscriber = $company_agency_subscribe->map(function ($subscribe) {
+            return [
+                'subscriber' => $subscribe->subscribeable,  // الكيان المشترك (شركة أو وكالة)
+                'subscriber_type' => $subscribe->subscribeable_type,  // نوع الكيان (solar_company أو agency)
+                'subscription_details' => $subscribe  // تفاصيل الاشتراك
+            ];
+        });
+        return $subscriber;
+    }
+
+    public function show_subscribtions_policies_for_entity($request)
+    {
+        if ($request->entity_type == 'solar_company') {
+            $company = Solar_company::findOrFail($request->entity_id);
+        } elseif ($request->entity_type == 'agency') {
+            $company = Agency::findOrFail($request->entity_id);
+        } else {
+            return null;
+        }
+        $subscriptions = $company->companyAgencySubscribes()->with(['subscribePolicy', 'customSubscribes'])->get();
+
+        // إضافة مؤشر لمعرفة إذا كان الاشتراك مخصصًا أم عامًا
+        $result = $subscriptions->map(function ($subscription) {
+            return [
+                'subscription' => $subscription,
+                'is_custom' => $subscription->customSubscribes->isNotEmpty(),  // true إذا كان مخصصًا
+                'custom_details' => $subscription->customSubscribes  // تفاصيل الاشتراك المخصص إن وجد
+            ];
+        });
+        return $result;
     }
 }

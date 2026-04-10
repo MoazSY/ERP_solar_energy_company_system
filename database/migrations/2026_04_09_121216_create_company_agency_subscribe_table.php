@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('custom_subscribe', function (Blueprint $table) {
+        Schema::create('company_agency_subscribe', function (Blueprint $table) {
             $table->id();
             $table->foreignId("subscribe_policy_id")->constrained("subscribe_polices")->onDelete("cascade");
-            $table->morphs("subscribeable");
+            $table->morphs("subscribable");
             $table->boolean("is_active")->default(true);
-            $table->boolean('entity_subscribe')->default(false);
+            $table->date("start_date")->nullable();
+            $table->date("end_date")->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('custom_subscribe_policies');
+        Schema::dropIfExists('company_agency_subscribe');
     }
 };

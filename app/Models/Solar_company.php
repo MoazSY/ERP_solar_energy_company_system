@@ -84,4 +84,11 @@ class Solar_company extends Model
     {
         return $this->morphMany(Address::class, 'entity_type');
     }
+    public function companyAgencySubscribes(): MorphMany
+    {
+        return $this->morphMany(Company_agency_subscribe::class, 'subscribable');
+    }
+    public function customSubscribes(): MorphMany{
+        return $this->morphMany(Custom_subscribe::class, 'subscribeable');
+    }
 }

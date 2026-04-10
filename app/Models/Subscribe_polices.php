@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Model;
 
 class Subscribe_polices extends Model
 {
@@ -21,9 +21,9 @@ class Subscribe_polices extends Model
         'duration_type',
         'is_active',
         'is_trial_granted',
-        'trial_duration_value',
-        'trial_duration_type',
-        'priority',
+        // 'trial_duration_value',
+        // 'trial_duration_type',
+        // 'priority',
     ];
 
     public function admin(): BelongsTo

@@ -22,7 +22,9 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
             $request->all(),
             [
                 'phoneNumber' => 'required|regex:/^09\d{8}$/',
-                'user' => 'required|string'
+                // 'user' => 'sometimes|string',
+                'forRegister'=>'required|boolean'
+                
             ]
         );
         if ($validator->fails()) {
@@ -39,7 +41,8 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         elseif($otp_type=="Email"){
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
-            'user' => 'required|string'
+            // 'user' => 'required|string',
+            'forRegister'=>'required|boolean'
         ]);
             if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()]);
@@ -57,7 +60,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         $validator = Validator::make($request->all(), [
             'phoneNumber' => 'required|regex:/^09\d{8}$/',
             'otp' => 'required|digits:6',
-            'forRegister'=>'required|boolean'
+            // 'forRegister'=>'required|boolean'
         ]);
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()]);
@@ -66,7 +69,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'otp' => 'required|digits:6',
-            'forRegister'=>'required|boolean'
+            // 'forRegister'=>'required|boolean'
         ]);
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()]);

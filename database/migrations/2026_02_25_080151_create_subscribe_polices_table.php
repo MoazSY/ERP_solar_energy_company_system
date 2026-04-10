@@ -23,9 +23,9 @@ return new class extends Migration
             $table->enum("duration_type",["day","month","year"])->default("month");
             $table->boolean("is_active")->default(true);
             $table->boolean("is_trial_granted")->default(false);
-            $table->integer("trial_duration_value")->nullable();
-            $table->enum("trial_duration_type",["day","month","year"])->nullable();
-            $table->integer("priority")->default(0);
+            // $table->integer("trial_duration_value")->nullable();
+            // $table->enum("trial_duration_type",["day","month","year"])->nullable();
+            // $table->integer("priority")->default(0);
             $table->timestamps();
         });
     }

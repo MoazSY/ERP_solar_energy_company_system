@@ -14,6 +14,8 @@ class Custom_subscribe extends Model
         'subscribe_policy_id',
         'subscribeable_type',
         'subscribeable_id',
+        'is_active',
+        'entity_subscribe',
     ];
 
     public function subscribePolicy(): BelongsTo

@@ -283,4 +283,17 @@ class SolarCompanyManager extends Controller
         $company_address = $this->solarCompanyManagerService->company_address($request, $solarCompany);
         return response()->json(['message' => 'company address added successfully', 'company_address' => $company_address]);
     }
+    public function subscribe_in_policy(Request $request){
+        $validate=Validator::make($request->all(),[
+            'subscribe_policy_id'=>'required|exists:subscribe_polices,id'
+        ]);
+        if($validate->fails()){
+            return response()->json(['message'=>$validate->errors()]);
+        }
+        $result=$this->solarCompanyManagerService->subscribe_in_policy($request);
+        if(!$result){
+            return response()->json(['message'=>'invalid entity type'],400);
+        }
+        return response()->json(['message'=>'company subscribed in policy successfully','subscription'=>$result]);
+}
 }
