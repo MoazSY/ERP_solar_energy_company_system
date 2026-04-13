@@ -3,6 +3,8 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Subscribe_polices;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 
 class AgencyManagerRepository implements AgencyManagerRepositoryInterface
@@ -67,6 +69,19 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function subscribe_in_policy($request, $agency)
     {
+        $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
+        $payment = $agency->paymentsMade()->create([
+            'amount' => $subscribe_policy->price,
+            'currency' => $subscribe_policy->currency,
+            'payment_object_type_name' => 'subscribe_policy',
+            'target_table_type'=>'App\Models\System_admin',
+            'target_table_id'=>1,
+            'payment_object_table_type'=>'App\Models\Subscribe_polices',
+            'payment_object_table_id'=>$subscribe_policy->id,
+            'paid_at'=>Carbon::now(),
+            're_subscribed'=>$request->re_subscribed,
+        ]);
+
         // هنا يجب ضمان الدفع اولا لكن حاليا لا يوجد دفع
         $subscribe = $agency->companyAgencySubscribes()->create([
             'subscribe_policy_id' => $request->subscribe_policy_id,
@@ -81,6 +96,23 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             $custom_subscribe->entity_subscribe = true;
             $custom_subscribe->save();
         }
-        return $subscribe;
+        return [$subscribe,$payment];
     }
+    public function add_agency_products($request, $agency)
+    {
+        $product = $agency->products()->create([
+            'product_name' => $request->product_name,
+            'product_type' => $request->product_type,
+            'product_brand' => $request->product_brand,
+            'model_number' => $request->model_number,
+            'quentity' => $request->quentity,
+            'price' => $request->price,
+            'disscount_type' => $request->disscount_type,
+            'disscount_value' => $request->disscount_value,
+            'currency' => $request->currency,
+            'manufacture_date' => $request->manufacture_date,
+            'product_image' => $request->product_image,
+        ]);
+        return $product;
+}
 }

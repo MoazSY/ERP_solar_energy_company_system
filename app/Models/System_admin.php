@@ -5,12 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 // use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+
 class System_admin extends Authenticatable
 {
-    use HasApiTokens,Notifiable,HasFactory;
+    use HasApiTokens, Notifiable, HasFactory;
+
     protected $table = 'system_admins';
 
     protected $fillable = [
@@ -25,10 +28,11 @@ class System_admin extends Authenticatable
         'about_him',
     ];
 
-        public function refreshTokens()
+    public function refreshTokens()
     {
         return $this->morphMany(Refresh_token::class, 'user_table');
     }
+
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class, 'admin_id');
@@ -67,5 +71,15 @@ class System_admin extends Authenticatable
     public function companyAgencyRigesters(): HasMany
     {
         return $this->hasMany(Company_Agency_rigester::class, 'admin_id');
+    }
+
+    public function paymentsMade(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
+
+    public function paymentsReceived(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'target_table');
     }
 }

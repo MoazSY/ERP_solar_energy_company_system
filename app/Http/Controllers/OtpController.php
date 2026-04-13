@@ -24,7 +24,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
                 'phoneNumber' => 'required|regex:/^09\d{8}$/',
                 // 'user' => 'sometimes|string',
                 'forRegister'=>'required|boolean'
-                
+
             ]
         );
         if ($validator->fails()) {
@@ -78,7 +78,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
 
         $response = $this->otp_code_services->VerifyOtp($request,$otp_type);
         if($response==null){
-            return response()->json(['message'=>'user type dont send']);
+            return response()->json(['message'=>'user type dont send']);// هنا المستخدم اختار تسجيل الدخول بواسطة الايميل او رقم الهاتف ورقم تحقق لكنه غير مسجل بالنظام اصلا
         }
         if ($response['verify'] == false) {
             return response()->json(["message" => $response['message']]);
@@ -93,10 +93,10 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         $latest_refresh_token=$this->tokenRepositoryInterface->Refresh_token_status($token);
         $refresh_token=$this->tokenRepositoryInterface->Refresh_token($latest_refresh_token);
         if($refresh_token){
-        return response()->json(["message" => $response['message'],"token"=>$token,"refresh_token"=>$refresh_token,'user_status'=>$response['user_status']]);
+        return response()->json(["message" => $response['message'],"token"=>$token,"refresh_token"=>$refresh_token,'user_status'=>$response['user_status'],'user_type'=>$response['user_type'],'user'=>$response['user']]);
         }
         $refresh_token = $this->tokenRepositoryInterface->Add_refresh_token($token);
-        return response()->json(["message" => $response['message'],"token"=>$token,"refresh_token"=>$refresh_token,'user_status'=>$response['user_status']]);
+        return response()->json(["message" => $response['message'],"token"=>$token,"refresh_token"=>$refresh_token,'user_status'=>$response['user_status'],'user_type'=>$response['user_type'],'user'=>$response['user']]);
 
         }
     }

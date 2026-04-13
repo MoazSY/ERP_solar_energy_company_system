@@ -16,6 +16,7 @@ Route::post('verify_code/{otp_type}', [OtpController::class, 'verifyOtp']);
 Route::post('Refresh_token', [OtpController::class, 'Refresh_token']);
 Route::post('admin_register', [System_admin::class, 'Register']);
 Route::post('company_manager_register', [SolarCompanyManager::class, 'Register']);
+Route::post('agency_manager_register', [AgencyManagerController::class, 'Register']);
 Route::get('get_governorates', [System_admin::class, 'get_governorates']);
 Route::get('get_areas/{governorates}', [System_admin::class, 'get_areas']);
 Route::get('get_neighborhoods/{area}', [System_admin::class, 'get_neighborhoods']);
@@ -52,13 +53,17 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('Update_company/{solarCompany}', [SolarCompanyManager::class, 'Update_company']);
     Route::post('Add_company_address/{solarCompany}', [SolarCompanyManager::class, 'Add_company_address']);
     Route::post('company_subscribe_in_policy',[SolarCompanyManager::class, 'subscribe_in_policy']);
+    Route::get('show_all_agency', [SolarCompanyManager::class, 'show_all_agency']);
+    Route::get('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
 });
 
-Route::middleware('check_agency_manager')->group(function () {
+Route::middleware('check_Agency_manager')->group(function () {
     Route::get('agency_manager_profile', [AgencyManagerController::class, 'agency_manager_profile']);
     Route::post('Agency_register', [AgencyManagerController::class, 'Agency_register']);
     Route::post('agency_manager/update_profile', [AgencyManagerController::class, 'update_profile']);
     Route::post('Update_agency/{agency}', [AgencyManagerController::class, 'Update_agency']);
     Route::post('Add_agency_address/{agency}', [AgencyManagerController::class, 'Add_agency_address']);
     Route::post('agency_subscribe_in_policy',[AgencyManagerController::class, 'subscribe_in_policy']);
+    Route::post('add_agency_products',[AgencyManagerController::class,'add_agency_products']);
+
 });

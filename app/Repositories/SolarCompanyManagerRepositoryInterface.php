@@ -6,4 +6,6 @@ interface SolarCompanyManagerRepositoryInterface{
     public function company_address($request,$solarCompany);
     public function company_manager_profile($manager_id);
     public function subscribe_in_policy($request,$company);
+    public function show_all_agency();
+    public function filter_agency($filters);
 }

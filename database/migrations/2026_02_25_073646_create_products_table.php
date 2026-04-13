@@ -18,7 +18,7 @@ return new class extends Migration
             $table->enum("product_type", ["solar_panel", "inverter", "battery", "accessory"])->default("solar_panel");
             $table->string("product_brand")->nullable();
             $table->string("model_number")->nullable();
-            $table->integer("quentity")->default(0);
+            $table->integer("quentity")->default(1);
             $table->decimal("price", 8, 2)->default(0);
             $table->enum("disscount_type", ["percentage", "fixed"])->nullable();
             $table->decimal("disscount_value", 8, 2)->default(0);

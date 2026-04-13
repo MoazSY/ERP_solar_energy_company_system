@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Model;
 
 class Purchase_invoice extends Model
 {
@@ -42,24 +43,34 @@ class Purchase_invoice extends Model
     {
         return $this->belongsTo(Order_list::class, 'order_list_id');
     }
+
     public function consumables(): BelongsTo
     {
         return $this->belongsTo(Consumables::class, 'consumables_id');
     }
+
     public function sellerEntityType(): MorphTo
     {
         return $this->morphTo(null, 'seller_entity_type_type', 'seller_entity_type_id');
     }
+
     public function buyerEntityType(): MorphTo
     {
         return $this->morphTo(null, 'buyer_entity_type_type', 'buyer_entity_type_id');
     }
+
     public function objectEntityType(): MorphTo
     {
         return $this->morphTo(null, 'object_entity_type_type', 'object_entity_type_id');
     }
+
     public function conflictInvoices(): HasMany
     {
         return $this->hasMany(Conflict_invoice::class, 'invoice_id');
+    }
+
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payment_object_table');
     }
 }

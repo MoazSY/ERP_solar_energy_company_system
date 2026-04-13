@@ -55,4 +55,19 @@ class Agency extends Model
     {
         return $this->hasMany(Conflict_invoice::class, 'agency_id');
     }
+
+    public function paymentsMade(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
+
+    public function paymentsReceived(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'target_table');
+    }
+    public function products(): MorphMany
+    {
+        return $this->morphMany(Products::class, 'entityType');
+
+    }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Model;
 
 class Commision_charges extends Model
 {
@@ -39,5 +40,10 @@ class Commision_charges extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Purchase_invoice::class, 'invoice_id');
+    }
+
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payment_object_table');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FilterAgencyRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Solar_company;
 use App\Services\SolarCompanyManagerService;
@@ -283,17 +284,43 @@ class SolarCompanyManager extends Controller
         $company_address = $this->solarCompanyManagerService->company_address($request, $solarCompany);
         return response()->json(['message' => 'company address added successfully', 'company_address' => $company_address]);
     }
-    public function subscribe_in_policy(Request $request){
-        $validate=Validator::make($request->all(),[
-            'subscribe_policy_id'=>'required|exists:subscribe_polices,id'
+
+    public function subscribe_in_policy(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'subscribe_policy_id' => 'required|exists:subscribe_polices,id',
+            're_subscribed' => 'sometimes|boolean'
         ]);
-        if($validate->fails()){
-            return response()->json(['message'=>$validate->errors()]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
         }
-        $result=$this->solarCompanyManagerService->subscribe_in_policy($request);
-        if(!$result){
-            return response()->json(['message'=>'invalid entity type'],400);
+        $request->validated($request);
+        $result = $this->solarCompanyManagerService->subscribe_in_policy($request);
+        if (!$result) {
+            return response()->json(['message' => 'invalid entity type'], 400);
         }
-        return response()->json(['message'=>'company subscribed in policy successfully','subscription'=>$result]);
-}
+        return response()->json(['message' => 'company subscribed in policy successfully', 'subscription' => $result[0], 'payment' => $result[1], 'payment_transaction' => 'fake']);
+    }
+
+    public function show_all_agency()
+    {
+        $agencies = $this->solarCompanyManagerService->show_all_agency();
+        return response()->json(['agencies' => $agencies]);
+    }
+
+    public function filter_agency(FilterAgencyRequest $request)
+    {
+        $validated = $request->validated();
+
+        $result = $this->solarCompanyManagerService->filter_agency($validated);
+
+        if (!$result) {
+            return response()->json(['message' => 'No agencies found matching the criteria'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Agencies filtered successfully',
+            'agencies' => $result
+        ]);
+    }
 }

@@ -164,4 +164,20 @@ class AgencyManagerService
         $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency);
         return $subscribe;
     }
+    public function add_agency_products($request){
+            $agency_manager_id = Auth::guard('agency_manager')->user()->id;
+            $agency_manager = Agency_manager::findOrFail($agency_manager_id);
+            $agency = $agency_manager->agencies()->first();
+            if($request->hasFile('product_image')){
+                $product_image=$request->file('product_image')->getClientOriginalName();
+                $product_image_path=$request->file('product_image')->storeAs('AgencyManager/product_images',$product_image,'public');
+                $request->merge(['product_image'=>$product_image_path]);
+                $product_image_URL=asset('storage/' .$product_image_path);
+            }else{
+                $request->merge(['product_image'=>null]);
+                $product_image_URL=null;
+            }
+            $result=$this->agencyManagerRepositoryInterface->add_agency_products($request,$agency);
+            return [$result,$product_image_URL];
+    }
 }

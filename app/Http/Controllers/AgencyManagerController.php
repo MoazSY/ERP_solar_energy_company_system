@@ -287,15 +287,42 @@ class AgencyManagerController extends Controller
     public function subscribe_in_policy(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'subscribe_policy_id' => 'required|exists:subscribe_polices,id'
+            'subscribe_policy_id' => 'required|exists:subscribe_polices,id',
+            're_subscribed' => 'sometimes|boolean'
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
+        $request->validated($request);
         $result = $this->agencyManagerService->subscribe_in_policy($request);
         if (!$result) {
             return response()->json(['message' => 'invalid entity type'], 400);
         }
-        return response()->json(['message' => 'agency subscribed in policy successfully', 'subscription' => $result]);
+        return response()->json(['message' => 'agency subscribed in policy successfully', 'subscription' => $result[0], 'payment' => $result[1], 'payment_transaction' => 'fake']);
     }
+    public function add_agency_products(Request $request){
+        $validate=Validator::make($request->all(),[
+        'product_name'=>'required|string',
+        'product_type'=>'required|string|in:solar_panel,inverter,battery,accessory',
+        'product_brand'=>'sometimes|string',
+        'model_number'=>'sometimes|string',
+        'quantity'=>'sometimes|integer|min:0',
+        'price'=>'required|numeric|min:0',
+        'discount_type'=>'sometimes|string|in:percentage,amount',
+        'disscount_value'=>'sometimes|numeric|min:0',
+        'currency'=>'required|string|in:USD,SY',
+        'manufacture_date'=>'sometimes|date',
+        'product_image'=>'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+        if($validate->fails()){
+            return response()->json(['message'=>$validate->errors()]);      
+    }
+    $request->validated($request);
+    $result=$this->agencyManagerService->add_agency_products($request);
+    if(!$result){
+        return response()->json(['message'=>'invalid entity type'],400);   
+    }
+    return response()->json(['message'=>'product added successfully','product'=>$result[0],'product_image'=>$result[1]]);
+}
+
 }

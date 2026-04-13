@@ -21,8 +21,8 @@ class Payment extends Model
         'currency',
         'paid_at',
         'status',
-        'payment_method',
-        'transaction_id',
+        // 'payment_method',
+        // 'transaction_id',
         're_subscribed',
     ];
 

@@ -31,9 +31,9 @@ class UniqueAcrossTables  implements ValidationRule
         $currentTable = $this->ignoreTable ;
 
           foreach ($this->tables as $table) {
-            if($table === 'solar_companies' &&( $this->column === 'company_email'|| $this->column === 'email')){
+            if($table === 'solar_companies' &&( $this->column === 'company_email'|| $this->column === 'email'||$this->column === 'agency_email')){
                 $column = 'company_email';
-            }elseif($table === 'solar_companies' &&( $this->column === 'company_phone'|| $this->column === 'phoneNumber')){
+            }elseif($table === 'solar_companies' &&( $this->column === 'company_phone'|| $this->column === 'phoneNumber'|| $this->column === 'agency_phone')){
                 $column = 'company_phone';
             }elseif($table === 'agencies' &&( $this->column === 'agency_email'|| $this->column === 'email'||$this->column === 'company_email')){
                 $column = 'agency_email';

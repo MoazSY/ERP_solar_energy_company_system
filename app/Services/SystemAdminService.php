@@ -286,7 +286,7 @@ class SystemAdminService
                     ->where('is_active', true);
             }])
             ->get();
-
+    
         $result = $subscriptions->map(function ($subscription) {
             $policy = $subscription->subscribePolicy;
             return [

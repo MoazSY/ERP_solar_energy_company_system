@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 // use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,7 +12,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Employee extends Authenticatable
 {
-    use HasApiTokens,Notifiable,HasFactory;
+    use HasApiTokens, Notifiable, HasFactory;
+
     protected $table = 'employees';
 
     protected $fillable = [
@@ -28,7 +30,7 @@ class Employee extends Authenticatable
         'is_active',
     ];
 
-        public function refreshTokens()
+    public function refreshTokens()
     {
         return $this->morphMany(Refresh_token::class, 'user_table');
     }
@@ -66,5 +68,15 @@ class Employee extends Authenticatable
     public function taskAssistants(): HasMany
     {
         return $this->hasMany(Task_assistants::class, 'employee_id');
+    }
+
+    public function paymentsMade(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
+
+    public function paymentsReceived(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'target_table');
     }
 }

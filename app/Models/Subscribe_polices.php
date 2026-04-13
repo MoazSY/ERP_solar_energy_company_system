@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Model;
 
 class Subscribe_polices extends Model
@@ -34,5 +35,10 @@ class Subscribe_polices extends Model
     public function customSubscribes(): HasMany
     {
         return $this->hasMany(Custom_subscribe::class, 'subscribe_policy_id');
+    }
+
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payment_object_table');
     }
 }

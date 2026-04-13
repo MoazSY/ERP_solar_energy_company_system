@@ -30,6 +30,11 @@ class StoreUserRequest extends FormRequest
                 'company_phone' => $this->formatPhoneNumber($this->company_phone)
             ]);
         }
+        if ($this->agency_phone) {
+            $this->merge([
+                'agency_phone' => $this->formatPhoneNumber($this->agency_phone)
+            ]);
+        }
     }
 
     /**
@@ -63,6 +68,18 @@ class StoreUserRequest extends FormRequest
                 'nullable',
                 new UniqueAcrossTables('company_phone', $this->ignoreId,
                     $this->ignoreTable)
+            ],
+            'agency_email' => [
+                'nullable',
+                'sometimes',
+                'email',
+                new UniqueAcrossTables('agency_email', $this->ignoreId, $this->ignoreTable)
+            ],
+            'agency_phone' => [
+                'nullable',
+                'sometimes',
+                new UniqueAcrossTables('agency_phone', $this->ignoreId,
+                    $this->ignoreTable)
             ]
         ];
     }
@@ -73,6 +90,7 @@ class StoreUserRequest extends FormRequest
             // // 'email.required' => 'email required',
             'email.email' => 'email invalid',
             'company_email.email' => 'email invalid',
+            'agency_email.email' => 'email invalid',
             // 'phoneNumber.required' => 'phoneNumber required',
             // 'company_phone.required'=>'phoneNumber required'
         ];
