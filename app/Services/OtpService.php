@@ -191,6 +191,7 @@ class OtpService
 
     public function login($request)
     {
+        $available_account=true;
         $email = $request->input('email');
         $password = $request->input('password');
         $userType = [
@@ -210,7 +211,12 @@ class OtpService
                 if (!$refresh_token) {
                     $refresh_token = $this->tokenRepositoryInterface->Add_refresh_token($token);
                 }
-                return ['token' => $token, 'refresh_token' => $refresh_token, 'user_type' => class_basename($type), 'user' => $user, 'status' => true];
+                if($type==\App\Models\Solar_company_manager::class||$type==\App\Models\Agency_manager::class){
+                    if($user->Activate_Account==false){
+                        $available_account=false;
+                    }
+                }
+                return ['token' => $token, 'refresh_token' => $refresh_token, 'user_type' => class_basename($type), 'user' => $user, 'status' => true,'available_account'=>$available_account];
             }
         }
         return ['status' => false];

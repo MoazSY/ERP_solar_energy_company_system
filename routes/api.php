@@ -70,3 +70,4 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('update_agency_product/{product_id}', [AgencyManagerController::class, 'update_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('delete_agency_product/{product_id}', [AgencyManagerController::class, 'delete_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
 });
+

@@ -125,7 +125,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         }
         $result=$this->otp_code_services->login($request);
         if($result['status']==true){
-        return response()->json(['message'=>'login successfully','user_type'=>$result['user_type'],'user'=>$result['user'],'token'=>$result['token'],'refresh_token'=>$result['refresh_token']]);
+        return response()->json(['message'=>'login successfully','user_type'=>$result['user_type'],'user'=>$result['user'],'token'=>$result['token'],'refresh_token'=>$result['refresh_token'],'available_account'=>$result['available_account']]);
         }
         return response()->json(['message'=>'invalid input data']);
     }
