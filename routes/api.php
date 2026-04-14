@@ -38,11 +38,11 @@ Route::middleware('check_admin')->group(function () {
     Route::post('proccess_company_register', [System_admin::class, 'proccess_company_register']);
     Route::post('subscriptions_policy', [System_admin::class, 'subscriptions_policy']);
     Route::post('update_subscriptions_policy/{subscribe_polices}', [System_admin::class, 'update_subscriptions_policy']);
-     Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);
-     Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
-     Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
-     Route::get('show_custom_subscribtions_policies', [System_admin::class, 'show_custom_subscribtions_policies']);
-     Route::post('show_subscribtions_policies_for_entity', [System_admin::class, 'show_subscribtions_policies_for_entity']);
+    Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);
+    Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
+    Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
+    Route::get('show_custom_subscribtions_policies', [System_admin::class, 'show_custom_subscribtions_policies']);
+    Route::post('show_subscribtions_policies_for_entity', [System_admin::class, 'show_subscribtions_policies_for_entity']);
     Route::get('show_subscribers_of_policy/{policy}', [System_admin::class, 'show_subscribers_of_policy']);
 });
 
@@ -52,9 +52,10 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('company_manager/update_profile', [SolarCompanyManager::class, 'update_profile']);
     Route::post('Update_company/{solarCompany}', [SolarCompanyManager::class, 'Update_company']);
     Route::post('Add_company_address/{solarCompany}', [SolarCompanyManager::class, 'Add_company_address']);
-    Route::post('company_subscribe_in_policy',[SolarCompanyManager::class, 'subscribe_in_policy']);
+    Route::post('company_subscribe_in_policy', [SolarCompanyManager::class, 'subscribe_in_policy'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::get('show_all_agency', [SolarCompanyManager::class, 'show_all_agency']);
-    Route::get('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
+    Route::post('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
+    Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
 });
 
 Route::middleware('check_Agency_manager')->group(function () {
@@ -63,7 +64,9 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('agency_manager/update_profile', [AgencyManagerController::class, 'update_profile']);
     Route::post('Update_agency/{agency}', [AgencyManagerController::class, 'Update_agency']);
     Route::post('Add_agency_address/{agency}', [AgencyManagerController::class, 'Add_agency_address']);
-    Route::post('agency_subscribe_in_policy',[AgencyManagerController::class, 'subscribe_in_policy']);
-    Route::post('add_agency_products',[AgencyManagerController::class,'add_agency_products']);
-
+    Route::post('agency_subscribe_in_policy', [AgencyManagerController::class, 'subscribe_in_policy'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('add_agency_products', [AgencyManagerController::class, 'add_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::get('show_agency_products', [AgencyManagerController::class, 'show_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('update_agency_product/{product_id}', [AgencyManagerController::class, 'update_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::post('delete_agency_product/{product_id}', [AgencyManagerController::class, 'delete_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
 });

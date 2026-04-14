@@ -138,7 +138,8 @@ class SystemAdminService
             'company_logo' => $company->company_logo != null
                 ? asset('storage/' . $company->company_logo)
                 : null,
-            'un_active_company' => $company
+            'un_active_company' => $company,
+            'company_address' => $company->addresses
         ]);
         return $result;
     }
@@ -150,7 +151,8 @@ class SystemAdminService
             'agency_logo' => $agency->agency_logo != null
                 ? asset('storage/' . $agency->agency_logo)
                 : null,
-            'un_active_agency' => $agency
+            'un_active_agency' => $agency,
+            'agency_address' => $agency->addresses
         ]);
         return $result;
     }
@@ -286,7 +288,7 @@ class SystemAdminService
                     ->where('is_active', true);
             }])
             ->get();
-    
+
         $result = $subscriptions->map(function ($subscription) {
             $policy = $subscription->subscribePolicy;
             return [

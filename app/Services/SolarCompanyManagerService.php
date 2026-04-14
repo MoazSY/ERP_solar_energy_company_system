@@ -185,4 +185,19 @@ class SolarCompanyManagerService
     {
         return $this->solarCompanyManagerRepositoryInterface->filter_agency($filter);
     }
+
+    public function show_agency_products($agency_id)
+    {
+        $products = $this->solarCompanyManagerRepositoryInterface->show_agency_products($agency_id);
+        $products=$products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL];
+        });
+        return $products;
+    }
 }

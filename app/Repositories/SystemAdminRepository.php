@@ -107,17 +107,30 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
             if ($request->status == 'rejected') {
                 $entity->company_status = 'inactive';
                 $entity->save();
+                $manager = $entity->solarCompanyManager;
+                $manager->Activate_Account = false;
+                $manager->save();
+
             } elseif ($request->status == 'approved') {
                 $entity->company_status = 'active';
                 $entity->save();
+                $manager = $entity->solarCompanyManager;
+                $manager->Activate_Account = true;
+                $manager->save();
             }
         } else {
             if ($request->status == 'rejected') {
                 $entity->agency_status = 'inactive';
                 $entity->save();
+                $manager = $entity->agencyManager;
+                $manager->Activate_Account = false;
+                $manager->save();
             } elseif ($request->status == 'approved') {
                 $entity->agency_status = 'active';
                 $entity->save();
+                $manager = $entity->agencyManager;
+                $manager->Activate_Account = true;
+                $manager->save();
             }
         }
         return $proccess_result;

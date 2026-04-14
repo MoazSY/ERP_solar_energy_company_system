@@ -71,9 +71,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     public function subscribe_in_policy($request, $company)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
-
+        if ($subscribe_policy->apply_to != 'company' || $subscribe_policy->is_active != true) {
+            return null;
+        }
         $payment = $company->paymentsMade()->create([
-            'amount' => $subscribe_policy->price,
+            'amount' => $subscribe_policy->subscription_fee,
             'currency' => $subscribe_policy->currency,
             'payment_object_type_name' => 'subscribe_policy',
             // 'payment_method' => $request->payment_method,
@@ -178,5 +180,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
 
         return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->get();
+    }
+
+    public function show_agency_products($agency_id)
+    {
+        $agency = Agency::findOrFail($agency_id);
+        $products = $agency->products()->get();
+        return $products;
     }
 }

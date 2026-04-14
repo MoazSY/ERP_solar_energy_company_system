@@ -67,7 +67,7 @@ class Agency extends Model
     }
     public function products(): MorphMany
     {
-        return $this->morphMany(Products::class, 'entityType');
+        return $this->morphMany(Products::class, 'entity_type');
 
     }
 }

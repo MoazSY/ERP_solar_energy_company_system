@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'check_Agency_manager' => App\Http\Middleware\Check_Agency_manager::class,
             'check_company_manager' => App\Http\Middleware\Check_company_manager::class,
             'check_company_subscription' => App\Http\Middleware\Check_company_subscription::class,
+            'check_agency_subscription' => App\Http\Middleware\Check_agency_subscription::class,
+            'check_company_manager_active' => App\Http\Middleware\Check_company_manager_active::class,
+            'check_agency_manager_active' => App\Http\Middleware\Check_agency_manager_active::class,
+            'check_company_active' => App\Http\Middleware\Check_company_active::class,
+            'check_agency_active' => App\Http\Middleware\Check_agency_active::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

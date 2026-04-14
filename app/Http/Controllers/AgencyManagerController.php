@@ -198,7 +198,7 @@ class AgencyManagerController extends Controller
     public function Update_agency(Request $request, Agency $agency)
     {
         $validate = Validator::make($request->all(), [
-            'agency_name' => 'required|string',
+            'agency_name' => 'sometimes|string',
             'agency_logo' => 'sometimes|nullable|mimes:jpg,jpeg,png,webp|max:2048',
             'commerical_register_number' => 'sometimes|string',
             'agency_description' => 'sometimes|string',
@@ -293,36 +293,97 @@ class AgencyManagerController extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $request->validated($request);
+        // $request->validated($request);
         $result = $this->agencyManagerService->subscribe_in_policy($request);
+        if ($result == null) {
+            return response()->json(['message' => 'invalid subscribe policy or not active'], 400);
+        }
         if (!$result) {
             return response()->json(['message' => 'invalid entity type'], 400);
         }
+
         return response()->json(['message' => 'agency subscribed in policy successfully', 'subscription' => $result[0], 'payment' => $result[1], 'payment_transaction' => 'fake']);
     }
-    public function add_agency_products(Request $request){
-        $validate=Validator::make($request->all(),[
-        'product_name'=>'required|string',
-        'product_type'=>'required|string|in:solar_panel,inverter,battery,accessory',
-        'product_brand'=>'sometimes|string',
-        'model_number'=>'sometimes|string',
-        'quantity'=>'sometimes|integer|min:0',
-        'price'=>'required|numeric|min:0',
-        'discount_type'=>'sometimes|string|in:percentage,amount',
-        'disscount_value'=>'sometimes|numeric|min:0',
-        'currency'=>'required|string|in:USD,SY',
-        'manufacture_date'=>'sometimes|date',
-        'product_image'=>'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
-        if($validate->fails()){
-            return response()->json(['message'=>$validate->errors()]);      
-    }
-    $request->validated($request);
-    $result=$this->agencyManagerService->add_agency_products($request);
-    if(!$result){
-        return response()->json(['message'=>'invalid entity type'],400);   
-    }
-    return response()->json(['message'=>'product added successfully','product'=>$result[0],'product_image'=>$result[1]]);
-}
 
+    public function add_agency_products(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'product_name' => 'required|string',
+            'product_type' => 'required|string|in:solar_panel,inverter,battery,accessory',
+            'product_brand' => 'sometimes|string',
+            'model_number' => 'sometimes|string',
+            'quentity' => 'sometimes|integer|min:0',
+            'price' => 'required|numeric|min:0',
+            'disscount_type' => 'sometimes|string|in:percentage,amount',
+            'disscount_value' => 'sometimes|numeric|min:0',
+            'currency' => 'required|string|in:USD,SY',
+            'manufacture_date' => 'sometimes|date',
+            'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+        $data = $validate->validated();
+        $result = $this->agencyManagerService->add_agency_products($request, $data);
+        if (!$result) {
+            return response()->json(['message' => 'invalid entity type'], 400);
+        }
+        return response()->json(['message' => 'product added successfully', 'product' => $result[0], 'product_image' => $result[1]]);
+    }
+
+    public function show_agency_products()
+    {
+        $products = $this->agencyManagerService->show_agency_products();
+        return response()->json(['message' => 'Agency products retrieved successfully', 'products' => $products]);
+    }
+
+    public function update_agency_product(Request $request, $product_id)
+    {
+        $validate = Validator::make(array_merge($request->all(), ['product_id' => $product_id]), [
+            'product_id' => 'required|integer|exists:products,id',
+            'product_name' => 'sometimes|string',
+            'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
+            'product_brand' => 'sometimes|string',
+            'model_number' => 'sometimes|string',
+            'quentity' => 'sometimes|integer|min:0',
+            'price' => 'sometimes|numeric|min:0',
+            'disscount_type' => 'sometimes|string|in:percentage,amount',
+            'disscount_value' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'manufacture_date' => 'sometimes|date',
+            'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $data = $validate->validated();
+        $result = $this->agencyManagerService->update_agency_product($request, $data, $product_id);
+
+        if (!$result) {
+            return response()->json(['message' => 'Product not found or not owned by this agency'], 404);
+        }
+
+        return response()->json(['message' => 'Product updated successfully', 'product' => $result[0], 'product_image' => $result[1]]);
+    }
+
+    public function delete_agency_product($product_id)
+    {
+        $validate = Validator::make(['product_id' => $product_id], [
+            'product_id' => 'required|integer|exists:products,id'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $result = $this->agencyManagerService->delete_agency_product($product_id);
+
+        if (!$result) {
+            return response()->json(['message' => 'Product not found or not owned by this agency'], 404);
+        }
+
+        return response()->json(['message' => 'Product deleted successfully']);
+    }
 }

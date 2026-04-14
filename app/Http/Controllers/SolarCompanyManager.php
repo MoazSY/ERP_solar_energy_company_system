@@ -294,8 +294,11 @@ class SolarCompanyManager extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $request->validated($request);
+        // $request->validated($request);
         $result = $this->solarCompanyManagerService->subscribe_in_policy($request);
+        if ($result == null) {
+            return response()->json(['message' => 'invalid subscribe policy or not active'], 400);
+        }
         if (!$result) {
             return response()->json(['message' => 'invalid entity type'], 400);
         }
@@ -321,6 +324,24 @@ class SolarCompanyManager extends Controller
         return response()->json([
             'message' => 'Agencies filtered successfully',
             'agencies' => $result
+        ]);
+    }
+
+    public function show_agency_products(Request $request, $agency_id)
+    {
+        $validate = Validator::make(['agency_id' => $agency_id], [
+            'agency_id' => 'required|integer|exists:agencies,id'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $products = $this->solarCompanyManagerService->show_agency_products($agency_id);
+
+        return response()->json([
+            'message' => 'Agency products retrieved successfully',
+            'products' => $products
         ]);
     }
 }

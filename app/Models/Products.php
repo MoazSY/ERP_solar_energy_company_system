@@ -26,7 +26,7 @@ class Products extends Model
         'product_image',
     ];
 
-    public function entityType(): MorphTo
+    public function entity_type(): MorphTo
     {
         return $this->morphTo(null, 'entity_type_type', 'entity_type_id');
     }

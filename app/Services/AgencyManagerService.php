@@ -164,20 +164,49 @@ class AgencyManagerService
         $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency);
         return $subscribe;
     }
-    public function add_agency_products($request){
-            $agency_manager_id = Auth::guard('agency_manager')->user()->id;
-            $agency_manager = Agency_manager::findOrFail($agency_manager_id);
-            $agency = $agency_manager->agencies()->first();
-            if($request->hasFile('product_image')){
-                $product_image=$request->file('product_image')->getClientOriginalName();
-                $product_image_path=$request->file('product_image')->storeAs('AgencyManager/product_images',$product_image,'public');
-                $request->merge(['product_image'=>$product_image_path]);
-                $product_image_URL=asset('storage/' .$product_image_path);
-            }else{
-                $request->merge(['product_image'=>null]);
-                $product_image_URL=null;
+
+    public function add_agency_products($request, $data)
+    {
+        $agency_manager_id = Auth::guard('agency_manager')->user()->id;
+        $agency_manager = Agency_manager::findOrFail($agency_manager_id);
+        $agency = $agency_manager->agencies()->first();
+        if ($request->hasFile('product_image')) {
+            $product_image = $request->file('product_image')->getClientOriginalName();
+            $product_image_path = $request->file('product_image')->storeAs('AgencyManager/product_images', $product_image, 'public');
+            $data['product_image'] = $product_image_path;
+            $product_image_URL = asset('storage/' . $product_image_path);
+        } else {
+            $data['product_image'] = null;
+            $product_image_URL = null;
+        }
+        $result = $this->agencyManagerRepositoryInterface->add_agency_products($data, $agency);
+        return [$result, $product_image_URL];
+    }
+
+    public function show_agency_products()
+    {
+        $agencyManager=Auth::guard('agency_manager')->user();
+        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
+       $products =$this->agencyManagerRepositoryInterface->show_agency_products($agencyManager);
+        $products=$products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
             }
-            $result=$this->agencyManagerRepositoryInterface->add_agency_products($request,$agency);
-            return [$result,$product_image_URL];
+            return ['product' => $item, 'product_image' => $product_image_URL];
+        });
+        return $products;
+    }
+
+    public function update_agency_product($request, $data, $product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->update_agency_product($request, $data, $product_id);
+    }
+
+    public function delete_agency_product($product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->delete_agency_product($product_id);
     }
 }

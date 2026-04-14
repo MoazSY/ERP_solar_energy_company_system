@@ -9,4 +9,7 @@ interface AgencyManagerRepositoryInterface
     public function agency_manager_profile($manager_id);
     public function subscribe_in_policy($request, $agency);
     public function add_agency_products($request, $agency);
+    public function show_agency_products($manager);
+    public function update_agency_product($request, $data, $product_id);
+    public function delete_agency_product($product_id);
 }
