@@ -3,10 +3,11 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Products;
 use App\Models\Subscribe_polices;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Auth;
 
 class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 {
@@ -121,6 +122,65 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $product;
     }
 
+    public function add_agency_product_battery($request, $product_id)
+    {
+
+        $product = Products::findOrFail($product_id->id);
+        if($product->product_type != 'battery'){
+            return null;
+        }
+        $battery = $product->batteries()->create([
+            'battery_type' => $request['battery_type'],
+            'capacity_kwh' => $request['capacity_kwh'],
+            'voltage_v' => $request['voltage_v'],
+            'cycle_life' => $request['cycle_life'],
+            'warranty_years' => $request['warranty_years'],
+            'weight_kg' => $request['weight_kg'],
+            'Amperage_Ah' => $request['Amperage_Ah'],
+            'celles_type' => $request['celles_type'],
+            'celles_name' => $request['celles_name'],
+        ]);
+        return $battery;
+    }
+
+    public function add_agency_product_inverter($request, $product_id)
+    {
+        $product = Products::findOrFail($product_id->id);
+        if($product->product_type != 'inverter'){
+            return null;
+        }
+        $inverter = $product->inverters()->create([
+            'grid_type' => $request['grid_type'],
+            'voltage_v' => $request['voltage_v'],
+            'grid_capacity_kw' => $request['grid_capacity_kw'],
+            'solar_capacity_kw' => $request['solar_capacity_kw'],
+            'inverter_open' => $request['inverter_open'],
+            'voltage_open' => $request['voltage_open'],
+            'weight_kg' => $request['weight_kg'],
+            'warranty_years' => $request['warranty_years'],
+        ]);
+        return $inverter;
+    }
+
+    public function add_agency_product_solar_panel($request, $product_id)
+    {
+        $product = Products::findOrFail($product_id->id);
+        if($product->product_type != 'solar_panel'){
+            return null;
+        }
+        $solar_panel = $product->solarPanals()->create([
+            'capacity_kw' => $request['capacity_kw'],
+            'basbar_number' => $request['basbar_number'],
+            'is_half_cell' => $request['is_half_cell'],
+            'is_bifacial' => $request['is_bifacial'],
+            'warranty_years' => $request['warranty_years'],
+            'weight_kg' => $request['weight_kg'],
+            'length_m' => $request['length_m']  ,
+            'width_m' => $request['width_m'],
+        ]);
+        return $solar_panel;
+    }
+
     public function show_agency_products($manager)
     {
         $agency = $manager->agencies()->first();
@@ -129,7 +189,6 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         }
         return $agency->products()->get();
     }
-
 
     public function update_agency_product($request, $data, $product_id)
     {
@@ -151,19 +210,81 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         if ($request->hasFile('product_image')) {
             $imagePath = $request->file('product_image')->store('products', 'public');
             $data['product_image'] = $imagePath;
+            $product_image_URL = asset('storage/' . $data['product_image']);
+        }else{
+            $product_image_URL = asset('storage/' . $product->product_image);
         }
 
-        $product->update($data);
-        if($data['product_image']!= null){
-            $product_image_URL = asset('storage/' . $data['product_image']);
+        $product->update([
+            'product_name' => $data['product_name'] ?? $product->product_name,
+            'product_type' => $data['product_type'] ?? $product->product_type,
+            'product_brand' => $data['product_brand'] ?? $product->product_brand,
+            'model_number' => $data['model_number'] ?? $product->model_number,
+            'quentity' => $data['quentity'] ?? $product->quentity,
+            'price' => $data['price'] ?? $product->price,
+            'disscount_type' => $data['disscount_type'] ?? $product->disscount_type,
+            'disscount_value' => $data['disscount_value'] ?? $product->disscount_value,
+            'currency' => $data['currency'] ?? $product->currency,
+            'manufacture_date' => $data['manufacture_date'] ?? $product->manufacture_date,
+        ]);
+
+        $product->save();
+        $product->refresh();  // Refresh the model to get the latest data
+
+        if ($data['update_technical_details'] == true && $product->product_type == 'battery') {
+            $battery = $product->batteries;
+            $battery->update([
+                'battery_type' => $data['battery_type'] ?? $battery->battery_type,
+                'capacity_kwh' => $data['capacity_kwh'] ?? $battery->capacity_kwh,
+                'voltage_v' => $data['voltage_v'] ?? $battery->voltage_v,
+                'cycle_life' => $data['cycle_life'] ?? $battery->cycle_life,
+                'warranty_years' => $data['warranty_years'] ?? $battery->warranty_years,
+                'weight_kg' => $data['weight_kg'] ?? $battery->weight_kg,
+                'Amperage_Ah' => $data['Amperage_Ah'] ?? $battery->Amperage_Ah,
+                'celles_type' => $data['celles_type'] ?? $battery->celles_type,
+                'celles_name' => $data['celles_name'] ?? $battery->celles_name,
+            ]);
+            $battery->save();
+            $battery->refresh();
         }
-        return [$product,$product_image_URL];
+        if ($data['update_technical_details'] == true && $product->product_type == 'inverter' ) {
+            $inverter = $product->inverters;
+            $inverter->update([
+                'grid_type' => $data['grid_type'] ?? $inverter->grid_type,
+                'voltage_v' => $data['voltage_v'] ?? $inverter->voltage_v,
+                'grid_capacity_kw' => $data['grid_capacity_kw'] ?? $inverter->grid_capacity_kw,
+                'solar_capacity_kw' => $data['solar_capacity_kw'] ?? $inverter->solar_capacity_kw,
+                'inverter_open' => $data['inverter_open'] ?? $inverter->inverter_open,
+                'voltage_open' => $data['voltage_open'] ?? $inverter->voltage_open,
+                'weight_kg' => $data['weight_kg'] ?? $inverter->weight_kg,
+                'warranty_years' => $data['warranty_years'] ?? $inverter->warranty_years,
+            ]);
+            $inverter->save();
+            $inverter->refresh();
+        }
+        if ($data['update_technical_details'] == true && $product->product_type == 'solar_panel') {
+            $solar_panel = $product->solarPanals;
+            $solar_panel->update([
+                'panel_type' => $data['panel_type'] ?? $solar_panel->panel_type,
+                'capacity_kw' => $data['capacity_kw'] ?? $solar_panel->capacity_kw,
+                'voltage_v' => $data['voltage_v'] ?? $solar_panel->voltage_v,
+                'warranty_years' => $data['warranty_years'] ?? $solar_panel->warranty_years,
+                'weight_kg' => $data['weight_kg'] ?? $solar_panel->weight_kg,
+            ]);
+            $solar_panel->save();
+            $solar_panel->refresh();
+        }
+
+        // if ($data['product_image'] != null) {
+        //     $product_image_URL = asset('storage/' . $data['product_image']);
+        // }
+        return [$product, $product_image_URL];
     }
 
     public function delete_agency_product($product_id)
     {
         $agency_manager = Auth::guard('agency_manager')->user();
-        $agency_manager= Agency_manager::findOrFail($agency_manager->id);
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
         $agency = $agency_manager->agencies()->first();
 
         if (!$agency) {
@@ -176,7 +297,42 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             return false;
         }
 
+        if ($product->product_type === 'battery') {
+            $product->batteries()->delete();
+        } elseif ($product->product_type === 'inverter') {
+            $product->inverters()->delete();
+        } elseif ($product->product_type === 'solar_panel') {
+            $product->solarPanals()->delete();
+        }
+
         $product->delete();
+        return true;
+    }
+
+    public function delete_agency_product_details($product_id)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return false;
+        }
+
+        $product = $agency->products()->find($product_id);
+
+        if (!$product) {
+            return false;
+        }
+
+        if ($product->product_type === 'battery') {
+            $product->batteries()->delete();
+        } elseif ($product->product_type === 'inverter') {
+            $product->inverters()->delete();
+        } elseif ($product->product_type === 'solar_panel') {
+            $product->solarPanals()->delete();
+        }
+
         return true;
     }
 }

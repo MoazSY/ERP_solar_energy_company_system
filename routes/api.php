@@ -66,8 +66,11 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('Add_agency_address/{agency}', [AgencyManagerController::class, 'Add_agency_address']);
     Route::post('agency_subscribe_in_policy', [AgencyManagerController::class, 'subscribe_in_policy'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('add_agency_products', [AgencyManagerController::class, 'add_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::post('add_agency_product_battery/{product_id}', [AgencyManagerController::class, 'add_agency_product_battery'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::post('add_agency_product_inverter/{product_id}', [AgencyManagerController::class, 'add_agency_product_inverter'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::post('add_agency_product_solar_panel/{product_id}',[AgencyManagerController::class, 'add_agency_product_solar_panel'])->middleware(['check_agency_manager_active', 'check_agency_active','check_agency_subscription']);
     Route::get('show_agency_products', [AgencyManagerController::class, 'show_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('update_agency_product/{product_id}', [AgencyManagerController::class, 'update_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('delete_agency_product/{product_id}', [AgencyManagerController::class, 'delete_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
+    Route::post('delete_agency_product_details/{product_id}', [AgencyManagerController::class, 'delete_agency_product_details'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
 });
-

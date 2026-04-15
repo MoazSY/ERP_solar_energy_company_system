@@ -12,4 +12,8 @@ interface AgencyManagerRepositoryInterface
     public function show_agency_products($manager);
     public function update_agency_product($request, $data, $product_id);
     public function delete_agency_product($product_id);
+    public function delete_agency_product_details($product_id);
+    public function add_agency_product_battery($request, $product_id);
+    public function add_agency_product_inverter($request, $product_id);
+    public function add_agency_product_solar_panel($request, $product_id);
 }

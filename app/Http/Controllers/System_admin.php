@@ -212,7 +212,7 @@ class System_admin extends Controller
     public function get_areas(Governorates $governorates)
     {
         $areas = $this->SystemAdminService->get_areas($governorates);
-        return response()->json(['message' => 'all areas', 'areas' => $governorates]);
+        return response()->json(['message' => 'all areas', 'areas' => $areas]);
     }
 
     public function get_neighborhoods(Areas $area)

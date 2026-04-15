@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Products extends Model
@@ -34,20 +35,20 @@ class Products extends Model
     {
         return $this->hasMany(Items::class, 'product_id');
     }
-    public function inverters(): HasMany
+    public function inverters(): HasOne
     {
-        return $this->hasMany(Inverters::class, 'product_id');
+        return $this->hasOne(Inverters::class, 'product_id');
     }
-    public function batteries(): HasMany
+    public function batteries(): HasOne
     {
-        return $this->hasMany(Batteries::class, 'product_id');
+        return $this->hasOne(Batteries::class, 'product_id');
     }
     public function specificDisscounts(): HasMany
     {
         return $this->hasMany(Specific_disscount::class, 'product_id');
     }
-    public function solarPanals(): HasMany
+    public function solarPanals(): HasOne
     {
-        return $this->hasMany(Solar_panal::class, 'product_id');
+        return $this->hasOne(Solar_panal::class, 'product_id');
     }
 }

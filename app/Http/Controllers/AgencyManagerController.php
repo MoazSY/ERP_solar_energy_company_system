@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Agency;
+use App\Models\Products;
 use App\Services\AgencyManagerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -331,42 +332,171 @@ class AgencyManagerController extends Controller
         return response()->json(['message' => 'product added successfully', 'product' => $result[0], 'product_image' => $result[1]]);
     }
 
+    public function add_agency_product_battery(Request $request, Products $product_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'battery_type' => 'required|string|in:lithium_ion,lead_acid,nickel_cadmium',
+            'capacity_kwh' => 'required|numeric|min:0',
+            'voltage_v' => 'required|string|in:12V,24V,48V',
+            'cycle_life' => 'required|integer|min:0',
+            'warranty_years' => 'required|numeric|min:0',
+            'weight_kg' => 'required|numeric|min:0',
+            'Amperage_Ah' => 'required|string|in:100Ah,200Ah,300Ah',
+            'celles_type' => 'required|string|in:new,renewed',
+            'celles_name' => 'sometimes|string',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+        $data = $validate->validated();
+        $result = $this->agencyManagerService->add_agency_product_battery($data, $product_id);
+        if (!$result) {
+            return response()->json(['message' => 'invalid product or not owned by this agency'], 400);
+        }
+        return response()->json(['message' => 'battery details added successfully', 'battery_details' => $result]);
+    }
+
+    public function add_agency_product_inverter(Request $request, Products $product_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'grid_type' => 'required|string|in:on_grid,off_grid,hybrid',
+            'voltage_v' => 'required|string|in:12V,24V,48V',
+            'grid_capacity_kw' => 'required|numeric|min:0',
+            'solar_capacity_kw' => 'required|numeric|min:0',
+            'inverter_open' => 'required|boolean',
+            'voltage_open' => 'required|numeric|min:0',
+            'weight_kg' => 'required|numeric|min:0',
+            'warranty_years' => 'required|numeric|min:0',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+        $data = $validate->validated();
+        $result = $this->agencyManagerService->add_agency_product_inverter($data, $product_id);
+        if (!$result) {
+            return response()->json(['message' => 'invalid product or not owned by this agency'], 400);
+        }
+        return response()->json(['message' => 'inverter details added successfully', 'inverter_details' => $result]);
+    }
+
+    public function add_agency_product_solar_panel(Request $request, Products $product_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'capacity_kw' => 'required|string|in:250w,300w,350w,400w,580w,620w',
+            'basbar_number' => 'required|numeric|min:0',
+            'is_half_cell' => 'required|boolean',
+            'is_bifacial' => 'required|boolean',
+            'warranty_years' => 'required|numeric|min:0',
+            'weight_kg' => 'required|numeric|min:0',
+            'length_m' => 'required|numeric|min:0',
+            'width_m' => 'required|numeric|min:0',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+        $data = $validate->validated();
+        $result = $this->agencyManagerService->add_agency_product_solar_panel($data, $product_id);
+        if (!$result) {
+            return response()->json(['message' => 'invalid product or not owned by this agency'], 400);
+        }
+        return response()->json(['message' => 'solar panel details added successfully', 'solar_panel_details' => $result]);
+    }
+
     public function show_agency_products()
     {
         $products = $this->agencyManagerService->show_agency_products();
         return response()->json(['message' => 'Agency products retrieved successfully', 'products' => $products]);
     }
 
-    public function update_agency_product(Request $request, $product_id)
-    {
-        $validate = Validator::make(array_merge($request->all(), ['product_id' => $product_id]), [
-            'product_id' => 'required|integer|exists:products,id',
-            'product_name' => 'sometimes|string',
-            'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
-            'product_brand' => 'sometimes|string',
-            'model_number' => 'sometimes|string',
-            'quentity' => 'sometimes|integer|min:0',
-            'price' => 'sometimes|numeric|min:0',
-            'disscount_type' => 'sometimes|string|in:percentage,amount',
-            'disscount_value' => 'sometimes|numeric|min:0',
-            'currency' => 'sometimes|string|in:USD,SY',
-            'manufacture_date' => 'sometimes|date',
-            'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+public function update_agency_product(Request $request, $product_id)
+{
+    $product = Products::findOrFail($product_id);
+
+    $rules = [
+        'product_id' => 'required|integer|exists:products,id',
+        'product_name' => 'sometimes|string',
+        'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
+        'product_brand' => 'sometimes|string',
+        'model_number' => 'sometimes|string',
+        'quentity' => 'sometimes|integer|min:0',
+        'price' => 'sometimes|numeric|min:0',
+        'disscount_type' => 'sometimes|string|in:percentage,amount',
+        'disscount_value' => 'sometimes|numeric|min:0',
+        'currency' => 'sometimes|string|in:USD,SY',
+        'manufacture_date' => 'sometimes|date',
+        'product_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        'update_technical_details' => 'sometimes|boolean',
+    ];
+
+    $updateTechnical = $request->boolean('update_technical_details');
+
+    if ($product->product_type == 'inverter' && $updateTechnical) {
+        $rules = array_merge($rules, [
+            'grid_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
+            'voltage_v' => 'sometimes|string|in:12V,24V,48V',
+            'grid_capacity_kw' => 'sometimes|numeric|min:0',
+            'solar_capacity_kw' => 'sometimes|numeric|min:0',
+            'inverter_open' => 'sometimes|boolean',
+            'voltage_open' => 'sometimes|numeric|min:0',
+            'weight_kg' => 'sometimes|numeric|min:0',
+            'warranty_years' => 'sometimes|numeric|min:0',
         ]);
-
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 400);
-        }
-
-        $data = $validate->validated();
-        $result = $this->agencyManagerService->update_agency_product($request, $data, $product_id);
-
-        if (!$result) {
-            return response()->json(['message' => 'Product not found or not owned by this agency'], 404);
-        }
-
-        return response()->json(['message' => 'Product updated successfully', 'product' => $result[0], 'product_image' => $result[1]]);
     }
+
+    if ($product->product_type == 'battery' && $updateTechnical) {
+        $rules = array_merge($rules, [
+            'battery_type' => 'sometimes|string|in:lithium_ion,lead_acid,nickel_cadmium',
+            'capacity_kwh' => 'sometimes|numeric|min:0',
+            'voltage_v' => 'sometimes|string|in:12V,24V,48V',
+            'cycle_life' => 'sometimes|integer|min:0',
+            'warranty_years' => 'sometimes|numeric|min:0',
+            'weight_kg' => 'sometimes|numeric|min:0',
+            'Amperage_Ah' => 'sometimes|string|in:100Ah,200Ah,300Ah',
+            'celles_type' => 'sometimes|string|in:new,renewed',
+            'celles_name' => 'sometimes|string',
+        ]);
+    }
+
+    if ($product->product_type == 'solar_panel' && $updateTechnical) {
+        $rules = array_merge($rules, [
+            'capacity_kw' => 'sometimes|string|in:250w,300w,350w,400w,580w,620w',
+            'basbar_number' => 'sometimes|numeric|min:0',
+            'is_half_cell' => 'sometimes|boolean',
+            'is_bifacial' => 'sometimes|boolean',
+            'warranty_years' => 'sometimes|numeric|min:0',
+            'weight_kg' => 'sometimes|numeric|min:0',
+            'length_m' => 'sometimes|numeric|min:0',
+            'width_m' => 'sometimes|numeric|min:0',
+        ]);
+    }
+
+    $validator = Validator::make(
+        array_merge($request->all(), ['product_id' => $product_id]),
+        $rules
+    );
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => $validator->errors()
+        ], 400);
+    }
+
+    $data = $validator->validated();
+
+    $result = $this->agencyManagerService->update_agency_product($request, $data, $product_id);
+
+    if (!$result) {
+        return response()->json([
+            'message' => 'Product not found or not owned by this agency'
+        ], 404);
+    }
+
+    return response()->json([
+        'message' => 'Product updated successfully',
+        'product' => $result[0],
+        'product_image' => $result[1]
+    ]);
+}
 
     public function delete_agency_product($product_id)
     {
@@ -385,5 +515,24 @@ class AgencyManagerController extends Controller
         }
 
         return response()->json(['message' => 'Product deleted successfully']);
+    }
+
+    public function delete_agency_product_details($product_id)
+    {
+        $validate = Validator::make(['product_id' => $product_id], [
+            'product_id' => 'required|integer|exists:products,id'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $result = $this->agencyManagerService->delete_agency_product_details($product_id);
+
+        if (!$result) {
+            return response()->json(['message' => 'Product not found or not owned by this agency'], 404);
+        }
+
+        return response()->json(['message' => 'Product detail records deleted successfully']);
     }
 }

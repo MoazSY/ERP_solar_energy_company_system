@@ -183,19 +183,42 @@ class AgencyManagerService
         return [$result, $product_image_URL];
     }
 
+    public function add_agency_product_battery($request, $product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->add_agency_product_battery($request, $product_id);
+    }
+
+    public function add_agency_product_solar_panel($request, $product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->add_agency_product_solar_panel($request, $product_id);
+    }
+
+    public function add_agency_product_inverter($request, $product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->add_agency_product_inverter($request, $product_id);
+    }
+
     public function show_agency_products()
     {
-        $agencyManager=Auth::guard('agency_manager')->user();
-        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
-       $products =$this->agencyManagerRepositoryInterface->show_agency_products($agencyManager);
-        $products=$products->map(function ($item) {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $products = $this->agencyManagerRepositoryInterface->show_agency_products($agencyManager);
+        $products = $products->map(function ($item) {
             $product_image = $item->product_image;
             if ($product_image == null) {
                 $product_image_URL = null;
             } else {
                 $product_image_URL = asset('storage/' . $product_image);
             }
-            return ['product' => $item, 'product_image' => $product_image_URL];
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
         });
         return $products;
     }
@@ -208,5 +231,10 @@ class AgencyManagerService
     public function delete_agency_product($product_id)
     {
         return $this->agencyManagerRepositoryInterface->delete_agency_product($product_id);
+    }
+
+    public function delete_agency_product_details($product_id)
+    {
+        return $this->agencyManagerRepositoryInterface->delete_agency_product_details($product_id);
     }
 }
