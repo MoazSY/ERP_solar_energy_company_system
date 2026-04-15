@@ -237,4 +237,9 @@ class AgencyManagerService
     {
         return $this->agencyManagerRepositoryInterface->delete_agency_product_details($product_id);
     }
+
+    public function filter_agency_products($filters)
+    {
+        return $this->agencyManagerRepositoryInterface->filter_agency_products($filters);
+    }
 }

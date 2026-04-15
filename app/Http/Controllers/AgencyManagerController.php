@@ -408,95 +408,95 @@ class AgencyManagerController extends Controller
         return response()->json(['message' => 'Agency products retrieved successfully', 'products' => $products]);
     }
 
-public function update_agency_product(Request $request, $product_id)
-{
-    $product = Products::findOrFail($product_id);
+    public function update_agency_product(Request $request, $product_id)
+    {
+        $product = Products::findOrFail($product_id);
 
-    $rules = [
-        'product_id' => 'required|integer|exists:products,id',
-        'product_name' => 'sometimes|string',
-        'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
-        'product_brand' => 'sometimes|string',
-        'model_number' => 'sometimes|string',
-        'quentity' => 'sometimes|integer|min:0',
-        'price' => 'sometimes|numeric|min:0',
-        'disscount_type' => 'sometimes|string|in:percentage,amount',
-        'disscount_value' => 'sometimes|numeric|min:0',
-        'currency' => 'sometimes|string|in:USD,SY',
-        'manufacture_date' => 'sometimes|date',
-        'product_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        'update_technical_details' => 'sometimes|boolean',
-    ];
+        $rules = [
+            'product_id' => 'required|integer|exists:products,id',
+            'product_name' => 'sometimes|string',
+            'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
+            'product_brand' => 'sometimes|string',
+            'model_number' => 'sometimes|string',
+            'quentity' => 'sometimes|integer|min:0',
+            'price' => 'sometimes|numeric|min:0',
+            'disscount_type' => 'sometimes|string|in:percentage,amount',
+            'disscount_value' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'manufacture_date' => 'sometimes|date',
+            'product_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'update_technical_details' => 'sometimes|boolean',
+        ];
 
-    $updateTechnical = $request->boolean('update_technical_details');
+        $updateTechnical = $request->boolean('update_technical_details');
 
-    if ($product->product_type == 'inverter' && $updateTechnical) {
-        $rules = array_merge($rules, [
-            'grid_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
-            'voltage_v' => 'sometimes|string|in:12V,24V,48V',
-            'grid_capacity_kw' => 'sometimes|numeric|min:0',
-            'solar_capacity_kw' => 'sometimes|numeric|min:0',
-            'inverter_open' => 'sometimes|boolean',
-            'voltage_open' => 'sometimes|numeric|min:0',
-            'weight_kg' => 'sometimes|numeric|min:0',
-            'warranty_years' => 'sometimes|numeric|min:0',
-        ]);
-    }
+        if ($product->product_type == 'inverter' && $updateTechnical) {
+            $rules = array_merge($rules, [
+                'grid_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
+                'voltage_v' => 'sometimes|string|in:12V,24V,48V',
+                'grid_capacity_kw' => 'sometimes|numeric|min:0',
+                'solar_capacity_kw' => 'sometimes|numeric|min:0',
+                'inverter_open' => 'sometimes|boolean',
+                'voltage_open' => 'sometimes|numeric|min:0',
+                'weight_kg' => 'sometimes|numeric|min:0',
+                'warranty_years' => 'sometimes|numeric|min:0',
+            ]);
+        }
 
-    if ($product->product_type == 'battery' && $updateTechnical) {
-        $rules = array_merge($rules, [
-            'battery_type' => 'sometimes|string|in:lithium_ion,lead_acid,nickel_cadmium',
-            'capacity_kwh' => 'sometimes|numeric|min:0',
-            'voltage_v' => 'sometimes|string|in:12V,24V,48V',
-            'cycle_life' => 'sometimes|integer|min:0',
-            'warranty_years' => 'sometimes|numeric|min:0',
-            'weight_kg' => 'sometimes|numeric|min:0',
-            'Amperage_Ah' => 'sometimes|string|in:100Ah,200Ah,300Ah',
-            'celles_type' => 'sometimes|string|in:new,renewed',
-            'celles_name' => 'sometimes|string',
-        ]);
-    }
+        if ($product->product_type == 'battery' && $updateTechnical) {
+            $rules = array_merge($rules, [
+                'battery_type' => 'sometimes|string|in:lithium_ion,lead_acid,nickel_cadmium',
+                'capacity_kwh' => 'sometimes|numeric|min:0',
+                'voltage_v' => 'sometimes|string|in:12V,24V,48V',
+                'cycle_life' => 'sometimes|integer|min:0',
+                'warranty_years' => 'sometimes|numeric|min:0',
+                'weight_kg' => 'sometimes|numeric|min:0',
+                'Amperage_Ah' => 'sometimes|string|in:100Ah,200Ah,300Ah',
+                'celles_type' => 'sometimes|string|in:new,renewed',
+                'celles_name' => 'sometimes|string',
+            ]);
+        }
 
-    if ($product->product_type == 'solar_panel' && $updateTechnical) {
-        $rules = array_merge($rules, [
-            'capacity_kw' => 'sometimes|string|in:250w,300w,350w,400w,580w,620w',
-            'basbar_number' => 'sometimes|numeric|min:0',
-            'is_half_cell' => 'sometimes|boolean',
-            'is_bifacial' => 'sometimes|boolean',
-            'warranty_years' => 'sometimes|numeric|min:0',
-            'weight_kg' => 'sometimes|numeric|min:0',
-            'length_m' => 'sometimes|numeric|min:0',
-            'width_m' => 'sometimes|numeric|min:0',
-        ]);
-    }
+        if ($product->product_type == 'solar_panel' && $updateTechnical) {
+            $rules = array_merge($rules, [
+                'capacity_kw' => 'sometimes|string|in:250w,300w,350w,400w,580w,620w',
+                'basbar_number' => 'sometimes|numeric|min:0',
+                'is_half_cell' => 'sometimes|boolean',
+                'is_bifacial' => 'sometimes|boolean',
+                'warranty_years' => 'sometimes|numeric|min:0',
+                'weight_kg' => 'sometimes|numeric|min:0',
+                'length_m' => 'sometimes|numeric|min:0',
+                'width_m' => 'sometimes|numeric|min:0',
+            ]);
+        }
 
-    $validator = Validator::make(
-        array_merge($request->all(), ['product_id' => $product_id]),
-        $rules
-    );
+        $validator = Validator::make(
+            array_merge($request->all(), ['product_id' => $product_id]),
+            $rules
+        );
 
-    if ($validator->fails()) {
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => $validator->errors()
+            ], 400);
+        }
+
+        $data = $validator->validated();
+
+        $result = $this->agencyManagerService->update_agency_product($request, $data, $product_id);
+
+        if (!$result) {
+            return response()->json([
+                'message' => 'Product not found or not owned by this agency'
+            ], 404);
+        }
+
         return response()->json([
-            'message' => $validator->errors()
-        ], 400);
+            'message' => 'Product updated successfully',
+            'product' => $result[0],
+            'product_image' => $result[1]
+        ]);
     }
-
-    $data = $validator->validated();
-
-    $result = $this->agencyManagerService->update_agency_product($request, $data, $product_id);
-
-    if (!$result) {
-        return response()->json([
-            'message' => 'Product not found or not owned by this agency'
-        ], 404);
-    }
-
-    return response()->json([
-        'message' => 'Product updated successfully',
-        'product' => $result[0],
-        'product_image' => $result[1]
-    ]);
-}
 
     public function delete_agency_product($product_id)
     {
@@ -534,5 +534,83 @@ public function update_agency_product(Request $request, $product_id)
         }
 
         return response()->json(['message' => 'Product detail records deleted successfully']);
+    }
+
+    public function filter_agency_products(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'product_type' => 'nullable|string|in:battery,inverter,solar_panel,accessory',
+            'product_name' => 'nullable|string',
+            'product_brand' => 'nullable|string',
+            'model_number' => 'nullable|string',
+            'price_min' => 'nullable|numeric|min:0',
+            'price_max' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string',
+            'quentity_min' => 'nullable|integer|min:0',
+            'quentity_max' => 'nullable|integer|min:0',
+            // Battery details
+            'battery_type' => 'nullable|string|in:lithium_ion,lead_acid,nickel_cadmium',
+            'capacity_kwh' => 'nullable|numeric|min:0',
+            'voltage_v' => 'nullable|string|in:12V,24V,48V',
+            'cycle_life_min' => 'nullable|integer|min:0',
+            'cycle_life_max' => 'nullable|integer|min:0',
+            'warranty_years_min' => 'nullable|numeric|min:0',
+            'warranty_years_max' => 'nullable|numeric|min:0',
+            'weight_kg_min' => 'nullable|numeric|min:0',
+            'weight_kg_max' => 'nullable|numeric|min:0',
+            'Amperage_Ah' => 'nullable|string|in:100Ah,200Ah,300Ah',
+            'celles_type' => 'nullable|string|in:new,renewed',
+            'celles_name' => 'nullable|string',
+            // Inverter details
+            'grid_type' => 'nullable|string|in:on_grid,off_grid,hybrid',
+            'grid_capacity_kw_min' => 'nullable|numeric|min:0',
+            'grid_capacity_kw_max' => 'nullable|numeric|min:0',
+            'solar_capacity_kw_min' => 'nullable|numeric|min:0',
+            'solar_capacity_kw_max' => 'nullable|numeric|min:0',
+            'inverter_open' => 'nullable|boolean',
+            'voltage_open_min' => 'nullable|numeric|min:0',
+            'voltage_open_max' => 'nullable|numeric|min:0',
+            // Solar panel details
+            'capacity_kw' => 'nullable|string|in:250w,300w,350w,400w,580w,620w',
+            'basbar_number_min' => 'nullable|numeric|min:0',
+            'basbar_number_max' => 'nullable|numeric|min:0',
+            'is_half_cell' => 'nullable|boolean',
+            'is_bifacial' => 'nullable|boolean',
+            'length_m_min' => 'nullable|numeric|min:0',
+            'length_m_max' => 'nullable|numeric|min:0',
+            'width_m_min' => 'nullable|numeric|min:0',
+            'width_m_max' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $products = $this->agencyManagerService->filter_agency_products($filters);
+
+        if (empty($products)) {
+            return response()->json(['message' => 'No products found matching the filters', 'data' => []], 200);
+        }
+
+        $result = $products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
+            }
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
+        });
+
+        return response()->json(['message' => 'Products retrieved successfully', 'data' => $result], 200);
     }
 }
