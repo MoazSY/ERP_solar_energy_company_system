@@ -70,4 +70,8 @@ class Agency extends Model
         return $this->morphMany(Products::class, 'entity_type');
 
     }
+    public function specific_disscounts(): MorphMany
+    {
+        return $this->morphMany(Specific_disscount::class, 'entity_type');
+    }
 }

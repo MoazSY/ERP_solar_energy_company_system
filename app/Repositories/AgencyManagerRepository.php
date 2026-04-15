@@ -4,6 +4,7 @@ namespace App\Repositories;
 use App\Models\Agency;
 use App\Models\Agency_manager;
 use App\Models\Products;
+use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -558,5 +559,179 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         }
 
         return $query->with(['batteries', 'inverters', 'solarPanals'])->get();
+    }
+
+    public function filter_solar_companies($filters)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return collect();
+        }
+
+        $query = Solar_company::query();
+
+        if (isset($filters['company_name'])) {
+            $query->where('company_name', 'like', '%' . $filters['company_name'] . '%');
+        }
+        if (isset($filters['company_email'])) {
+            $query->where('company_email', 'like', '%' . $filters['company_email'] . '%');
+        }
+        if (isset($filters['company_phone'])) {
+            $query->where('company_phone', 'like', '%' . $filters['company_phone'] . '%');
+        }
+        if (isset($filters['company_status'])) {
+            $query->where('company_status', $filters['company_status']);
+        }
+        if (isset($filters['governorate_id']) || isset($filters['area_id']) || isset($filters['neighborhood_id'])) {
+            $query->whereHas('addresses', function ($addressQuery) use ($filters) {
+                if (isset($filters['governorate_id'])) {
+                    $addressQuery->where('governorate_id', $filters['governorate_id']);
+                }
+                if (isset($filters['area_id'])) {
+                    $addressQuery->where('area_id', $filters['area_id']);
+                }
+                if (isset($filters['neighborhood_id'])) {
+                    $addressQuery->where('neighborhood_id', $filters['neighborhood_id']);
+                }
+            });
+        }
+        if (isset($filters['product_type']) || isset($filters['product_brand']) || isset($filters['product_name']) || isset($filters['model_number']) || isset($filters['currency']) || isset($filters['product_price_min']) || isset($filters['product_price_max']) || isset($filters['disscount_type']) || isset($filters['disscount_value_min']) || isset($filters['disscount_value_max'])) {
+            $query->whereHas('products', function ($productQuery) use ($filters) {
+                if (isset($filters['product_type'])) {
+                    $productQuery->where('product_type', $filters['product_type']);
+                }
+                if (isset($filters['product_brand'])) {
+                    $productQuery->where('product_brand', 'like', '%' . $filters['product_brand'] . '%');
+                }
+                if (isset($filters['product_name'])) {
+                    $productQuery->where('product_name', 'like', '%' . $filters['product_name'] . '%');
+                }
+                if (isset($filters['model_number'])) {
+                    $productQuery->where('model_number', 'like', '%' . $filters['model_number'] . '%');
+                }
+                if (isset($filters['currency'])) {
+                    $productQuery->where('currency', $filters['currency']);
+                }
+                if (isset($filters['product_price_min'])) {
+                    $productQuery->where('price', '>=', $filters['product_price_min']);
+                }
+                if (isset($filters['product_price_max'])) {
+                    $productQuery->where('price', '<=', $filters['product_price_max']);
+                }
+                if (isset($filters['disscount_type'])) {
+                    $productQuery->where('disscount_type', $filters['disscount_type']);
+                }
+                if (isset($filters['disscount_value_min'])) {
+                    $productQuery->where('disscount_value', '>=', $filters['disscount_value_min']);
+                }
+                if (isset($filters['disscount_value_max'])) {
+                    $productQuery->where('disscount_value', '<=', $filters['disscount_value_max']);
+                }
+            });
+        }
+
+        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->get();
+    }
+
+    public function create_custom_discount($data, $solar_company_id)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return null;
+        }
+        $product = $agency->products()->find($data['product_id']);
+        $discount = $agency->specific_disscounts()->create([
+            'product_id' => $data['product_id'] ?? null,
+            'discount_type_type' => 'App\Models\Solar_company',
+            'discount_type_id' => $solar_company_id,
+            'discount_amount' => $data['discount_amount'],
+            'disscount_type' => $data['disscount_type'],
+            'currency' => $data['currency'] ?? 'SY',
+            'product_type' => $product->product_type,
+            'product_brand' => $product->product_brand,
+            'disscount_active' => $data['disscount_active'] ?? true,
+            'quentity_condition' => $data['quentity_condition'] ?? 0,
+            'public' => $data['public'] ?? true,
+        ]);
+        return $discount;
+    }
+
+    public function show_custom_discounts($solar_company_id)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return [];
+        }
+        $discounts = $agency
+            ->specific_disscounts()
+            ->where('discount_type_type', 'App\Models\Solar_company')
+            ->where('discount_type_id', $solar_company_id)
+            ->with('product')
+            ->get();
+
+        return $discounts;
+    }
+
+    public function update_custom_discount($discount_id, $data)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return null;
+        }
+        $discount = $agency->specific_disscounts()->findOrFail($discount_id);
+        $discount->update($data);
+        $discount->save();
+        $discount->refresh();
+
+        return $discount;
+    }
+
+    public function delete_custom_discount($discount_id)
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return false;
+        }
+
+        $discount = $agency->specific_disscounts()->findOrFail($discount_id);
+        $discount->delete();
+        return true;
+    }
+
+    public function get_all_custom_discounts_grouped_by_company()
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return collect();
+        }
+
+        $discounts = $agency
+            ->specific_disscounts()
+            ->where('discount_type_type', 'App\Models\Solar_company')
+            ->with(['discountType', 'product'])
+            ->get()
+            ->groupBy(function ($discount) {
+                return $discount->discountType->company_name ?? 'Unknown Company';
+            });
+
+        return $discounts;
     }
 }

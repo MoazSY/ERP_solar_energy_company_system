@@ -17,4 +17,10 @@ interface AgencyManagerRepositoryInterface
     public function add_agency_product_inverter($request, $product_id);
     public function add_agency_product_solar_panel($request, $product_id);
     public function filter_agency_products($filters);
+    public function filter_solar_companies($filters);
+    public function create_custom_discount($data, $solar_company_id);
+    public function show_custom_discounts($solar_company_id);
+    public function update_custom_discount($discount_id, $data);
+    public function delete_custom_discount($discount_id);
+    public function get_all_custom_discounts_grouped_by_company();
 }

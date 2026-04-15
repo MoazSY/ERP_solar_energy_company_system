@@ -30,7 +30,7 @@ class Specific_disscount extends Model
     {
         return $this->belongsTo(Products::class, 'product_id');
     }
-    public function entityType(): MorphTo
+    public function entity_type(): MorphTo
     {
         return $this->morphTo(null, 'entity_type_type', 'entity_type_id');
     }

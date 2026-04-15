@@ -74,4 +74,11 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('delete_agency_product/{product_id}', [AgencyManagerController::class, 'delete_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('delete_agency_product_details/{product_id}', [AgencyManagerController::class, 'delete_agency_product_details'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('filter_agency_products', [AgencyManagerController::class, 'filter_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('filter_solar_companies', [AgencyManagerController::class, 'filter_solar_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('create_custom_discount/{solar_company_id}', [AgencyManagerController::class, 'create_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::get('show_custom_discounts/{solar_company_id}', [AgencyManagerController::class, 'show_custom_discounts'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('update_custom_discount/{discount_id}', [AgencyManagerController::class, 'update_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('delete_custom_discount/{discount_id}', [AgencyManagerController::class, 'delete_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::get('get_all_custom_discounts_grouped_by_company', [AgencyManagerController::class, 'get_all_custom_discounts_grouped_by_company'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    
 });

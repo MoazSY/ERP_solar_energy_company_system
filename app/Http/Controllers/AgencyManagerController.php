@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FilterSolarCompanyRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Agency;
 use App\Models\Products;
@@ -592,25 +593,98 @@ class AgencyManagerController extends Controller
         if (empty($products)) {
             return response()->json(['message' => 'No products found matching the filters', 'data' => []], 200);
         }
+        return response()->json(['message' => 'Products retrieved successfully', 'data' => $products], 200);
+    }
 
-        $result = $products->map(function ($item) {
-            $product_image = $item->product_image;
-            if ($product_image == null) {
-                $product_image_URL = null;
-            } else {
-                $product_image_URL = asset('storage/' . $product_image);
-            }
-            $details = null;
-            if ($item->product_type === 'battery') {
-                $details = $item->batteries;
-            } elseif ($item->product_type === 'solar_panel') {
-                $details = $item->solarPanals;
-            } elseif ($item->product_type === 'inverter') {
-                $details = $item->inverters;
-            }
-            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
-        });
+    public function filter_solar_companies(FilterSolarCompanyRequest $request)
+    {
+        $filters = $request->validated();
+        $companies = $this->agencyManagerService->filter_solar_companies($filters);
 
-        return response()->json(['message' => 'Products retrieved successfully', 'data' => $result], 200);
+        if ($companies->isEmpty()) {
+            return response()->json(['message' => 'No companies found matching the filters', 'data' => []], 200);
+        }
+
+        return response()->json(['message' => 'Companies retrieved successfully', 'data' => $companies], 200);
+    }
+
+    public function create_custom_discount(Request $request, $solar_company_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'product_id' => 'nullable|integer|exists:products,id',
+            'discount_amount' => 'required|numeric|min:0',
+            'disscount_type' => 'required|string|in:percentage,fixed',
+            'currency' => 'nullable|string|in:USD,SY',
+            'disscount_active' => 'nullable|boolean',
+            'quentity_condition' => 'nullable|integer|min:0',
+            'public' => 'nullable|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+        $discount = $this->agencyManagerService->create_custom_discount($data, $solar_company_id);
+
+        if (!$discount) {
+            return response()->json(['message' => 'Failed to create custom discount'], 400);
+        }
+
+        return response()->json(['message' => 'Custom discount created successfully', 'data' => $discount], 201);
+    }
+
+    public function show_custom_discounts($solar_company_id)
+    {
+        $discounts = $this->agencyManagerService->show_custom_discounts($solar_company_id);
+
+        return response()->json(['message' => 'Custom discounts retrieved successfully', 'data' => $discounts], 200);
+    }
+
+    public function update_custom_discount(Request $request, $discount_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'discount_amount' => 'sometimes|numeric|min:0',
+            'disscount_type' => 'sometimes|string|in:percentage,fixed',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'disscount_active' => 'sometimes|boolean',
+            'quentity_condition' => 'sometimes|integer|min:0',
+            'public' => 'sometimes|nullable|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        try {
+            $data = $validate->validated();
+            $discount = $this->agencyManagerService->update_custom_discount($discount_id, $data);
+
+            return response()->json(['message' => 'Custom discount updated successfully', 'data' => $discount], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Discount not found or unauthorized'], 404);
+        }
+    }
+
+    public function delete_custom_discount($discount_id)
+    {
+        try {
+            $result = $this->agencyManagerService->delete_custom_discount($discount_id);
+
+            if (!$result) {
+                return response()->json(['message' => 'Failed to delete custom discount'], 400);
+            }
+
+            return response()->json(['message' => 'Custom discount deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Discount not found or unauthorized'], 404);
+        }
+    }
+
+    public function get_all_custom_discounts_grouped_by_company()
+    {
+        $groupedDiscounts = $this->agencyManagerService->get_all_custom_discounts_grouped_by_company();
+
+        return response()->json(['message' => 'All custom discounts grouped by company retrieved successfully', 'data' => $groupedDiscounts], 200);
     }
 }

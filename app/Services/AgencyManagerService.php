@@ -240,6 +240,55 @@ class AgencyManagerService
 
     public function filter_agency_products($filters)
     {
-        return $this->agencyManagerRepositoryInterface->filter_agency_products($filters);
+        $products = $this->agencyManagerRepositoryInterface->filter_agency_products($filters);
+
+        $result = $products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
+            }
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
+        });
+        return $result;
+    }
+
+    public function filter_solar_companies($filters)
+    {
+        return $this->agencyManagerRepositoryInterface->filter_solar_companies($filters);
+    }
+
+    public function create_custom_discount($data, $solar_company_id)
+    {
+        return $this->agencyManagerRepositoryInterface->create_custom_discount($data, $solar_company_id);
+    }
+
+    public function show_custom_discounts($solar_company_id)
+    {
+        return $this->agencyManagerRepositoryInterface->show_custom_discounts($solar_company_id);
+    }
+
+    public function update_custom_discount($discount_id, $data)
+    {
+        return $this->agencyManagerRepositoryInterface->update_custom_discount($discount_id, $data);
+    }
+
+    public function delete_custom_discount($discount_id)
+    {
+        return $this->agencyManagerRepositoryInterface->delete_custom_discount($discount_id);
+    }
+
+    public function get_all_custom_discounts_grouped_by_company()
+    {
+        return $this->agencyManagerRepositoryInterface->get_all_custom_discounts_grouped_by_company();
     }
 }

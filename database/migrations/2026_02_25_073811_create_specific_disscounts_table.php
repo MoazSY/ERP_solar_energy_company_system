@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string("product_brand")->nullable();
             $table->boolean("disscount_active")->default(true);
             $table->integer("quentity_condition")->default(0);
-            $table->boolean("public")->default(true);
+            $table->boolean("public")->default(true)->nullable();
             $table->timestamps();
         });
     }

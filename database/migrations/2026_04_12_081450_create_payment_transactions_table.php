@@ -17,19 +17,10 @@ return new class extends Migration
 
     $table->string('gateway'); // shamcash
     $table->string('external_id')->nullable(); // id من shamcash
-
     $table->string('payment_url')->nullable();
-
-    $table->enum('status', [
-        'initiated',
-        'pending',
-        'paid',
-        'failed'
-    ])->default('initiated');
-
+    $table->enum('status', ['initiated','pending','paid','failed'])->default('initiated');
     $table->json('response')->nullable(); // حفظ رد shamcash
-
-            $table->timestamps();
+    $table->timestamps();
         });
     }
 
