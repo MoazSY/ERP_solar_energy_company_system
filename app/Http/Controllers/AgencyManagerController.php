@@ -6,6 +6,7 @@ use App\Http\Requests\FilterSolarCompanyRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Agency;
 use App\Models\Products;
+use App\Models\Solar_company;
 use App\Services\AgencyManagerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,7 @@ class AgencyManagerController extends Controller
             'password' => 'required|alpha_num|min:8',
             'phoneNumber' => 'required|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|mimes:jpg,jpeg,png,webp|max:2048',
             'identification_image' => 'required|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
@@ -134,6 +136,7 @@ class AgencyManagerController extends Controller
             'password' => 'sometimes|alpha_num|min:8',
             'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
             'identification_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
@@ -290,21 +293,30 @@ class AgencyManagerController extends Controller
     {
         $validate = Validator::make($request->all(), [
             'subscribe_policy_id' => 'required|exists:subscribe_polices,id',
-            're_subscribed' => 'sometimes|boolean'
+            're_subscribed' => 'sometimes|boolean',
+            'payment_method' => 'required|in:syriatel_cash,shamcash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
         ]);
         if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()]);
+            return response()->json(['message' => $validate->errors()], 422);
         }
-        // $request->validated($request);
+
         $result = $this->agencyManagerService->subscribe_in_policy($request);
+
         if ($result == null) {
             return response()->json(['message' => 'invalid subscribe policy or not active'], 400);
         }
-        if (!$result) {
-            return response()->json(['message' => 'invalid entity type'], 400);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'agency subscribed in policy successfully', 'subscription' => $result[0], 'payment' => $result[1], 'payment_transaction' => 'fake']);
+        return response()->json([
+            'message' => 'agency subscribed in policy successfully',
+            'subscription' => $result[0],
+            'payment' => $result[1],
+        ]);
     }
 
     public function add_agency_products(Request $request)
@@ -608,7 +620,7 @@ class AgencyManagerController extends Controller
         return response()->json(['message' => 'Companies retrieved successfully', 'data' => $companies], 200);
     }
 
-    public function create_custom_discount(Request $request, $solar_company_id)
+    public function create_custom_discount(Request $request, Solar_company $solar_company_id)
     {
         $validate = Validator::make($request->all(), [
             'product_id' => 'nullable|integer|exists:products,id',
@@ -686,5 +698,45 @@ class AgencyManagerController extends Controller
         $groupedDiscounts = $this->agencyManagerService->get_all_custom_discounts_grouped_by_company();
 
         return response()->json(['message' => 'All custom discounts grouped by company retrieved successfully', 'data' => $groupedDiscounts], 200);
+    }
+
+    public function get_purchase_requests_from_companies()
+    {
+        $requests = $this->agencyManagerService->get_purchase_requests_from_companies();
+
+        if ($requests->isEmpty()) {
+            return response()->json([
+                'message' => 'No purchase requests found from companies',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Purchase requests retrieved successfully',
+            'data' => $requests,
+        ], 200);
+    }
+
+    public function create_purchase_invoice(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'order_list_id' => 'required|exists:order_lists,id',
+            'due_date' => 'required|date|after:today',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->agencyManagerService->create_purchase_invoice($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'purchase invoice created successfully',
+            'invoice' => $result,
+        ], 201);
     }
 }

@@ -2,10 +2,14 @@
 namespace App\Services;
 
 // use App\Models\Agency;
+use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Models\Subscribe_polices;
+use App\Models\System_admin;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -13,11 +17,16 @@ class SolarCompanyManagerService
 {
     protected $solarCompanyManagerRepositoryInterface;
     protected $tokenRepositoryInterface;
+    protected $apiSyriaService;
 
-    public function __construct(SolarCompanyManagerRepositoryInterface $solarCompanyManagerRepositoryInterface, TokenRepositoryInterface $tokenRepositoryInterface)
-    {
+    public function __construct(
+        SolarCompanyManagerRepositoryInterface $solarCompanyManagerRepositoryInterface,
+        TokenRepositoryInterface $tokenRepositoryInterface,
+        ApiSyriaService $apiSyriaService
+    ) {
         $this->solarCompanyManagerRepositoryInterface = $solarCompanyManagerRepositoryInterface;
         $this->tokenRepositoryInterface = $tokenRepositoryInterface;
+        $this->apiSyriaService = $apiSyriaService;
     }
 
     public function Register($request, $data)
@@ -162,7 +171,66 @@ class SolarCompanyManagerService
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company_manager = Solar_company_manager::findOrFail($company_manager_id);
         $company = $company_manager->solarCompanies()->first();
-        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company);
+        $beneficiaryAdmin = System_admin::find(1);
+
+        if (!$beneficiaryAdmin) {
+            return ['error' => 'Payment beneficiary admin is not configured'];
+        }
+
+        if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash') {
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        $subscribePolicy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
+        if ($subscribePolicy->currency == 'USD') {
+            $amount = (float) $subscribePolicy->subscription_fee * 1350;  // Convert USD to SYP
+        } else {
+            $amount = (float) $subscribePolicy->subscription_fee;
+        }
+
+        if ($request->payment_method === 'syriatel_cash') {
+            $toGsm = $beneficiaryAdmin->syriatel_cash_phone;
+            if (!$toGsm) {
+                return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+            }
+
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $toGsm,
+                $amount,
+                $request->pin_code
+            );
+        } else {
+            $toAccountAddress = $beneficiaryAdmin->account_number;
+            if (!$toAccountAddress) {
+                return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+            }
+
+            if (!$request->account_address) {
+                return ['error' => 'Your ShamCash account address is required for payment verification'];
+            }
+
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $toAccountAddress,
+                $amount,
+                $request->account_address
+            );
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+        }
+
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
+        }
+
+        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse);
         return $subscribe;
     }
 
@@ -189,15 +257,153 @@ class SolarCompanyManagerService
     public function show_agency_products($agency_id)
     {
         $products = $this->solarCompanyManagerRepositoryInterface->show_agency_products($agency_id);
-        $products=$products->map(function ($item) {
+        $products = $products->map(function ($item) {
             $product_image = $item->product_image;
             if ($product_image == null) {
                 $product_image_URL = null;
             } else {
                 $product_image_URL = asset('storage/' . $product_image);
             }
-            return ['product' => $item, 'product_image' => $product_image_URL];
+
+            // Add detailed information based on product type
+            $detailed_info = null;
+            switch ($item->product_type) {
+                case 'inverter':
+                    $detailed_info = $item->inverters;
+                    break;
+                case 'battery':
+                    $detailed_info = $item->batteries;
+                    break;
+                case 'solar_panel':
+                    $detailed_info = $item->solarPanals;
+                    break;
+            }
+
+            return [
+                'product' => $item,
+                'product_image' => $product_image_URL,
+                'detailed_info' => $detailed_info
+            ];
         });
-        return $products;
+
+        // Group products by product_type
+        $grouped_products = $products->groupBy(function ($item) {
+            return $item['product']->product_type;
+        });
+
+        return $grouped_products;
+    }
+
+    public function request_purchase_invoice_agency($agency_id, $request)
+    {
+        $company = Solar_company_manager::findOrFail(Auth::guard('company_manager')->user()->id)->solarCompanies()->first();
+        $agency = \App\Models\Agency::with('agencyManager')->findOrFail($agency_id);
+        $beneficiaryManager = $agency->agencyManager;
+
+        if (!$beneficiaryManager) {
+            return ['error' => 'Agency manager beneficiary is not configured'];
+        }
+
+        if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash') {
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        $products = collect($request->products);
+        $productIds = $products->pluck('id')->all();
+        $productsMap = Products::whereIn('id', $productIds)->get()->keyBy('id');
+
+        $amount = 0;
+        foreach ($products as $item) {
+            $product = $productsMap->get($item['id']);
+            if (!$product) {
+                continue;
+            }
+
+            $unitPrice = (float) $product->price;
+            if ($product->currency === 'USD') {
+                $unitPrice *= 1.35;
+            }
+
+            $quantity = (int) $item['quantity'];  //
+            $lineSubTotal = $unitPrice * $quantity;
+
+            if ($product->disscount_type === 'percentage') {
+                $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+            } else {
+                $discount = (float) $product->disscount_value * $quantity;
+            }
+
+            $amount += max($lineSubTotal - $discount, 0);
+        }
+
+        if ($amount <= 0) {
+            return ['error' => 'Invalid amount for payment'];
+        }
+        if ($request->with_delivery) {
+            // $amount += 5000; // Add fixed delivery fee
+            // هنا اريد الربط مع خدمات الخرائط لحساب المسافة بين الشركة والوكالة واضافة رسوم النقل
+        }
+        if ($request->payment_method === 'syriatel_cash') {
+            $toGsm = $beneficiaryManager->syriatel_cash_phone;
+            if (!$toGsm) {
+                return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+            }
+
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $toGsm,
+                $amount,
+                $request->pin_code
+            );
+        } else {
+            $toAccountAddress = $beneficiaryManager->account_number;
+            if (!$toAccountAddress) {
+                return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+            }
+
+            if (!$request->account_address) {
+                return ['error' => 'Your ShamCash account address is required for payment verification'];
+            }
+
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $toAccountAddress,
+                $amount,
+                $request->account_address
+            );
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+        }
+
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->request_purchase_invoice_agency(
+            $agency_id,
+            $request,
+            $company,
+            $paymentResponse,
+            $request->payment_method,
+            $amount
+        );
+    }
+
+    public function get_purchase_requests_from_agencies()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return collect();
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->get_purchase_requests_from_agencies($company);
     }
 }

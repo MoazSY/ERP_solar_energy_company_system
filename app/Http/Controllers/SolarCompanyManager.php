@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
-class SolarCompanyManager extends Controller
+class SolarCompanyManager extends \App\Http\Controllers\Controller
 {
     protected $solarCompanyManagerService;
 
@@ -30,6 +30,7 @@ class SolarCompanyManager extends Controller
             'password' => 'required|alpha_num|min:8',
             'phoneNumber' => 'required|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|mimes:jpg,jpeg,png,webp|max:2048',
             'identification_image' => 'required|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
@@ -133,6 +134,7 @@ class SolarCompanyManager extends Controller
             'password' => 'sometimes|alpha_num|min:8',
             'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
             'identification_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
@@ -289,20 +291,30 @@ class SolarCompanyManager extends Controller
     {
         $validate = Validator::make($request->all(), [
             'subscribe_policy_id' => 'required|exists:subscribe_polices,id',
-            're_subscribed' => 'sometimes|boolean'
+            're_subscribed' => 'sometimes|boolean',
+            'payment_method' => 'required|in:syriatel_cash,shamcash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
         ]);
         if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()]);
+            return response()->json(['message' => $validate->errors()], 422);
         }
-        // $request->validated($request);
+
         $result = $this->solarCompanyManagerService->subscribe_in_policy($request);
+
         if ($result == null) {
             return response()->json(['message' => 'invalid subscribe policy or not active'], 400);
         }
-        if (!$result) {
-            return response()->json(['message' => 'invalid entity type'], 400);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
         }
-        return response()->json(['message' => 'company subscribed in policy successfully', 'subscription' => $result[0], 'payment' => $result[1], 'payment_transaction' => 'fake']);
+
+        return response()->json([
+            'message' => 'company subscribed in policy successfully',
+            'subscription' => $result[0],
+            'payment' => $result[1],
+        ]);
     }
 
     public function show_all_agency()
@@ -343,5 +355,54 @@ class SolarCompanyManager extends Controller
             'message' => 'Agency products retrieved successfully',
             'products' => $products
         ]);
+    }
+
+    public function request_purchase_invoice_agency(Request $request, $agency_id)
+    {
+        $validate = Validator::make(array_merge($request->all(), ['agency_id' => $agency_id]), [
+            'products' => 'required|array',
+            'products.*.id' => 'required|integer|exists:products,id',
+            'products.*.quantity' => 'required|integer|min:1',
+            'payment_method' => 'required|in:syriatel_cash,shamcash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
+            'with_delivery' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $result = $this->solarCompanyManagerService->request_purchase_invoice_agency($agency_id, $request);
+
+        if (!$result) {
+            return response()->json(['message' => 'Failed to create purchase invoice request'], 500);
+        }
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Purchase invoice request created successfully',
+            'purchase_request_order' => $result[0],
+            'order_items' => $result[1],
+        ]);
+    }
+
+    public function get_purchase_requests_from_agencies()
+    {
+        $requests = $this->solarCompanyManagerService->get_purchase_requests_from_agencies();
+
+        if ($requests->isEmpty()) {
+            return response()->json([
+                'message' => 'No purchase requests found from agencies',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Purchase requests retrieved successfully',
+            'data' => $requests,
+        ], 200);
     }
 }

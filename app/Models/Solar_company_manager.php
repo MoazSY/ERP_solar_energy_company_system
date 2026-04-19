@@ -12,7 +12,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Solar_company_manager extends Authenticatable
 {
-    use HasApiTokens,Notifiable,HasFactory;
+    use HasApiTokens, Notifiable, HasFactory;
+
     protected $table = 'solar_company_managers';
 
     protected $fillable = [
@@ -23,6 +24,7 @@ class Solar_company_manager extends Authenticatable
         'password',
         'phoneNumber',
         'account_number',
+        'syriatel_cash_phone',
         'image',
         'identification_image',
         'about_him',
@@ -33,6 +35,7 @@ class Solar_company_manager extends Authenticatable
     {
         return $this->morphMany(Refresh_token::class, 'user_table');
     }
+
     public function solarCompanies(): HasMany
     {
         return $this->hasMany(Solar_company::class, 'solar_company_manager_id');

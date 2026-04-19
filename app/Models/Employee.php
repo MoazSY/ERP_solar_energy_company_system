@@ -24,6 +24,7 @@ class Employee extends Authenticatable
         'password',
         'phoneNumber',
         'account_number',
+        'syriatel_cash_phone',
         'image',
         'identification_image',
         'about_him',

@@ -16,13 +16,13 @@ return new class extends Migration
             $table->morphs("itemable");
             $table->foreignId("product_id")->nullable()->constrained("products")->nullOnDelete();
             $table->string("item_name_snapshot")->nullable();
-            $table->integer("quantity")->default(1);
-            $table->decimal("unit_price", 8, 2)->default(0);
-            $table->decimal("total_price", 8, 2)->default(0);
-            $table->decimal("unit_discount_amount", 8, 2)->default(0);
-            $table->decimal("total_discount_amount", 8, 2)->default(0);
+            $table->integer("quantity")->default(1)->nullable();
+            $table->decimal("unit_price", 8, 2)->default(0)->nullable();
+            $table->decimal("total_price", 8, 2)->default(0)->nullable();
+            $table->decimal("unit_discount_amount", 8, 2)->default(0)->nullable();
+            $table->decimal("total_discount_amount", 8, 2)->default(0)->nullable();
             $table->enum("discount_type", ["percentage", "fixed"])->nullable();
-            $table->enum("currency", ["USD", "SY"])->default("SY");
+            $table->enum("currency", ["USD", "SY"])->default("SY")->nullable();
             $table->string("serial_numbers")->nullable();
 
             $table->timestamps();

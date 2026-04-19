@@ -32,6 +32,7 @@ class System_admin extends Controller
             'password' => 'required|alpha_num|min:8',
             'phoneNumber' => 'required|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
         ]);
@@ -95,6 +96,7 @@ class System_admin extends Controller
             'password' => 'sometimes|alpha_num|min:8',
             'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
             'account_number' => 'sometimes|string',
+            'syriatel_cash_phone' => 'sometimes|regex:/^09\d{8}$/',
             'image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
         ]);
@@ -288,7 +290,7 @@ class System_admin extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $data=$validate->validated();
+        $data = $validate->validated();
         $policy = $this->SystemAdminService->update_subscriptions_policy($data, $subscribe_polices);
         return response()->json(['message' => 'subscription policy updated successfully', 'policy' => $policy]);
     }
@@ -298,6 +300,7 @@ class System_admin extends Controller
         $registerd_companies = $this->SystemAdminService->show_all_company_registerd();
         return response()->json(['message' => 'all registerd companies', 'registerd_companies' => $registerd_companies]);
     }
+
     public function show_all_agency_registerd()
     {
         $registerd_agencies = $this->SystemAdminService->show_all_agency_registerd();

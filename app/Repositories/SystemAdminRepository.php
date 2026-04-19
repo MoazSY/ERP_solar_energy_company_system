@@ -21,6 +21,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
             'password' => Hash::make($request->password),
             'phoneNumber' => $data['phoneNumber'],
             'account_number' => $request->account_number,
+            'syriatel_cash_phone' => $request->syriatel_cash_phone,
             'image' => $imagepath,
             'about_him' => $request->about_him,
         ]);
@@ -110,7 +111,6 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 $manager = $entity->solarCompanyManager;
                 $manager->Activate_Account = false;
                 $manager->save();
-
             } elseif ($request->status == 'approved') {
                 $entity->company_status = 'active';
                 $entity->save();
@@ -156,9 +156,9 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
 
     public function update_subscriptions_policy($request, $admin, $policy)
     {
-    $policy->update($request);
-    $policy->fresh();
-    $policy->save();
+        $policy->update($request);
+        $policy->fresh();
+        $policy->save();
 
         return $policy;
     }

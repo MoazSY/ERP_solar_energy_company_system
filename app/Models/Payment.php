@@ -36,7 +36,7 @@ class Payment extends Model
         return $this->morphTo(null, 'target_table_type', 'target_table_id');
     }
 
-    public function paymentObjectTable(): MorphTo
+    public function payment_object_table(): MorphTo
     {
         return $this->morphTo(null, 'payment_object_table_type', 'payment_object_table_id');
     }

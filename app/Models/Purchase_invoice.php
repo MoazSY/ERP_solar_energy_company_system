@@ -13,15 +13,15 @@ class Purchase_invoice extends Model
     protected $table = 'purchase_invoices';
 
     protected $fillable = [
-        'seller_entity_type_type',
-        'seller_entity_type_id',
-        'buyer_entity_type_type',
-        'buyer_entity_type_id',
+        'seller_entity_type',
+        'seller_entity_id',
+        'buyer_entity_type',
+        'buyer_entity_id',
         'buyer_name',
         'buyer_phone',
         'order_list_id',
-        'object_entity_type_type',
-        'object_entity_type_id',
+        'object_entity_type',
+        'object_entity_id',
         'invoice_number',
         'invoice_date',
         'due_date',
@@ -49,19 +49,19 @@ class Purchase_invoice extends Model
         return $this->belongsTo(Consumables::class, 'consumables_id');
     }
 
-    public function sellerEntityType(): MorphTo
+    public function seller_entity(): MorphTo
     {
-        return $this->morphTo(null, 'seller_entity_type_type', 'seller_entity_type_id');
+        return $this->morphTo(null, 'seller_entity_type', 'seller_entity_id');
     }
 
-    public function buyerEntityType(): MorphTo
+    public function buyer_entity(): MorphTo
     {
-        return $this->morphTo(null, 'buyer_entity_type_type', 'buyer_entity_type_id');
+        return $this->morphTo(null, 'buyer_entity_type', 'buyer_entity_id');
     }
 
-    public function objectEntityType(): MorphTo
+    public function object_entity(): MorphTo
     {
-        return $this->morphTo(null, 'object_entity_type_type', 'object_entity_type_id');
+        return $this->morphTo(null, 'object_entity_type', 'object_entity_id');
     }
 
     public function conflictInvoices(): HasMany

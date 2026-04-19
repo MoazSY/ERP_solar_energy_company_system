@@ -25,6 +25,7 @@ class Customer extends Authenticatable
         'password',
         'phone_number',
         'account_number',
+        'syriatel_cash_phone',
         'image',
         'about_him',
     ];

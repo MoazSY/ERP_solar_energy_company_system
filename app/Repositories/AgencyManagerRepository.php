@@ -3,6 +3,8 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Order_list;
+use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
@@ -22,6 +24,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'password' => Hash::make($request->password),
             'phoneNumber' => $data['phoneNumber'],
             'account_number' => $request->account_number,
+            'syriatel_cash_phone' => $request->syriatel_cash_phone,
             'image' => $image_path,
             'identification_image' => $identification_image_path,
             'about_him' => $request->about_him,
@@ -70,12 +73,13 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $agency_address;
     }
 
-    public function subscribe_in_policy($request, $agency)
+    public function subscribe_in_policy($request, $agency, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'agency' || $subscribe_policy->is_active != true) {
             return null;
         }
+
         $payment = $agency->paymentsMade()->create([
             'amount' => $subscribe_policy->subscription_fee,
             'currency' => $subscribe_policy->currency,
@@ -86,9 +90,20 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'payment_object_table_id' => $subscribe_policy->id,
             'paid_at' => Carbon::now(),
             're_subscribed' => $request->re_subscribed,
+            'status' => $paymentData ? 'paid' : 'pending',
         ]);
 
-        // هنا يجب ضمان الدفع اولا لكن حاليا لا يوجد دفع
+        if ($paymentData && isset($paymentData['data'])) {
+            Payment_transactions::create([
+                'payment_id' => $payment->id,
+                'gateway' => $request->payment_method,
+                'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+                'payment_url' => $paymentData['data']['payment_url'] ?? null,
+                'status' => 'paid',
+                'response' => $paymentData,
+            ]);
+        }
+
         $subscribe = $agency->companyAgencySubscribes()->create([
             'subscribe_policy_id' => $request->subscribe_policy_id,
             'is_active' => true,
@@ -226,6 +241,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'disscount_value' => $data['disscount_value'] ?? $product->disscount_value,
             'currency' => $data['currency'] ?? $product->currency,
             'manufacture_date' => $data['manufacture_date'] ?? $product->manufacture_date,
+            'product_image' => $data['product_image'] ?? $product->product_image,
         ]);
 
         $product->save();
@@ -649,7 +665,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         $discount = $agency->specific_disscounts()->create([
             'product_id' => $data['product_id'] ?? null,
             'discount_type_type' => 'App\Models\Solar_company',
-            'discount_type_id' => $solar_company_id,
+            'discount_type_id' => $solar_company_id->id,
             'discount_amount' => $data['discount_amount'],
             'disscount_type' => $data['disscount_type'],
             'currency' => $data['currency'] ?? 'SY',
@@ -729,9 +745,82 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             ->with(['discountType', 'product'])
             ->get()
             ->groupBy(function ($discount) {
-                return $discount->discountType->company_name ?? 'Unknown Company';
+                return $discount->discount_type_type . ':' . $discount->discount_type_id;
             });
 
         return $discounts;
+    }
+
+    public function get_purchase_requests_from_companies($manager)
+    {
+        $agency = $manager->agencies()->first();
+
+        if (!$agency) {
+            return collect();
+        }
+
+        return Order_list::query()
+            ->where('orderable_entity_type', Agency::class)
+            ->where('orderable_entity_id', $agency->id)
+            ->where('request_entity_type', Solar_company::class)
+            ->whereHas('Payment', function ($paymentQuery) {
+                $paymentQuery->where('status', 'paid');
+            })
+            ->with([
+                'request_entity',
+                'Items.product.inverters',
+                'Items.product.batteries',
+                'Items.product.solarPanals',
+            ])
+            ->latest('id')
+            ->get();
+    }
+
+    public function create_purchase_invoice($request, $agency, $orderList)
+    {
+        $buyer = $orderList->request_entity;  // Solar Company
+        $seller = $agency;  // Agency
+        $orderList->status='in_progress';
+        $orderList->save();
+        // Generate unique invoice number
+        $invoiceNumber = 'INV-' . date('YmdHis') . '-' . $agency->id;
+
+        // Get first item's product as object_entity (or could aggregate all products)
+        $firstItem = $orderList->Items()->first();
+        $objectEntity = $firstItem ? $firstItem->product : null;
+
+        if (!$objectEntity) {
+            return ['error' => 'order list has no items'];
+        }
+        if ($orderList->with_delivery) {
+            // Handle delivery fee logic if needed
+            // $delivery_fee=calculate_delivery_fee($orderList); // Implement this function based on your logic
+        } else {
+            $delivery_fee = 0;
+        }
+        $purchaseInvoice = $agency->Invoice_purchase()->create([
+            'buyer_entity_type' => get_class($buyer),
+            'buyer_entity_id' => $buyer->id,
+            'buyer_name' => $buyer->agency_name ?? $buyer->name ?? 'company',
+            'buyer_phone' => $buyer->agency_phone ?? $buyer->phone ?? null,
+            'order_list_id' => $orderList->id,
+            'object_entity_type' => 'App\Models\Order_list',
+            'object_entity_id' => $orderList->id,
+            'invoice_number' => $invoiceNumber,
+            'invoice_date' => $orderList->created_at->toDateString(),
+            'due_date' => $request->due_date,
+            'currency' => 'USD',  // يمكن تحديده من الطلبية لاحقاً
+            'delivery_fee' => $delivery_fee,  // تُحدد لاحقاً
+            'installation_fee' => 0,  // تُحدد لاحقاً
+            'subtotal' => $orderList->sub_total_amount ?? 0,
+            'total_discount' => $orderList->total_discount_amount ?? 0,
+            'total_amount' => $orderList->total_amount ?? 0,
+            'payment_status' => 'paid',
+            'net_profit' => 0,
+        ]);
+        if ($delivery_fee > 0) {
+            // notify the driver to deliver the order
+        }
+        return $purchaseInvoice;
     }
 }

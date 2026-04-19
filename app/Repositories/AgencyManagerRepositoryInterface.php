@@ -7,7 +7,7 @@ interface AgencyManagerRepositoryInterface
     public function Agency_register($request, $data, $agency_manager, $agency_logo);
     public function agency_address($request, $agency);
     public function agency_manager_profile($manager_id);
-    public function subscribe_in_policy($request, $agency);
+    public function subscribe_in_policy($request, $agency, $paymentData = null);
     public function add_agency_products($request, $agency);
     public function show_agency_products($manager);
     public function update_agency_product($request, $data, $product_id);
@@ -23,4 +23,6 @@ interface AgencyManagerRepositoryInterface
     public function update_custom_discount($discount_id, $data);
     public function delete_custom_discount($discount_id);
     public function get_all_custom_discounts_grouped_by_company();
+    public function get_purchase_requests_from_companies($manager);
+    public function create_purchase_invoice($request, $agency, $orderList);
 }

@@ -18,11 +18,12 @@ return new class extends Migration
             $table->string("customer_first_name")->nullable();
             $table->string("customer_last_name")->nullable();
             $table->enum("status", ["pending", "in_progress", "completed", "canceled"])->default("pending");
-            $table->decimal("sub_total_amount", 10, 2)->default(0);
-            $table->decimal("total_discount_amount", 10, 2)->default(0);
-            $table->decimal("total_amount", 10, 2)->default(0);
+            $table->decimal("sub_total_amount", 10, 2)->default(0)->nullable();
+            $table->decimal("total_discount_amount", 10, 2)->default(0)->nullable();
+            $table->decimal("total_amount", 10, 2)->default(0)->nullable();
+            $table->boolean("with_delivery")->default(false)->nullable();
             $table->foreignId("inventory_manager_id")->nullable()->constrained("company_agency_employees")->nullOnDelete();
-            $table->boolean("identical_state")->default(true);
+            $table->boolean("identical_state")->default(true)->nullable();
             $table->dateTime("request_datetime")->nullable();
             $table->dateTime("discharge_datetime")->nullable();
             $table->dateTime("recieve_datetime")->nullable();

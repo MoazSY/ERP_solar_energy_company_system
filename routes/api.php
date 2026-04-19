@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgencyManagerController;
+use App\Http\Controllers\ApiSyriaToolsController;
 use App\Http\Controllers\OtpController;
 use App\Http\Controllers\SolarCompanyManager;
 use App\Http\Controllers\System_admin;
@@ -22,8 +23,10 @@ Route::get('get_areas/{governorates}', [System_admin::class, 'get_areas']);
 Route::get('get_neighborhoods/{area}', [System_admin::class, 'get_neighborhoods']);
 Route::get('show_subscribtions_policies', [System_admin::class, 'show_subscribtions_policies']);
 Route::post('login', [OtpController::class, 'login']);
-
+Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
+Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
 Route::post('logout', [OtpController::class, 'logout'])->middleware('auth:sanctum');
+
 
 Route::middleware('check_admin')->group(function () {
     Route::get('Admin_profile', [System_admin::class, 'Admin_profile']);
@@ -33,14 +36,10 @@ Route::middleware('check_admin')->group(function () {
     Route::post('add_neighborhoods/{area}', [System_admin::class, 'add_neighborhoods']);
     Route::get('get_UnActive_company', [System_admin::class, 'get_UnActive_company']);
     Route::get('get_UnActive_agency', [System_admin::class, 'get_UnActive_agency']);
-    Route::get('show_all_company_registerd/{entity_type}', [System_admin::class, 'show_all_company_registerd']);
-    Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
     Route::post('proccess_company_register', [System_admin::class, 'proccess_company_register']);
     Route::post('subscriptions_policy', [System_admin::class, 'subscriptions_policy']);
     Route::post('update_subscriptions_policy/{subscribe_polices}', [System_admin::class, 'update_subscriptions_policy']);
     Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);
-    Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
-    Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
     Route::get('show_custom_subscribtions_policies', [System_admin::class, 'show_custom_subscribtions_policies']);
     Route::post('show_subscribtions_policies_for_entity', [System_admin::class, 'show_subscribtions_policies_for_entity']);
     Route::get('show_subscribers_of_policy/{policy}', [System_admin::class, 'show_subscribers_of_policy']);
@@ -56,6 +55,16 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_all_agency', [SolarCompanyManager::class, 'show_all_agency']);
     Route::post('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
+    Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
+    Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('api_status', [ApiSyriaToolsController::class, 'api_status']);
+    Route::get('api_accounts', [ApiSyriaToolsController::class, 'api_accounts']);
+    Route::post('shamcash_balance', [ApiSyriaToolsController::class, 'shamcash_balance']);
+    Route::post('shamcash_logs', [ApiSyriaToolsController::class, 'shamcash_logs']);
+    Route::post('shamcash_find_transaction', [ApiSyriaToolsController::class, 'shamcash_find_transaction']);
 });
 
 Route::middleware('check_Agency_manager')->group(function () {
@@ -80,5 +89,6 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('update_custom_discount/{discount_id}', [AgencyManagerController::class, 'update_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('delete_custom_discount/{discount_id}', [AgencyManagerController::class, 'delete_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::get('get_all_custom_discounts_grouped_by_company', [AgencyManagerController::class, 'get_all_custom_discounts_grouped_by_company'])->middleware(['check_agency_manager_active', 'check_agency_active']);
-    
+    Route::get('get_purchase_requests_from_companies', [AgencyManagerController::class, 'get_purchase_requests_from_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('create_purchase_invoice', [AgencyManagerController::class, 'create_purchase_invoice'])->middleware(['check_agency_manager_active', 'check_agency_active']);
 });
