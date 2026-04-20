@@ -7,6 +7,7 @@ interface AgencyManagerRepositoryInterface
     public function Agency_register($request, $data, $agency_manager, $agency_logo);
     public function agency_address($request, $agency);
     public function agency_manager_profile($manager_id);
+    public function show_custom_subscriptions($user);
     public function subscribe_in_policy($request, $agency, $paymentData = null);
     public function add_agency_products($request, $agency);
     public function show_agency_products($manager);

@@ -72,7 +72,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         ]);
         return $company_address;
     }
-
+    public function show_custom_subscriptions($user)
+    {
+    $company=$user->solarCompanies()->first();
+    $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy')->get();
+    return $custom_subscribtions;
+    }
     public function subscribe_in_policy($request, $company, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);

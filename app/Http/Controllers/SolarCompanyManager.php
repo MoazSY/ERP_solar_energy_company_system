@@ -286,6 +286,11 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         $company_address = $this->solarCompanyManagerService->company_address($request, $solarCompany);
         return response()->json(['message' => 'company address added successfully', 'company_address' => $company_address]);
     }
+     public function show_custom_subscriptions()
+    {
+        $subscriptions = $this->solarCompanyManagerService->show_custom_subscriptions();
+        return response()->json(['message' => 'custom subscriptions retrieved successfully', 'subscriptions' => $subscriptions]);
+    }
 
     public function subscribe_in_policy(Request $request)
     {
@@ -405,4 +410,5 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'data' => $requests,
         ], 200);
     }
+
 }

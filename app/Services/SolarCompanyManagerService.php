@@ -2,6 +2,8 @@
 namespace App\Services;
 
 // use App\Models\Agency;
+
+use App\Models\Agency_manager;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
@@ -12,6 +14,7 @@ use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class SolarCompanyManagerService
 {
@@ -165,7 +168,23 @@ class SolarCompanyManagerService
         $company_address = $this->solarCompanyManagerRepositoryInterface->company_address($request, $solarCompany);
         return $company_address;
     }
+    public function show_custom_subscriptions()
+    {
+        $token=PersonalAccessToken::findToken(request()->bearerToken());
+        $user=$token->tokenable;
+        if($user instanceof \App\Models\Solar_company_manager){
+            $user = Solar_company_manager::findOrFail($user->id);
+        $subscriptions = $this->solarCompanyManagerRepositoryInterface->show_custom_subscriptions($user);
+        }
+        elseif($user instanceof \App\Models\Agency_manager){
+            $user = Agency_manager::findOrFail($user->id);
+         $subscriptions =app(\App\Repositories\AgencyManagerRepositoryInterface::class)->show_custom_subscriptions($user);
+        }else{
+            return null;
+        }
 
+        return $subscriptions;
+    }
     public function subscribe_in_policy($request)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;

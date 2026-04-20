@@ -72,7 +72,12 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         ]);
         return $agency_address;
     }
-
+    public function show_custom_subscriptions($user)
+    {
+    $agency=$user->agencies()->first();
+    $custom_subscribtions = $agency?->customSubscribes()->with('subscribePolicy')->get();
+    return $custom_subscribtions;
+    }
     public function subscribe_in_policy($request, $agency, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);

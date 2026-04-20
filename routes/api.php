@@ -65,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('shamcash_balance', [ApiSyriaToolsController::class, 'shamcash_balance']);
     Route::post('shamcash_logs', [ApiSyriaToolsController::class, 'shamcash_logs']);
     Route::post('shamcash_find_transaction', [ApiSyriaToolsController::class, 'shamcash_find_transaction']);
+    Route::get('show_custom_subscriptions', [SolarCompanyManager::class, 'show_custom_subscriptions']);
 });
 
 Route::middleware('check_Agency_manager')->group(function () {
