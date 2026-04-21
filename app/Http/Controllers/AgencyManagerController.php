@@ -739,4 +739,5 @@ class AgencyManagerController extends Controller
             'invoice' => $result,
         ], 201);
     }
+    
 }

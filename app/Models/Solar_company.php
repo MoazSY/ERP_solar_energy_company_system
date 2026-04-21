@@ -120,13 +120,19 @@ class Solar_company extends Model
     {
         return $this->morphMany(Payment::class, 'target_table');
     }
+
     public function products(): MorphMany
     {
         return $this->morphMany(Products::class, 'entity_type');
-
     }
+
     public function Order_list(): MorphMany
     {
         return $this->morphMany(Order_list::class, 'request_entity');
+    }
+
+    public function Employment_orders(): MorphMany
+    {
+        return $this->morphMany(Employment_orders::class, 'entity_type');
     }
 }

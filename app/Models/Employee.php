@@ -20,6 +20,7 @@ class Employee extends Authenticatable
         'first_name',
         'last_name',
         'date_of_birth',
+        'employee_type',
         'email',
         'password',
         'phoneNumber',
@@ -80,4 +81,10 @@ class Employee extends Authenticatable
     {
         return $this->morphMany(Payment::class, 'target_table');
     }
+    public function employmentOrders(): HasMany
+    {
+        return $this->hasMany(Employment_orders::class, 'employee_id');
+    }
+    
+
 }
