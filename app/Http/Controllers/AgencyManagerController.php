@@ -697,7 +697,7 @@ class AgencyManagerController extends Controller
     {
         $groupedDiscounts = $this->agencyManagerService->get_all_custom_discounts_grouped_by_company();
 
-        return response()->json(['message' => 'All custom discounts grouped by company retrieved successfully', 'data' => $groupedDiscounts], 200);
+        return response()->json(['message' => 'All custom discounts grouped by company retrieved successfully', 'custom_discounts' => $groupedDiscounts], 200);
     }
 
     public function get_purchase_requests_from_companies()

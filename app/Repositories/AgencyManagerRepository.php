@@ -746,12 +746,21 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
         $discounts = $agency
             ->specific_disscounts()
-            ->where('discount_type_type', 'App\Models\Solar_company')
-            ->with(['discountType', 'product'])
-            ->get()
-            ->groupBy(function ($discount) {
-                return $discount->discount_type_type . ':' . $discount->discount_type_id;
+            ->where('discount_type_type', 'App\Models\Solar_company')->get()
+            // ->with(['discountType', 'product'])
+            ->map(function($discount){
+            return[
+                'custom_discount'=>$discount,
+                'company'=>$discount->discountType,
+                'product'=>$discount->product,
+            ];    
             });
+
+
+            // get()
+            // ->groupBy(function ($discount) {
+            //     return $discount->discount_type_type . ':' . $discount->discount_type_id;
+            // });
 
         return $discounts;
     }
