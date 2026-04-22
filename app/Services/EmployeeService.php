@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Agency;
 use App\Models\Agency_manager;
 use App\Models\Employee;
+use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Repositories\EmployeeRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
@@ -21,35 +23,6 @@ class EmployeeService
     ) {
         $this->employeeRepositoryInterface = $employeeRepositoryInterface;
         $this->tokenRepositoryInterface = $tokenRepositoryInterface;
-    }
-
-    public function register($request, $data)
-    {
-        $identification_image = $request->file('identification_image')->getClientOriginalName();
-        $identification_image_path = $request->file('identification_image')->storeAs('Employee/identification_image', $identification_image, 'public');
-        $identification_image_URL = asset('storage/' . $identification_image_path);
-
-        if ($request->hasFile('image')) {
-            $image = $request->file('image')->getClientOriginalName();
-            $imagepath = $request->file('image')->storeAs('Employee/images', $image, 'public');
-            $employee = $this->employeeRepositoryInterface->Create($request, $imagepath, $identification_image_path, $data);
-            $imageUrl = asset('storage/' . $imagepath);
-        } else {
-            $employee = $this->employeeRepositoryInterface->Create($request, null, $identification_image_path, $data);
-            $imageUrl = null;
-        }
-
-        $token = $employee->createToken('authToken')->plainTextToken;
-        $this->tokenRepositoryInterface->Add_expierd_token($token);
-        $refresh_token = $this->tokenRepositoryInterface->Add_refresh_token($token);
-
-        return [
-            'employee' => $employee,
-            'token' => $token,
-            'refresh_token' => $refresh_token,
-            'imageUrl' => $imageUrl,
-            'identification_image_URL' => $identification_image_URL,
-        ];
     }
 
     public function employee_profile()
@@ -127,15 +100,7 @@ class EmployeeService
         return [$employee, $imageUrl, $identificationImageUrl];
     }
 
-    public function request_employment_order($request)
-    {
-        $employee_id = Auth::guard('employee')->user()->id;
-        $employee = Employee::findOrFail($employee_id);
-
-        return $this->employeeRepositoryInterface->request_employment_order($request, $employee);
-    }
-
-    public function process_employment_order($request)
+    public function create_internal_employee_request($request, $data)
     {
         if (Auth::guard('company_manager')->check()) {
             $manager = Solar_company_manager::findOrFail(Auth::guard('company_manager')->user()->id);
@@ -145,7 +110,84 @@ class EmployeeService
                 return ['error' => 'No solar company found for this manager'];
             }
 
-            return $this->employeeRepositoryInterface->process_employment_order($request, $entity, \App\Models\Solar_company::class);
+            $entityTypeClass = Solar_company::class;
+        } elseif (Auth::guard('agency_manager')->check()) {
+            $manager = Agency_manager::findOrFail(Auth::guard('agency_manager')->user()->id);
+            $entity = $manager->agencies()->first();
+
+            if (!$entity) {
+                return ['error' => 'No agency found for this manager'];
+            }
+
+            $entityTypeClass = Agency::class;
+        } else {
+            return ['error' => 'Unauthorized'];
+        }
+
+        if ($request->hasFile('identification_image')) {
+            $identification_image = $request->file('identification_image')->getClientOriginalName();
+            $request['identification_image'] = $request->file('identification_image')->storeAs('Employee/identification_image', $identification_image, 'public');
+        }
+
+        if ($request->hasFile('image')) {
+            $image = $request->file('image')->getClientOriginalName();
+            $request['image'] = $request->file('image')->storeAs('Employee/images', $image, 'public');
+        }
+
+        return $this->employeeRepositoryInterface->create_internal_employee_request($request, $entity, $entityTypeClass, $data);
+    }
+
+    public function register_employee_company_agency($request)
+    {
+        if (Auth::guard('company_manager')->check()) {
+            $manager = Solar_company_manager::findOrFail(Auth::guard('company_manager')->user()->id);
+            $entity = $manager->solarCompanies()->first();
+
+            if (!$entity) {
+                return ['error' => 'No solar company found for this manager'];
+            }
+
+            $entityTypeClass = Solar_company::class;
+        } elseif (Auth::guard('agency_manager')->check()) {
+            $manager = Agency_manager::findOrFail(Auth::guard('agency_manager')->user()->id);
+            $entity = $manager->agencies()->first();
+
+            if (!$entity) {
+                return ['error' => 'No agency found for this manager'];
+            }
+
+            $entityTypeClass = Agency::class;
+        } else {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->register_employee_company_agency($request, $entity, $entityTypeClass);
+    }
+
+    public function filter_employee($filter)
+    {
+        $employee = $this->employeeRepositoryInterface->search_employees($filter);
+        $map = $employee->map(function ($emp) {
+            return [
+                'employee' => $emp,
+                'imageUrl' => $emp->image ? asset('storage/' . $emp->image) : null,
+                'identification_imageUrl' => $emp->identification_image ? asset('storage/' . $emp->identification_image) : null,
+            ];
+        });
+        return $map;
+    }
+
+    public function show_entity_employees()
+    {
+        if (Auth::guard('company_manager')->check()) {
+            $manager = Solar_company_manager::findOrFail(Auth::guard('company_manager')->user()->id);
+            $entity = $manager->solarCompanies()->first();
+
+            if (!$entity) {
+                return ['error' => 'No solar company found for this manager'];
+            }
+
+            return $this->employeeRepositoryInterface->show_entity_employees($entity, Solar_company::class);
         }
 
         if (Auth::guard('agency_manager')->check()) {
@@ -156,41 +198,9 @@ class EmployeeService
                 return ['error' => 'No agency found for this manager'];
             }
 
-            return $this->employeeRepositoryInterface->process_employment_order($request, $entity, \App\Models\Agency::class);
+            return $this->employeeRepositoryInterface->show_entity_employees($entity, Agency::class);
         }
 
         return ['error' => 'Unauthorized'];
-    }
-
-    public function show_employment_orders()
-    {
-        if (Auth::guard('employee')->check()) {
-            $employee_id = Auth::guard('employee')->user()->id;
-            $employee=Employee::findOrFail($employee_id);
-            return $this->employeeRepositoryInterface->show_employee_employment_orders($employee);
-        }
-
-        if (Auth::guard('company_manager')->check()) {
-            $manager = Solar_company_manager::findOrFail(Auth::guard('company_manager')->user()->id);
-            $entity = $manager->solarCompanies()->first();
-
-            if (!$entity) {
-                return collect();
-            }
-            return $this->employeeRepositoryInterface->show_entity_employment_orders($entity);
-        }
-
-        if (Auth::guard('agency_manager')->check()) {
-            $manager = Agency_manager::findOrFail(Auth::guard('agency_manager')->user()->id);
-            $entity = $manager->agencies()->first();
-
-            if (!$entity) {
-                return collect();
-            }
-
-            return $this->employeeRepositoryInterface->show_entity_employment_orders($entity);
-        }
-
-        return collect();
     }
 }

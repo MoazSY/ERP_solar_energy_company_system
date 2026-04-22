@@ -21,7 +21,7 @@ return new class extends Migration
             $table->enum("work_type", ["full_time", "task_based"])->default("full_time");
             $table->enum("payment_method", ["bank_transfer", "cash"])->default("bank_transfer")->nullable();
             $table->enum("payment_frequency", ["daily", "weekly", "monthly","after_task"])->default("monthly")->nullable();
-            $table->decimal("salary_rate", 2, 2)->default(0)->nullable();
+            $table->decimal("salary_rate", 5, 2)->default(0)->nullable();
             $table->decimal("salary_amount", 8, 2)->default(0)->nullable();
             $table->timestamps();
         });

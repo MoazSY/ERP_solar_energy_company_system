@@ -18,7 +18,7 @@ class EmployeeController extends Controller
         $this->employeeService = $employeeService;
     }
 
-    public function employee_register(Request $request)
+    public function register_employee(Request $request)
     {
         $validate = Validator::make($request->all(), [
             'first_name' => 'required|string',
@@ -32,19 +32,12 @@ class EmployeeController extends Controller
             'image' => 'sometimes|nullable|mimes:jpg,jpeg,png,webp|max:2048',
             'identification_image' => 'required|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
-            'employee_type' => 'sometimes|in:technician,inventory_manager,driver'
+            'employee_type' => 'required|in:technician,inventory_manager,driver'
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $intrnalPhone = '963' . substr($request['phoneNumber'], 1);
-        $cached_phone = Cache::get('otp_' . $intrnalPhone);
-        $cached_email = Cache::get('otp_' . $request['email']);
-        if (!$cached_phone || !$cached_email) {
-            return response()->json([
-                'message' => 'OTP expired or not verified'
-            ], 400);
-        }
+
         $uniqueRequest = app(StoreUserRequest::class);
         $uniqueRequest->ignoreId = null;
         $uniqueRequest->ignoreTable = null;
@@ -53,20 +46,50 @@ class EmployeeController extends Controller
             'phoneNumber' => $request->phoneNumber,
         ]);
         $uniqueRequest->prepareForValidation();
-        $uniqueValidator = Validator::make(
+        $data = Validator::make(
             $uniqueRequest->all(),
             $uniqueRequest->rules()
-        );
-        $data = $uniqueValidator->validate();
-        $result = $this->employeeService->register($request, $data);
+        )->validate();
+
+        $result = $this->employeeService->create_internal_employee_request($request, $data);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
 
         return response()->json([
-            'message' => 'employee register successfully',
+            'message' => 'employee request created successfully',
             'employee' => $result['employee'],
-            'imageUrl' => $result['imageUrl'],
-            'token' => $result['token'],
-            'refresh_token' => $result['refresh_token'],
-            'identification_image_URL' => $result['identification_image_URL'],
+        ]);
+    }
+
+    public function register_employee_company_agency(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'employee_id' => 'required|exists:employees,id',
+            'role' => 'required|in:install_technician,metal_base_technician,blacksmith_workshop,driver,inventory_manager',
+            'salary_type' => 'required|in:fixed,rate',
+            'currency' => 'required|in:USD,SY',
+            'work_type' => 'required|in:full_time,task_based',
+            'payment_method' => 'sometimes|in:bank_transfer,cash',
+            'payment_frequency' => 'sometimes|in:daily,weekly,monthly,after_task',
+            'salary_rate' => 'required_if:salary_type,rate|nullable|numeric|min:0',
+            'salary_amount' => 'required_if:salary_type,fixed|nullable|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $result = $this->employeeService->register_employee_company_agency($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'employee assigned successfully',
+            'employee_assignment' => $result,
         ]);
     }
 
@@ -165,57 +188,37 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function request_employment_order(Request $request)
+    public function filter_employee(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'entity_type' => 'required|in:solar_company,agency',
-            'entity_id' => 'required|integer',
-            'job_title' => 'required|string|in:technician,inventory_manager,driver',
+            'first_name' => 'sometimes|string',
+            'last_name' => 'sometimes|string',
+            'employee_type' => 'sometimes|in:technician,inventory_manager,driver',
+            'email' => 'sometimes|email',
+            'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
         ]);
         if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()]);
+            return response()->json(['message' => $validate->errors()], 400);
         }
-        $result = $this->employeeService->request_employment_order($request);
-
-        if (isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 400);
-        }
-
+        $filters = $validate->validated();
+        $employees = $this->employeeService->filter_employee($filters);
         return response()->json([
-            'message' => 'Employment order requested successfully',
-            'employment_order' => $result,
+            'message' => 'employees retrieved successfully',
+            'employees' => $employees,
         ]);
     }
 
-    public function process_employment_order(Request $request)
+    public function show_entity_employees()
     {
-        $validate = Validator::make($request->all(), [
-            'employment_order_id' => 'required|integer|exists:employment_orders,id',
-            'status' => 'required|in:accepted,rejected',
-            'reject_cause' => 'required_if:status,rejected|string',
-        ]);
+        $employees = $this->employeeService->show_entity_employees();
 
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 422);
-        }
-
-        $result = $this->employeeService->process_employment_order($request);
-        if (isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 400);
+        if (isset($employees['error'])) {
+            return response()->json(['message' => $employees['error']], 400);
         }
 
         return response()->json([
-            'message' => 'Employment order processed successfully',
-            'employment_order' => $result
-        ]);
-    }
-    public function show_employment_orders()
-    {
-        $orders = $this->employeeService->show_employment_orders();
-
-        return response()->json([
-            'message' => 'Employment orders retrieved successfully',
-            'employment_orders' => $orders,
+            'message' => 'entity employees retrieved successfully',
+            'employees' => $employees,
         ]);
     }
 }

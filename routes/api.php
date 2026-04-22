@@ -19,7 +19,6 @@ Route::post('Refresh_token', [OtpController::class, 'Refresh_token']);
 Route::post('admin_register', [System_admin::class, 'Register']);
 Route::post('company_manager_register', [SolarCompanyManager::class, 'Register']);
 Route::post('agency_manager_register', [AgencyManagerController::class, 'Register']);
-Route::post('employee_register', [EmployeeController::class, 'employee_register']);
 Route::get('get_governorates', [System_admin::class, 'get_governorates']);
 Route::get('get_areas/{governorates}', [System_admin::class, 'get_areas']);
 Route::get('get_neighborhoods/{area}', [System_admin::class, 'get_neighborhoods']);
@@ -28,6 +27,7 @@ Route::post('login', [OtpController::class, 'login']);
 Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
 Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
 Route::post('logout', [OtpController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('filter_employee', [EmployeeController::class, 'filter_employee']);
 
 Route::middleware('check_admin')->group(function () {
     Route::get('Admin_profile', [System_admin::class, 'Admin_profile']);
@@ -58,8 +58,6 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
     Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
     Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
-    Route::get('company_manager/show_employment_orders', [EmployeeController::class, 'show_employment_orders']);
-    Route::post('company_manager/process_employment_order', [EmployeeController::class, 'process_employment_order']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -69,6 +67,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('shamcash_logs', [ApiSyriaToolsController::class, 'shamcash_logs']);
     Route::post('shamcash_find_transaction', [ApiSyriaToolsController::class, 'shamcash_find_transaction']);
     Route::get('show_custom_subscriptions', [SolarCompanyManager::class, 'show_custom_subscriptions']);
+    Route::post('register_employee_company_agency', [EmployeeController::class, 'register_employee_company_agency']);
+    Route::post('register_employee', [EmployeeController::class, 'register_employee']);
+    Route::get('show_entity_employees', [EmployeeController::class, 'show_entity_employees']);
 });
 
 Route::middleware('check_Agency_manager')->group(function () {
@@ -95,13 +96,9 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::get('get_all_custom_discounts_grouped_by_company', [AgencyManagerController::class, 'get_all_custom_discounts_grouped_by_company'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::get('get_purchase_requests_from_companies', [AgencyManagerController::class, 'get_purchase_requests_from_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('create_purchase_invoice', [AgencyManagerController::class, 'create_purchase_invoice'])->middleware(['check_agency_manager_active', 'check_agency_active']);
-    Route::get('agency_manager/show_employment_orders', [EmployeeController::class, 'show_employment_orders']);
-    Route::post('agency_manager/process_employment_order', [EmployeeController::class, 'process_employment_order']);
 });
 
 Route::middleware('check_employee')->group(function () {
     Route::get('employee_profile', [EmployeeController::class, 'employee_profile']);
     Route::post('employee/update_profile', [EmployeeController::class, 'update_profile']);
-    Route::post('employee/request_employment_order', [EmployeeController::class, 'request_employment_order']);
-    Route::get('employee/show_employment_orders', [EmployeeController::class, 'show_employment_orders']);
 });
