@@ -169,7 +169,8 @@ class AgencyManagerService
         $agency_manager_id = Auth::guard('agency_manager')->user()->id;
         $agency_manager = Agency_manager::findOrFail($agency_manager_id);
         $agency = $agency_manager->agencies()->first();
-        $beneficiaryAdmin = System_admin::find(1);
+        $subscribePolicy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
+        $beneficiaryAdmin = System_admin::find($subscribePolicy->admin_id);
 
         if (!$beneficiaryAdmin) {
             return ['error' => 'Payment beneficiary admin is not configured'];
@@ -179,7 +180,6 @@ class AgencyManagerService
             return ['error' => 'Unsupported payment method'];
         }
 
-        $subscribePolicy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribePolicy->currency == 'USD') {
             $amount = (float) $subscribePolicy->subscription_fee * 1350;
         } else {

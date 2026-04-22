@@ -807,6 +807,8 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             return ['error' => 'order list has no items'];
         }
         if ($orderList->with_delivery) {
+            $delivery_fee = 0;
+
             // Handle delivery fee logic if needed
             // $delivery_fee=calculate_delivery_fee($orderList); // Implement this function based on your logic
         } else {
@@ -824,7 +826,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'invoice_date' => $orderList->created_at->toDateString(),
             'due_date' => $request->due_date,
             'currency' => 'USD',  // يمكن تحديده من الطلبية لاحقاً
-            'delivery_fee' => $delivery_fee,  // تُحدد لاحقاً
+            'delivery_fee' => $delivery_fee ,  // تُحدد لاحقاً
             'installation_fee' => 0,  // تُحدد لاحقاً
             'subtotal' => $orderList->sub_total_amount ?? 0,
             'total_discount' => $orderList->total_discount_amount ?? 0,
