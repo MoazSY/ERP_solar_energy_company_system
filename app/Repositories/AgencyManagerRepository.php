@@ -857,4 +857,41 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         ]);
         return $delivery_rule;
     }
+
+    public function assign_delivery_task($request, $agency, $orderList)
+    {
+        $address = $orderList->request_entity()->addresses()->first();
+        $delivery_task = $agency->Assign_delivery_tasks()->create([
+            'deliverable_object_type' => get_class($orderList),
+            'deliverable_object_id' => $orderList->id,
+            'order_list_id' => $orderList->id,
+            'delivery_fee' => 0,  // temporary, to be calculated based on delivery rules and order details
+            'currency' => 'SY',  // obtain from delivery rules or order details
+            'delivery_status' => 'pending',
+            'address_id' => $address->id ?? null,
+            'delivery_address' => $address ? $address->address_description : null,
+            'governorate_id' => $address->governorate_id ?? null,
+            'area_id' => $address->area_id ?? null,
+            'contact_name' => $orderList->request_entity->company_name ?? 'company',
+            'contact_phone' => $orderList->request_entity->company_phone ?? null,
+            'latitude' => $address->latitude ?? null,
+            'longitude' => $address->longitude ?? null,
+            'driver_id' => $request->driver_id ?? null,
+            'scheduled_delivery_datetime' => $orderList->purchaseInvoices()->first()->due_date ?? null,
+            'weight_kg' => $orderList
+                ->Items()
+                ->with(['product.inverters', 'product.batteries', 'product.solarPanals'])
+                ->get()
+                ->sum(function ($item) {
+                    $unitWeight = $item->product?->inverters?->weight_kg
+                        ?? $item->product?->batteries?->weight_kg
+                        ?? $item->product?->solarPanals?->weight_kg
+                        ?? 0;
+
+                    return $unitWeight * ($item->quantity ?? 1);
+                }),
+            'driver_approved_delivery_task' => 'pending'
+        ]);
+        return $delivery_task;
+    }
 }

@@ -77,11 +77,15 @@ class Agency extends Model
     public function Invoice_purchase(): MorphMany
     {
         return $this->morphMany(Purchase_invoice::class, 'seller_entity');
-}
+    }
 public function Employment_orders():MorphMany{
     return $this->morphMany(Employment_orders::class,'entity_type');
 }
 public function deliveryRules():MorphMany{
     return $this->morphMany(Delivery_rules::class,'entity_type');
+    }
+    public function Assign_delivery_tasks(): MorphMany
+    {
+        return $this->morphMany(Deliveries::class, 'entity_type');
     }
 }

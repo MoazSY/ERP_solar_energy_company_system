@@ -27,4 +27,5 @@ interface AgencyManagerRepositoryInterface
     public function get_purchase_requests_from_companies($manager);
     public function create_purchase_invoice($request, $agency, $orderList);
     public function delivery_rules($request,$agency);
+    public function assign_delivery_task($request,$agency,$orderList);
 }

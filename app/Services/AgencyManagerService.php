@@ -3,6 +3,7 @@ namespace App\Services;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Order_list;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
 use App\Repositories\AgencyManagerRepositoryInterface;
@@ -395,6 +396,12 @@ class AgencyManagerService
         $agencyManager=Agency_manager::findOrFail($agencyManager->id);
         $agency=$agencyManager->agencies()->first();
         return $this->agencyManagerRepositoryInterface->delivery_rules($request,$agency);
-        
+    }
+    public function assign_delivery_task($request){
+        $agencyManager=Auth::guard('agency_manager')->user();
+        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
+        $agency=$agencyManager->agencies()->first();
+        $orderList=Order_list::findOrFail($request->order_list_id);
+        return $this->agencyManagerRepositoryInterface->assign_delivery_task($request,$agency,$orderList);
     }
 }

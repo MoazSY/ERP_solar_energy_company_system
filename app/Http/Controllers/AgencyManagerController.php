@@ -757,5 +757,18 @@ class AgencyManagerController extends Controller
         $rule=$this->agencyManagerService->delivery_rules($request);
         return response()->json(['message' => 'Delivery rule created successfully', 'rule' => $rule], 201);
     }
+    public function assign_delivery_task(Request $request){
+        $validate=Validator::make($request->all(),[
+            'order_list_id'=>'required|exists:order_lists,id',
+            'driver_id'=>'required|exists:company_agency_employees,id',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        // $request=$validate->validated();
+        $task=$this->agencyManagerService->assign_delivery_task($request);
+        return response()->json(['message' => 'Delivery task assigned successfully', 'task' => $task], 201);
+
+    }
 
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -52,9 +53,9 @@ class Order_list extends Model
     {
         return $this->hasMany(Deliveries::class, 'order_list_id');
     }
-    public function purchaseInvoices(): HasMany
+    public function purchaseInvoices(): HasOne
     {
-        return $this->hasMany(Purchase_invoice::class, 'order_list_id');
+        return $this->hasOne(Purchase_invoice::class, 'order_list_id');
     }
     public function Items():MorphMany
     {
