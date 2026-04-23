@@ -85,6 +85,10 @@ class Employee extends Authenticatable
     {
         return $this->hasMany(Employment_orders::class, 'employee_id');
     }
+    public function driverDeliveries(): HasMany
+    {
+        return $this->hasMany(Deliveries::class, 'driver_id');
+    }
     
 
 }

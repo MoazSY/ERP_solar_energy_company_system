@@ -226,6 +226,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'orderable_entity_id' => $agency->id,
                 'status' => 'pending',
                 'with_delivery' => $request->with_delivery ?? false,
+                'request_datetime'=>now()
             ]);
 
             foreach ($productIds as $productId) {

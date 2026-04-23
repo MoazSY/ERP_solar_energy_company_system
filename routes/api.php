@@ -103,4 +103,6 @@ Route::middleware('check_Agency_manager')->group(function () {
 Route::middleware('check_employee')->group(function () {
     Route::get('employee_profile', [EmployeeController::class, 'employee_profile']);
     Route::post('employee/update_profile', [EmployeeController::class, 'update_profile']);
+    Route::get('show_delivery_tasks',[EmployeeController::class,'show_delivery_tasks']);
+    Route::post('proccess_delivery_task',[EmployeeController::class,'proccess_delivery_task']);
 });

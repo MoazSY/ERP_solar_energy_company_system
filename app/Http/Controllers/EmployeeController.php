@@ -221,4 +221,32 @@ class EmployeeController extends Controller
             'employees' => $employees,
         ]);
     }
+    public function show_delivery_tasks(){
+        $delivery_task=$this->employeeService->show_delivery_tasks();
+        if (isset($delivery_task['error'])) {
+            return response()->json(['message' => $delivery_task['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Delivery tasks retrieved successfully',
+            'delivery_tasks' => $delivery_task,
+        ]);
+
+    }
+    public function proccess_delivery_task(Request $request){
+        $validate = Validator::make($request->all(), [
+            'delivery_id' => 'required|exists:deliveries,id',
+            'action' => 'required|in:approve,reject',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+            $result=$this->employeeService->proccess_delivery_task($request);
+            if (isset($result['error'])) {
+                return response()->json(['message' => $result['error']], 400);
+            }
+            return response()->json([
+            'message' => 'Delivery task processed successfully',
+            'delivery_task' => $result,
+        ]);
+    }
 }

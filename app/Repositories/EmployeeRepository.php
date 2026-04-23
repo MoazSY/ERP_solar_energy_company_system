@@ -2,6 +2,7 @@
 namespace App\Repositories;
 
 use App\Models\Company_agency_employee;
+use App\Models\Deliveries;
 use App\Models\Employee;
 // use App\Models\Employment_orders;
 use Illuminate\Support\Facades\Hash;
@@ -119,5 +120,52 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'identification_imageUrl' => $assignment->employee?->identification_image ? asset('storage/' . $assignment->employee->identification_image) : null,
             ];
         });
+    }
+
+    public function show_delivery_tasks($employee)
+    {
+        $deliveries = $employee->driverDeliveries()->with(['deliverable_object', 'entity_type'])->get();
+        $delivery_tasks = $deliveries->map(function ($delivery) {
+            $targetEntity = $delivery->deliverable_object?->request_entity;
+
+            return [
+                'delivery' => $delivery,
+                'order_list' => $delivery->deliverable_object,
+                'entity_source' => $delivery->entity_type,
+                'entity_target' => $targetEntity,
+                'address' => $targetEntity?->addresses()->first(),
+                'items' => $delivery->deliverable_object->Items()->with('product')->get(),
+                'weight_kg' => $delivery
+                    ->deliverable_object
+                    ->Items()
+                    ->with(['product.inverters', 'product.batteries', 'product.solarPanals'])
+                    ->get()
+                    ->sum(function ($item) {
+                        $unitWeight = $item->product?->inverters?->weight_kg
+                            ?? $item->product?->batteries?->weight_kg
+                            ?? $item->product?->solarPanals?->weight_kg
+                            ?? 0;
+
+                        return $unitWeight * ($item->quantity ?? 1);
+                    })
+            ];
+        });
+        return $delivery_tasks;
+    }
+    public function proccess_delivery_task($request, $employee)
+    {
+        $delivery = Deliveries::findOrFail($request->delivery_id);
+
+        if ($delivery->driver_id !== $employee->id) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        if ($delivery->driver_approved_delivery_task !== 'pending') {
+            return ['error' => 'This delivery task has already been processed'];
+        }
+
+        $delivery->driver_approved_delivery_task = $request->action === 'approve' ? 'approve' : 'reject';
+        $delivery->save();
+    return $delivery;
     }
 }

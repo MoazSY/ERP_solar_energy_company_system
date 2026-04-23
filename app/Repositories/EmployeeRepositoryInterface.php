@@ -12,4 +12,6 @@ interface EmployeeRepositoryInterface
     public function register_employee_company_agency($request, $entity, $entityTypeClass);
     public function search_employees($filter);
     public function show_entity_employees($entity, $entityTypeClass);
+    public function show_delivery_tasks($employee);
+    public function proccess_delivery_task($request, $employee);
 }

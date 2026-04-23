@@ -404,4 +404,5 @@ class AgencyManagerService
         $orderList=Order_list::findOrFail($request->order_list_id);
         return $this->agencyManagerRepositoryInterface->assign_delivery_task($request,$agency,$orderList);
     }
+    
 }

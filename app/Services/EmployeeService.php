@@ -203,4 +203,20 @@ class EmployeeService
 
         return ['error' => 'Unauthorized'];
     }
+    public function show_delivery_tasks(){
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if($employee->employee_type != 'driver'){
+            return ['error' => 'Unauthorized'];
+        }
+        return $this->employeeRepositoryInterface->show_delivery_tasks($employee);
+    }
+    public function proccess_delivery_task($request){
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if($employee->employee_type != 'driver'){
+        return ['error' => 'Unauthorized'];
+        }
+        return $this->employeeRepositoryInterface->proccess_delivery_task($request,$employee);
+    }
 }
