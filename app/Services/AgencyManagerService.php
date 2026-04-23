@@ -390,4 +390,11 @@ class AgencyManagerService
 
         return $this->agencyManagerRepositoryInterface->create_purchase_invoice($request, $agency, $orderList);
     }
+    public function delivery_rules($request){
+        $agencyManager=Auth::guard('agency_manager')->user();
+        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
+        $agency=$agencyManager->agencies()->first();
+        return $this->agencyManagerRepositoryInterface->delivery_rules($request,$agency);
+        
+    }
 }

@@ -72,12 +72,14 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         ]);
         return $agency_address;
     }
+
     public function show_custom_subscriptions($user)
     {
-    $agency=$user->agencies()->first();
-    $custom_subscribtions = $agency?->customSubscribes()->with('subscribePolicy')->get();
-    return $custom_subscribtions;
+        $agency = $user->agencies()->first();
+        $custom_subscribtions = $agency?->customSubscribes()->with('subscribePolicy')->get();
+        return $custom_subscribtions;
     }
+
     public function subscribe_in_policy($request, $agency, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
@@ -746,21 +748,21 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
         $discounts = $agency
             ->specific_disscounts()
-            ->where('discount_type_type', 'App\Models\Solar_company')->get()
+            ->where('discount_type_type', 'App\Models\Solar_company')
+            ->get()
             // ->with(['discountType', 'product'])
-            ->map(function($discount){
-            return[
-                'custom_discount'=>$discount,
-                'company'=>$discount->discountType,
-                'product'=>$discount->product,
-            ];    
+            ->map(function ($discount) {
+                return [
+                    'custom_discount' => $discount,
+                    'company' => $discount->discountType,
+                    'product' => $discount->product,
+                ];
             });
 
-
-            // get()
-            // ->groupBy(function ($discount) {
-            //     return $discount->discount_type_type . ':' . $discount->discount_type_id;
-            // });
+        // get()
+        // ->groupBy(function ($discount) {
+        //     return $discount->discount_type_type . ':' . $discount->discount_type_id;
+        // });
 
         return $discounts;
     }
@@ -794,7 +796,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
     {
         $buyer = $orderList->request_entity;  // Solar Company
         $seller = $agency;  // Agency
-        $orderList->status='in_progress';
+        $orderList->status = 'in_progress';
         $orderList->save();
         // Generate unique invoice number
         $invoiceNumber = 'INV-' . date('YmdHis') . '-' . $agency->id;
@@ -826,7 +828,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'invoice_date' => $orderList->created_at->toDateString(),
             'due_date' => $request->due_date,
             'currency' => 'USD',  // يمكن تحديده من الطلبية لاحقاً
-            'delivery_fee' => $delivery_fee ,  // تُحدد لاحقاً
+            'delivery_fee' => $delivery_fee,  // تُحدد لاحقاً
             'installation_fee' => 0,  // تُحدد لاحقاً
             'subtotal' => $orderList->sub_total_amount ?? 0,
             'total_discount' => $orderList->total_discount_amount ?? 0,
@@ -838,5 +840,21 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             // notify the driver to deliver the order
         }
         return $purchaseInvoice;
+    }
+
+    public function delivery_rules($request, $agency)
+    {
+        $delivery_rule = $agency->deliveryRules()->create([
+            'rule_name' => $request['rule_name'],
+            'governorate_id' => $request['governorate_id'],
+            'area_id' => $request['area_id'],
+            'delivery_fee' => $request['delivery_fee'],
+            'price_per_km' => $request['price_per_km'],
+            'max_weight_kg' => $request['max_weight_kg'],
+            'price_per_extra_kg' => $request['price_per_extra_kg'],
+            'currency' => $request['currency'],
+            'is_active' => true
+        ]);
+        return $delivery_rule;
     }
 }

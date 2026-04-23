@@ -26,4 +26,5 @@ interface AgencyManagerRepositoryInterface
     public function get_all_custom_discounts_grouped_by_company();
     public function get_purchase_requests_from_companies($manager);
     public function create_purchase_invoice($request, $agency, $orderList);
+    public function delivery_rules($request,$agency);
 }

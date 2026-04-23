@@ -739,5 +739,23 @@ class AgencyManagerController extends Controller
             'invoice' => $result,
         ], 201);
     }
-    
+    public function deliviry_rules(Request $request){
+        $validate=Validator::make($request->all(),[
+            'rule_name'=>'sometimes|string',
+            'governorate_id'=>'sometimes|exists:governorates,id',
+            'area_id'=>'sometimes|exists:areas,id',
+            'delivery_fee'=>'sometimes|numeric|min:0',
+            'price_per_km'=>'sometimes|numeric|min:0',
+            'max_weight_kg'=>'sometimes|integer|min:0',
+            'price_per_extra_kg'=>'sometimes|numeric|min:0',
+            'currency'=>'sometimes|string|in:USD,SY',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        $request=$validate->validated();
+        $rule=$this->agencyManagerService->delivery_rules($request);
+        return response()->json(['message' => 'Delivery rule created successfully', 'rule' => $rule], 201);
+    }
+
 }

@@ -81,4 +81,7 @@ class Agency extends Model
 public function Employment_orders():MorphMany{
     return $this->morphMany(Employment_orders::class,'entity_type');
 }
+public function deliveryRules():MorphMany{
+    return $this->morphMany(Delivery_rules::class,'entity_type');
+    }
 }

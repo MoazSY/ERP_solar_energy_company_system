@@ -96,6 +96,7 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::get('get_all_custom_discounts_grouped_by_company', [AgencyManagerController::class, 'get_all_custom_discounts_grouped_by_company'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::get('get_purchase_requests_from_companies', [AgencyManagerController::class, 'get_purchase_requests_from_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('create_purchase_invoice', [AgencyManagerController::class, 'create_purchase_invoice'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('delivery_rules',[AgencyManagerController::class, 'deliviry_rules'])->middleware(['check_agency_manager_active', 'check_agency_active']);
 });
 
 Route::middleware('check_employee')->group(function () {
