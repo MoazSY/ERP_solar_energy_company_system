@@ -34,4 +34,7 @@ return [
         // 'beneficiary_gsm' => env('API_SYRIA_BENEFICIARY_GSM'),
         // 'shamcash_beneficiary_account_address' => env('API_SYRIA_SHAMCASH_BENEFICIARY_ACCOUNT_ADDRESS'),
     ],
+    'osrm' => [
+        'base_url' => env('OSRM_BASE_URL', 'https://router.project-osrm.org'),
+    ],
 ];

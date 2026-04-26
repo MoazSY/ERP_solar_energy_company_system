@@ -21,15 +21,18 @@ class SolarCompanyManagerService
     protected $solarCompanyManagerRepositoryInterface;
     protected $tokenRepositoryInterface;
     protected $apiSyriaService;
+    protected $osrmService;
 
     public function __construct(
         SolarCompanyManagerRepositoryInterface $solarCompanyManagerRepositoryInterface,
         TokenRepositoryInterface $tokenRepositoryInterface,
-        ApiSyriaService $apiSyriaService
+        ApiSyriaService $apiSyriaService,
+        OsrmService $osrmService
     ) {
         $this->solarCompanyManagerRepositoryInterface = $solarCompanyManagerRepositoryInterface;
         $this->tokenRepositoryInterface = $tokenRepositoryInterface;
         $this->apiSyriaService = $apiSyriaService;
+        $this->osrmService = $osrmService;
     }
 
     public function Register($request, $data)
@@ -168,23 +171,24 @@ class SolarCompanyManagerService
         $company_address = $this->solarCompanyManagerRepositoryInterface->company_address($request, $solarCompany);
         return $company_address;
     }
+
     public function show_custom_subscriptions()
     {
-        $token=PersonalAccessToken::findToken(request()->bearerToken());
-        $user=$token->tokenable;
-        if($user instanceof \App\Models\Solar_company_manager){
+        $token = PersonalAccessToken::findToken(request()->bearerToken());
+        $user = $token->tokenable;
+        if ($user instanceof \App\Models\Solar_company_manager) {
             $user = Solar_company_manager::findOrFail($user->id);
-        $subscriptions = $this->solarCompanyManagerRepositoryInterface->show_custom_subscriptions($user);
-        }
-        elseif($user instanceof \App\Models\Agency_manager){
+            $subscriptions = $this->solarCompanyManagerRepositoryInterface->show_custom_subscriptions($user);
+        } elseif ($user instanceof \App\Models\Agency_manager) {
             $user = Agency_manager::findOrFail($user->id);
-         $subscriptions =app(\App\Repositories\AgencyManagerRepositoryInterface::class)->show_custom_subscriptions($user);
-        }else{
+            $subscriptions = app(\App\Repositories\AgencyManagerRepositoryInterface::class)->show_custom_subscriptions($user);
+        } else {
             return null;
         }
 
         return $subscriptions;
     }
+
     public function subscribe_in_policy($request)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
@@ -249,7 +253,7 @@ class SolarCompanyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse,$toAccountAddress);
+        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse, $toAccountAddress);
         return $subscribe;
     }
 
@@ -329,7 +333,10 @@ class SolarCompanyManagerService
 
         $products = collect($request->products);
         $productIds = $products->pluck('id')->all();
-        $productsMap = Products::whereIn('id', $productIds)->get()->keyBy('id');
+        $productsMap = Products::whereIn('id', $productIds)
+            ->with(['inverters', 'batteries', 'solarPanals'])
+            ->get()
+            ->keyBy('id');
 
         $amount = 0;
         foreach ($products as $item) {
@@ -341,6 +348,8 @@ class SolarCompanyManagerService
             $unitPrice = (float) $product->price;
             if ($product->currency === 'USD') {
                 $unitPrice *= 1.35;
+            }else{
+                $unitPrice /= 100; // convert from old SYP to new SYP
             }
 
             $quantity = (int) $item['quantity'];  //
@@ -358,9 +367,17 @@ class SolarCompanyManagerService
         if ($amount <= 0) {
             return ['error' => 'Invalid amount for payment'];
         }
+
+        $deliveryPricing = null;
         if ($request->with_delivery) {
-            // $amount += 5000; // Add fixed delivery fee
-            // هنا اريد الربط مع خدمات الخرائط لحساب المسافة بين الشركة والوكالة واضافة رسوم النقل
+            $deliveryPricing = $this->osrmService->calculateDeliveryFeeForPurchase($agency, $company, $products, $productsMap);
+
+            if (isset($deliveryPricing['error'])) {
+                return ['error' => $deliveryPricing['error']];
+            }
+
+            $amount += $deliveryPricing['delivery_fee'];
+            $request->merge(['calculated_delivery_fee' => $deliveryPricing['delivery_fee']]);
         }
         if ($request->payment_method === 'syriatel_cash') {
             $toGsm = $beneficiaryManager->syriatel_cash_phone;
@@ -404,14 +421,24 @@ class SolarCompanyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        return $this->solarCompanyManagerRepositoryInterface->request_purchase_invoice_agency(
+        $result = $this->solarCompanyManagerRepositoryInterface->request_purchase_invoice_agency(
             $agency_id,
             $request,
             $company,
             $paymentResponse,
             $request->payment_method,
-            $amount,$toAccountAddress ?? null
+            $amount, $toAccountAddress ?? null
         );
+
+        if ($deliveryPricing && is_array($result) && isset($result[0])) {
+            $result[0]->setAttribute('calculated_delivery_fee', $deliveryPricing['delivery_fee']);
+            $result[0]->setAttribute('delivery_distance_km', $deliveryPricing['distance_km']);
+            $result[0]->setAttribute('delivery_duration_minutes', $deliveryPricing['duration_minutes']);
+            $result[0]->setAttribute('delivery_weight_kg', $deliveryPricing['weight_kg']);
+            $result[0]->setAttribute('delivery_rule_id', $deliveryPricing['rule_id']);
+        }
+
+        return $result;
     }
 
     public function get_purchase_requests_from_agencies()
@@ -425,4 +452,6 @@ class SolarCompanyManagerService
 
         return $this->solarCompanyManagerRepositoryInterface->get_purchase_requests_from_agencies($company);
     }
+
+
 }

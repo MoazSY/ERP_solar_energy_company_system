@@ -8,6 +8,7 @@ use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
+use App\Services\OsrmService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
@@ -822,10 +823,11 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             return ['error' => 'order list has no items'];
         }
         if ($orderList->with_delivery) {
-            $delivery_fee = 0;
-
-            // Handle delivery fee logic if needed
-            // $delivery_fee=calculate_delivery_fee($orderList); // Implement this function based on your logic
+            $deliveryFeeResult = app(OsrmService::class)->calculate_delivery_fee_for_order_list($agency, $orderList);
+            if (isset($deliveryFeeResult['error'])) {
+                return ['error' => $deliveryFeeResult['error']];
+            }
+            $delivery_fee = $deliveryFeeResult['delivery_fee'];
         } else {
             $delivery_fee = 0;
         }
@@ -855,12 +857,14 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $purchaseInvoice;
     }
 
+
+
     public function delivery_rules($request, $agency)
     {
         $delivery_rule = $agency->deliveryRules()->create([
             'rule_name' => $request['rule_name'],
             'governorate_id' => $request['governorate_id'],
-            'area_id' => $request['area_id'],
+            'area_id' => $request['area_id'] ?? null,
             'delivery_fee' => $request['delivery_fee'],
             'price_per_km' => $request['price_per_km'],
             'max_weight_kg' => $request['max_weight_kg'],
