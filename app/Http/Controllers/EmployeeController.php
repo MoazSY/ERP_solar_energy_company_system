@@ -32,7 +32,7 @@ class EmployeeController extends Controller
             'image' => 'sometimes|nullable|mimes:jpg,jpeg,png,webp|max:2048',
             'identification_image' => 'required|mimes:jpg,jpeg,png,webp|max:2048',
             'about_him' => 'sometimes|string',
-            'employee_type' => 'required|in:technician,inventory_manager,driver'
+            'employee_type' => 'required|in:install_technician,metal_base_technician,inventory_manager,driver'
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
@@ -113,7 +113,7 @@ class EmployeeController extends Controller
             'first_name' => 'sometimes|string',
             'last_name' => 'sometimes|string',
             'date_of_birth' => 'sometimes|date',
-            'employee_type' => 'sometimes|in:technician,inventory_manager,driver',
+            'employee_type' => 'sometimes|in:install_technician,metal_base_technician,inventory_manager,driver',
             'email' => 'sometimes|email',
             'password' => 'sometimes|alpha_num|min:8',
             'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
@@ -193,7 +193,7 @@ class EmployeeController extends Controller
         $validate = Validator::make($request->all(), [
             'first_name' => 'sometimes|string',
             'last_name' => 'sometimes|string',
-            'employee_type' => 'sometimes|in:technician,inventory_manager,driver',
+            'employee_type' => 'sometimes|in:install_technician,metal_base_technician,inventory_manager,driver',
             'email' => 'sometimes|email',
             'phoneNumber' => 'sometimes|regex:/^09\d{8}$/',
         ]);

@@ -80,7 +80,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $custom_subscribtions;
     }
 
-    public function subscribe_in_policy($request, $agency, $paymentData = null)
+    public function subscribe_in_policy($request, $agency, $paymentData = null, $toAccountAddress = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'agency' || $subscribe_policy->is_active != true) {
@@ -124,7 +124,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             $custom_subscribe->entity_subscribe = true;
             $custom_subscribe->save();
         }
-        return [$subscribe, $payment];
+        return [$subscribe, $payment, $toAccountAddress];
     }
 
     public function add_agency_products($request, $agency)
@@ -789,7 +789,20 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
                 'Items.product.solarPanals',
             ])
             ->latest('id')
-            ->get();
+            ->get()
+            ->map(function ($orderList) {
+                $assign = $orderList->deliveries()->where('delivery_status', 'pending')->first();
+                if ($assign) {
+                    $assigned_delivery_task = true;
+                } else {
+                    $assigned_delivery_task = false;
+                }
+                return [
+                    'order_list' => $orderList,
+                    'ask_delivery' => $orderList->with_delivery,
+                    'assigned_delivery_task' => $assigned_delivery_task,
+                ];
+            });
     }
 
     public function create_purchase_invoice($request, $agency, $orderList)
@@ -856,6 +869,42 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'is_active' => true
         ]);
         return $delivery_rule;
+    }
+
+    public function show_delivery_rules($agency)
+    {
+        return $agency
+            ->deliveryRules()
+            ->with(['governorate', 'area'])
+            ->latest('id')
+            ->get();
+    }
+
+    public function update_delivery_rule($agency, $rule_id, $data)
+    {
+        $rule = $agency->deliveryRules()->find($rule_id);
+
+        if (!$rule) {
+            return null;
+        }
+
+        $rule->update($data);
+        $rule->refresh();
+
+        return $rule->load(['governorate', 'area']);
+    }
+
+    public function delete_delivery_rule($agency, $rule_id)
+    {
+        $rule = $agency->deliveryRules()->find($rule_id);
+
+        if (!$rule) {
+            return false;
+        }
+
+        $rule->delete();
+
+        return true;
     }
 
     public function assign_delivery_task($request, $agency, $orderList)

@@ -190,7 +190,8 @@ class SolarCompanyManagerService
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company_manager = Solar_company_manager::findOrFail($company_manager_id);
         $company = $company_manager->solarCompanies()->first();
-        $beneficiaryAdmin = System_admin::find(1);
+        $subscribePolicy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
+        $beneficiaryAdmin = System_admin::find($subscribePolicy->admin_id);
 
         if (!$beneficiaryAdmin) {
             return ['error' => 'Payment beneficiary admin is not configured'];
@@ -200,7 +201,6 @@ class SolarCompanyManagerService
             return ['error' => 'Unsupported payment method'];
         }
 
-        $subscribePolicy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribePolicy->currency == 'USD') {
             $amount = (float) $subscribePolicy->subscription_fee * 1350;  // Convert USD to SYP
         } else {
@@ -249,7 +249,7 @@ class SolarCompanyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse);
+        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse,$toAccountAddress);
         return $subscribe;
     }
 
@@ -410,7 +410,7 @@ class SolarCompanyManagerService
             $company,
             $paymentResponse,
             $request->payment_method,
-            $amount
+            $amount,$toAccountAddress ?? null
         );
     }
 

@@ -45,7 +45,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         $company = $Company_manager->solarCompanies()->create([
             'solar_company_manager_id' => $Company_manager->id,
             'company_name' => $request->company_name,
-            'company_logo' => $request->company_logo,
+            'company_logo' => $company_logo,
             'commerical_register_number' => $request->commerical_register_number,
             'company_description' => $request->company_description,
             'company_email' => $data['company_email'],
@@ -78,14 +78,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy')->get();
     return $custom_subscribtions;
     }
-    public function subscribe_in_policy($request, $company, $paymentData = null)
+    public function subscribe_in_policy($request, $company, $paymentData = null,$toAccountAddress=null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'company' || $subscribe_policy->is_active != true) {
             return null;
         }
 
-        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy) {
+        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy,$toAccountAddress) {
             $payment = $company->paymentsMade()->create([
                 'amount' => $subscribe_policy->subscription_fee,
                 'currency' => $subscribe_policy->currency,
@@ -124,7 +124,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $custom_subscribe->save();
             }
 
-            return [$subscribe, $payment];
+            return [$subscribe, $payment,$toAccountAddress];
         });
     }
 
@@ -212,11 +212,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $products;
     }
 
-    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null)
+    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null,$toAccountAddress=null)
     {
         $agency = Agency::findOrFail($agency_id);
 
-        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount) {
+        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount,$toAccountAddress) {
             $products = $request->products;
             $quantities = collect($products)->pluck('quantity', 'id')->toArray();
             $productIds = collect($products)->pluck('id')->toArray();
@@ -282,7 +282,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ]);
             }
 
-            return [$order_list, $order_list->Items, $total_amount_sy, $transaction];
+            return [$order_list, $order_list->Items, $total_amount_sy, $transaction,$toAccountAddress];
         });
     }
 
@@ -303,10 +303,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->get();
 
         return $orders->map(function ($order) {
-            $latestInvoice = $order->purchaseInvoices->sortByDesc('id')->first();
+            $latestInvoice = $order->purchaseInvoices->first()??null;
 
-            $order->invoice_due_date = $latestInvoice?->due_date;
-            $order->invoice_delivery_fee = $latestInvoice?->delivery_fee;
+            $order->invoice_due_date = $latestInvoice?->due_date??null;
+            $order->invoice_delivery_fee = $latestInvoice?->delivery_fee??null;
 
             return $order;
         });

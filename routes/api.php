@@ -96,13 +96,16 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::get('get_all_custom_discounts_grouped_by_company', [AgencyManagerController::class, 'get_all_custom_discounts_grouped_by_company'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::get('get_purchase_requests_from_companies', [AgencyManagerController::class, 'get_purchase_requests_from_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('create_purchase_invoice', [AgencyManagerController::class, 'create_purchase_invoice'])->middleware(['check_agency_manager_active', 'check_agency_active']);
-    Route::post('delivery_rules',[AgencyManagerController::class, 'deliviry_rules'])->middleware(['check_agency_manager_active', 'check_agency_active']);
-    Route::post('assign_delivery_task',[AgencyManagerController::class, 'assign_delivery_task'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('delivery_rules', [AgencyManagerController::class, 'deliviry_rules'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::get('show_delivery_rules', [AgencyManagerController::class, 'show_delivery_rules'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('update_delivery_rule/{rule_id}', [AgencyManagerController::class, 'update_delivery_rule'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('delete_delivery_rule/{rule_id}', [AgencyManagerController::class, 'delete_delivery_rule'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('assign_delivery_task', [AgencyManagerController::class, 'assign_delivery_task'])->middleware(['check_agency_manager_active', 'check_agency_active']);
 });
 
 Route::middleware('check_employee')->group(function () {
     Route::get('employee_profile', [EmployeeController::class, 'employee_profile']);
     Route::post('employee/update_profile', [EmployeeController::class, 'update_profile']);
-    Route::get('show_delivery_tasks',[EmployeeController::class,'show_delivery_tasks']);
-    Route::post('proccess_delivery_task',[EmployeeController::class,'proccess_delivery_task']);
+    Route::get('show_delivery_tasks', [EmployeeController::class, 'show_delivery_tasks']);
+    Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
 });

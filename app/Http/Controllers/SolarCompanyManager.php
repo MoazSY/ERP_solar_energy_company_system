@@ -319,6 +319,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'message' => 'company subscribed in policy successfully',
             'subscription' => $result[0],
             'payment' => $result[1],
+            'account_address'=>$result[2]
         ]);
     }
 
@@ -391,6 +392,9 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'message' => 'Purchase invoice request created successfully',
             'purchase_request_order' => $result[0],
             'order_items' => $result[1],
+            'total_amount_sy'=> $result[2],
+            'transaction' => $result[3],
+            'toAccountAddress'=>$result[4] ?? null
         ]);
     }
 

@@ -316,6 +316,7 @@ class AgencyManagerController extends Controller
             'message' => 'agency subscribed in policy successfully',
             'subscription' => $result[0],
             'payment' => $result[1],
+            'account_address' => $result[2]
         ]);
     }
 
@@ -328,7 +329,7 @@ class AgencyManagerController extends Controller
             'model_number' => 'sometimes|string',
             'quentity' => 'sometimes|integer|min:0',
             'price' => 'required|numeric|min:0',
-            'disscount_type' => 'sometimes|string|in:percentage,amount',
+            'disscount_type' => 'sometimes|string|in:percentage,fixed',
             'disscount_value' => 'sometimes|numeric|min:0',
             'currency' => 'required|string|in:USD,SY',
             'manufacture_date' => 'sometimes|date',
@@ -739,34 +740,101 @@ class AgencyManagerController extends Controller
             'invoice' => $result,
         ], 201);
     }
-    public function deliviry_rules(Request $request){
-        $validate=Validator::make($request->all(),[
-            'rule_name'=>'sometimes|string',
-            'governorate_id'=>'sometimes|exists:governorates,id',
-            'area_id'=>'sometimes|exists:areas,id',
-            'delivery_fee'=>'sometimes|numeric|min:0',
-            'price_per_km'=>'sometimes|numeric|min:0',
-            'max_weight_kg'=>'sometimes|integer|min:0',
-            'price_per_extra_kg'=>'sometimes|numeric|min:0',
-            'currency'=>'sometimes|string|in:USD,SY',
+
+    public function deliviry_rules(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'rule_name' => 'sometimes|string',
+            'governorate_id' => 'sometimes|exists:governorates,id',
+            'area_id' => 'sometimes|exists:areas,id',
+            'delivery_fee' => 'sometimes|numeric|min:0',
+            'price_per_km' => 'sometimes|numeric|min:0',
+            'max_weight_kg' => 'sometimes|integer|min:0',
+            'price_per_extra_kg' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
-        $request=$validate->validated();
-        $rule=$this->agencyManagerService->delivery_rules($request);
+        $request = $validate->validated();
+        $rule = $this->agencyManagerService->delivery_rules($request);
         return response()->json(['message' => 'Delivery rule created successfully', 'rule' => $rule], 201);
     }
-    public function assign_delivery_task(Request $request){
-        $validate=Validator::make($request->all(),[
-            'order_list_id'=>'required|exists:order_lists,id',
-            'driver_id'=>'required|exists:company_agency_employees,id',
+
+    public function show_delivery_rules()
+    {
+        $rules = $this->agencyManagerService->show_delivery_rules();
+
+        if ($rules->isEmpty()) {
+            return response()->json([
+                'message' => 'No delivery rules found',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Delivery rules retrieved successfully',
+            'data' => $rules
+        ], 200);
+    }
+
+    public function update_delivery_rule(Request $request, $rule_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'rule_name' => 'sometimes|string',
+            'governorate_id' => 'sometimes|exists:governorates,id',
+            'area_id' => 'sometimes|exists:areas,id',
+            'delivery_fee' => 'sometimes|numeric|min:0',
+            'price_per_km' => 'sometimes|numeric|min:0',
+            'max_weight_kg' => 'sometimes|integer|min:0',
+            'price_per_extra_kg' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        if (empty($data)) {
+            return response()->json(['message' => 'No fields provided for update'], 422);
+        }
+
+        $rule = $this->agencyManagerService->update_delivery_rule($rule_id, $data);
+
+        if (!$rule) {
+            return response()->json(['message' => 'Delivery rule not found or unauthorized'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Delivery rule updated successfully',
+            'rule' => $rule
+        ], 200);
+    }
+
+    public function delete_delivery_rule($rule_id)
+    {
+        $deleted = $this->agencyManagerService->delete_delivery_rule($rule_id);
+
+        if (!$deleted) {
+            return response()->json(['message' => 'Delivery rule not found or unauthorized'], 404);
+        }
+
+        return response()->json(['message' => 'Delivery rule deleted successfully'], 200);
+    }
+
+    public function assign_delivery_task(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'order_list_id' => 'required|exists:order_lists,id',
+            'driver_id' => 'required|exists:company_agency_employees,id',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
-        $task=$this->agencyManagerService->assign_delivery_task($request);
+        $task = $this->agencyManagerService->assign_delivery_task($request);
         return response()->json(['message' => 'Delivery task assigned successfully', 'task' => $task], 201);
     }
-    
 }

@@ -229,7 +229,7 @@ class AgencyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency, $paymentResponse);
+        $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency, $paymentResponse, $toAccountAddress);
         return $subscribe;
     }
 
@@ -391,18 +391,60 @@ class AgencyManagerService
 
         return $this->agencyManagerRepositoryInterface->create_purchase_invoice($request, $agency, $orderList);
     }
-    public function delivery_rules($request){
-        $agencyManager=Auth::guard('agency_manager')->user();
-        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
-        $agency=$agencyManager->agencies()->first();
-        return $this->agencyManagerRepositoryInterface->delivery_rules($request,$agency);
+
+    public function delivery_rules($request)
+    {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $agency = $agencyManager->agencies()->first();
+        return $this->agencyManagerRepositoryInterface->delivery_rules($request, $agency);
     }
-    public function assign_delivery_task($request){
-        $agencyManager=Auth::guard('agency_manager')->user();
-        $agencyManager=Agency_manager::findOrFail($agencyManager->id);
-        $agency=$agencyManager->agencies()->first();
-        $orderList=Order_list::findOrFail($request->order_list_id);
-        return $this->agencyManagerRepositoryInterface->assign_delivery_task($request,$agency,$orderList);
+
+    public function show_delivery_rules()
+    {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $agency = $agencyManager->agencies()->first();
+
+        if (!$agency) {
+            return collect();
+        }
+
+        return $this->agencyManagerRepositoryInterface->show_delivery_rules($agency);
     }
-    
+
+    public function update_delivery_rule($rule_id, $data)
+    {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $agency = $agencyManager->agencies()->first();
+
+        if (!$agency) {
+            return null;
+        }
+
+        return $this->agencyManagerRepositoryInterface->update_delivery_rule($agency, $rule_id, $data);
+    }
+
+    public function delete_delivery_rule($rule_id)
+    {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $agency = $agencyManager->agencies()->first();
+
+        if (!$agency) {
+            return false;
+        }
+
+        return $this->agencyManagerRepositoryInterface->delete_delivery_rule($agency, $rule_id);
+    }
+
+    public function assign_delivery_task($request)
+    {
+        $agencyManager = Auth::guard('agency_manager')->user();
+        $agencyManager = Agency_manager::findOrFail($agencyManager->id);
+        $agency = $agencyManager->agencies()->first();
+        $orderList = Order_list::findOrFail($request->order_list_id);
+        return $this->agencyManagerRepositoryInterface->assign_delivery_task($request, $agency, $orderList);
+    }
 }

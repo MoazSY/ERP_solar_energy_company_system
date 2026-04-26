@@ -8,7 +8,7 @@ interface AgencyManagerRepositoryInterface
     public function agency_address($request, $agency);
     public function agency_manager_profile($manager_id);
     public function show_custom_subscriptions($user);
-    public function subscribe_in_policy($request, $agency, $paymentData = null);
+    public function subscribe_in_policy($request, $agency, $paymentData = null, $toAccountAddress = null);
     public function add_agency_products($request, $agency);
     public function show_agency_products($manager);
     public function update_agency_product($request, $data, $product_id);
@@ -26,6 +26,9 @@ interface AgencyManagerRepositoryInterface
     public function get_all_custom_discounts_grouped_by_company();
     public function get_purchase_requests_from_companies($manager);
     public function create_purchase_invoice($request, $agency, $orderList);
-    public function delivery_rules($request,$agency);
-    public function assign_delivery_task($request,$agency,$orderList);
+    public function delivery_rules($request, $agency);
+    public function show_delivery_rules($agency);
+    public function update_delivery_rule($agency, $rule_id, $data);
+    public function delete_delivery_rule($agency, $rule_id);
+    public function assign_delivery_task($request, $agency, $orderList);
 }
