@@ -3,6 +3,8 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Company_agency_employee;
+use App\Models\Deliveries;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -857,8 +859,6 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $purchaseInvoice;
     }
 
-
-
     public function delivery_rules($request, $agency)
     {
         $delivery_rule = $agency->deliveryRules()->create([
@@ -946,5 +946,94 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'driver_approved_delivery_task' => 'pending'
         ]);
         return $delivery_task;
+    }
+
+    public function show_delivery_tasks($agency)
+    {
+        return $agency
+            ->Assign_delivery_tasks()
+            ->with(['orderList.request_entity', 'driver', 'address.governorate', 'address.area'])
+            ->latest('id')
+            ->get();
+    }
+
+    public function filter_delivery_tasks($agency, $filters)
+    {
+        // شروط الدفع الخاصة بالسائق بدون مقارنة أعمدة بين جدولين
+        // (تُستخدم مع eager loading حيث لا يكون جدول deliveries متاحًا).
+        $driverPaidBaseConstraint = function ($paymentQuery) {
+            $paymentQuery
+                ->where('status', 'paid')
+                ->where('target_table_type', Company_agency_employee::class)
+                ->where('payment_object_table_type', Deliveries::class);
+        };
+
+        // هذا الشرط يُستخدم فقط داخل whereHas/orWhereDoesntHave لأن جدول deliveries
+        // متاح هناك، وبالتالي whereColumn تعمل بشكل صحيح.
+        $driverPaidConstraint = function ($paymentQuery) use ($driverPaidBaseConstraint) {
+            $driverPaidBaseConstraint($paymentQuery);
+            $paymentQuery->whereColumn('payments.target_table_id', 'deliveries.driver_id');
+        };
+        $query = $agency
+            ->Assign_delivery_tasks()
+            ->with([
+                'orderList.request_entity',
+                'driver',
+                'address.governorate',
+                'address.area',
+                // نحمّل فقط المدفوعات الخاصة بالسائق إن احتجناها لاحقًا
+                'driverPayments' => $driverPaidBaseConstraint,
+            ]);
+        // فلترة التاريخ
+        $query->when(!empty($filters['date_from']), function ($q) use ($filters) {
+            $q->whereDate('scheduled_delivery_datetime', '>=', $filters['date_from']);
+        });
+        $query->when(!empty($filters['date_to']), function ($q) use ($filters) {
+            $q->whereDate('scheduled_delivery_datetime', '<=', $filters['date_to']);
+        });
+        // فلترة مكتمل / غير مكتمل (باستخدام قاعدة واحدة فقط لتجنب التداخل)
+        if (array_key_exists('is_completed', $filters)) {
+            if ((bool) $filters['is_completed']) {
+                // يعتبر مكتملاً إذا كانت الحالة "delivered" أو يوجد تاريخ تسليم فعلي
+                $query->where(function ($q) {
+                    $q
+                        ->where('delivery_status', 'delivered')
+                        ->orWhereNotNull('delivered_at');
+                });
+            } else {
+                // غير مكتمل: الحالة ليست "delivered" والتاريخ فارغ (استخدام AND وليس OR)
+                $query
+                    ->where('delivery_status', '!=', 'delivered')
+                    ->whereNull('delivered_at');
+            }
+        }
+        // فلترة حالة الدفع للسائق
+        if (!empty($filters['driver_payment_status'])) {
+            if ($filters['driver_payment_status'] === 'paid') {
+                $query->whereHas('driverPayments', $driverPaidConstraint);
+            } elseif ($filters['driver_payment_status'] === 'unpaid') {
+                $query->where(function ($q) use ($driverPaidConstraint) {
+                    $q
+                        ->whereNull('driver_id')
+                        ->orWhereDoesntHave('driverPayments', $driverPaidConstraint);
+                });
+            }
+        }
+        return $query->latest('id')->get()->map(function ($q) {
+            return [
+                'delivery_task' => $q->getAttributes(),
+                'order_list' => $q->orderList?->toArray(),
+                'request_entity' => $q->orderList?->request_entity?->toArray(),
+                'driver' => $q->driver?->toArray(),
+                'address' => $q->address?->toArray(),
+                'governorate' => $q->address?->governorate?->toArray(),
+                'area' => $q->address?->area?->toArray(),
+                'driver_payments' => $q->driverPayments->map(function ($payment) {
+                    return $payment->getAttributes();
+                })->values()->all(),
+                'delivery_status' => $q->delivery_status,
+                'is_paid_to_driver' => $q->driverPayments->isNotEmpty(),
+            ];
+        });
     }
 }

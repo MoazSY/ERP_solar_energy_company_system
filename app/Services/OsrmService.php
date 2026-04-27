@@ -50,7 +50,6 @@ class OsrmService
         ];
     }
 
-
     public function calculate_delivery_fee_for_order_list($agency, $orderList): array
     {
         $company = $orderList->request_entity;
@@ -131,7 +130,7 @@ class OsrmService
         if (strtoupper((string) $rule->currency) === 'USD') {
             $deliveryFee *= 1.35;
         }
-
+        // في الداتا بيز اريد العملة القديمة كما هي بينما عند الدفع احول فقط
         return [
             'rule_id' => $rule->id,
             'distance_km' => $distanceData['distance_km'],
@@ -142,10 +141,7 @@ class OsrmService
         ];
     }
 
-
-
-
-        public function calculateDeliveryFeeForPurchase($agency, $company, $products, $productsMap): array
+    public function calculateDeliveryFeeForPurchase($agency, $company, $products, $productsMap): array
     {
         $agencyAddress = $agency->addresses()->latest('id')->first();
         $companyAddress = $company->addresses()->latest('id')->first();
@@ -223,8 +219,8 @@ class OsrmService
 
         if (strtoupper((string) $rule->currency) === 'USD') {
             $deliveryFee *= 1.35;
-        }else{
-            $deliveryFee /= 100; // convert from old SYP to new SYP
+        } else {
+            $deliveryFee /= 100;  // convert from old SYP to new SYP
         }
 
         return [

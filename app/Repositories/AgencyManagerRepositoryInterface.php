@@ -31,4 +31,6 @@ interface AgencyManagerRepositoryInterface
     public function update_delivery_rule($agency, $rule_id, $data);
     public function delete_delivery_rule($agency, $rule_id);
     public function assign_delivery_task($request, $agency, $orderList);
+    public function show_delivery_tasks($agency);
+    public function filter_delivery_tasks($agency, $filters);
 }

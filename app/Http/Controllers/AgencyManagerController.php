@@ -837,4 +837,42 @@ class AgencyManagerController extends Controller
         $task = $this->agencyManagerService->assign_delivery_task($request);
         return response()->json(['message' => 'Delivery task assigned successfully', 'task' => $task], 201);
     }
+
+    public function show_delivery_tasks()
+    {
+        $delivery_task = $this->agencyManagerService->show_delivery_task();
+        if (isset($delivery_task['error'])) {
+            return response()->json(['message' => $delivery_task['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Delivery tasks retrieved successfully',
+            'delivery_tasks' => $delivery_task,
+        ]);
+    }
+
+    public function filter_delivery_tasks(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'is_completed' => 'sometimes|boolean',
+            'driver_payment_status' => 'sometimes|string|in:paid,unpaid',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $deliveryTasks = $this->agencyManagerService->filter_delivery_tasks($filters);
+
+        if (isset($deliveryTasks['error'])) {
+            return response()->json(['message' => $deliveryTasks['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Delivery tasks filtered successfully',
+            'delivery_tasks' => $deliveryTasks,
+        ], 200);
+    }
 }

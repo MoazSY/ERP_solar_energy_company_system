@@ -206,9 +206,9 @@ class SolarCompanyManagerService
         }
 
         if ($subscribePolicy->currency == 'USD') {
-            $amount = (float) $subscribePolicy->subscription_fee * 1350;  // Convert USD to SYP
+            $amount = (float) $subscribePolicy->subscription_fee * 1.35;  // Convert USD to  new SYP
         } else {
-            $amount = (float) $subscribePolicy->subscription_fee;
+            $amount = (float) $subscribePolicy->subscription_fee/100; // Convert from old SYP to new SYP
         }
 
         if ($request->payment_method === 'syriatel_cash') {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Model;
 
@@ -76,5 +77,10 @@ class Deliveries extends Model
     public function projectTasks(): HasMany
     {
         return $this->hasMany(Project_task::class, 'delivery_id');
+    }
+
+    public function driverPayments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payment_object_table', 'payment_object_table_type', 'payment_object_table_id');
     }
 }

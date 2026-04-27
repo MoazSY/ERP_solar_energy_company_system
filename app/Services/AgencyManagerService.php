@@ -182,9 +182,9 @@ class AgencyManagerService
         }
 
         if ($subscribePolicy->currency == 'USD') {
-            $amount = (float) $subscribePolicy->subscription_fee * 1350;
+            $amount = (float) $subscribePolicy->subscription_fee * 1.35;
         } else {
-            $amount = (float) $subscribePolicy->subscription_fee;
+            $amount = (float) $subscribePolicy->subscription_fee / 100;  // new syria pounds
         }
 
         if ($request->payment_method === 'syriatel_cash') {
@@ -446,5 +446,29 @@ class AgencyManagerService
         $agency = $agencyManager->agencies()->first();
         $orderList = Order_list::findOrFail($request->order_list_id);
         return $this->agencyManagerRepositoryInterface->assign_delivery_task($request, $agency, $orderList);
+    }
+
+    public function show_delivery_task()
+    {
+        $agency_manager_id = Auth::guard('agency_manager')->user()->id;
+        $agency_manager = Agency_manager::findOrFail($agency_manager_id);
+        $agency = $agency_manager->agencies()->first();
+        if (!$agency) {
+            return ['error' => 'agency not found for the current manager'];
+        }
+        return $this->agencyManagerRepositoryInterface->show_delivery_tasks($agency);
+    }
+
+    public function filter_delivery_tasks($filters)
+    {
+        $agency_manager_id = Auth::guard('agency_manager')->user()->id;
+        $agency_manager = Agency_manager::findOrFail($agency_manager_id);
+        $agency = $agency_manager->agencies()->first();
+
+        if (!$agency) {
+            return ['error' => 'agency not found for the current manager'];
+        }
+
+        return $this->agencyManagerRepositoryInterface->filter_delivery_tasks($agency, $filters);
     }
 }

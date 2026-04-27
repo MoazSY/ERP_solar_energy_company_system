@@ -101,6 +101,8 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('update_delivery_rule/{rule_id}', [AgencyManagerController::class, 'update_delivery_rule'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('delete_delivery_rule/{rule_id}', [AgencyManagerController::class, 'delete_delivery_rule'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('assign_delivery_task', [AgencyManagerController::class, 'assign_delivery_task'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::get('Agency_manager/show_delivery_tasks', [AgencyManagerController::class, 'show_delivery_tasks'])->middleware(['check_agency_manager_active', 'check_agency_active']);
+    Route::post('Agency_manager/filter_delivery_tasks', [AgencyManagerController::class, 'filter_delivery_tasks'])->middleware(['check_agency_manager_active', 'check_agency_active']);
 });
 
 Route::middleware('check_employee')->group(function () {
