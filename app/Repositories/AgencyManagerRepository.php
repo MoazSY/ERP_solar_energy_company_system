@@ -79,7 +79,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
     public function show_custom_subscriptions($user)
     {
         $agency = $user->agencies()->first();
-        $custom_subscribtions = $agency?->customSubscribes()->with('subscribePolicy')->get();
+        $custom_subscribtions = $agency?->customSubscribes()->with('subscribePolicy.admin')->get();
         return $custom_subscribtions;
     }
 

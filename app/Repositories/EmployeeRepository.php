@@ -121,7 +121,6 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ];
         });
     }
-
     public function show_delivery_tasks($employee)
     {
         $deliveries = $employee->driverDeliveries()->with(['deliverable_object', 'entity_type'])->get();

@@ -75,7 +75,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     public function show_custom_subscriptions($user)
     {
     $company=$user->solarCompanies()->first();
-    $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy')->get();
+    $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy.admin')->get();
     return $custom_subscribtions;
     }
     public function subscribe_in_policy($request, $company, $paymentData = null,$toAccountAddress=null)
@@ -202,7 +202,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             });
         }
 
-        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->get();
+        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products','agencyManager'])->get();
     }
 
     public function show_agency_products($agency_id)
