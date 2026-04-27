@@ -215,11 +215,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $products;
     }
 
-    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null, $toAccountAddress = null)
+    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null)
     {
         $agency = Agency::findOrFail($agency_id);
 
-        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount, $toAccountAddress) {
+        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount) {
             $products = $request->products;
             $quantities = collect($products)->pluck('quantity', 'id')->toArray();
             $productIds = collect($products)->pluck('id')->toArray();
@@ -260,11 +260,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $order_list->total_amount = max($order_list->sub_total_amount - $order_list->total_discount_amount, 0);
             $order_list->save();
 
-            $total_amount_sy = $order_list->total_amount * 12500;
             $transaction = null;
             if ($paymentData && isset($paymentData['data'])) {
                 $payment = $company->paymentsMade()->create([
-                    'amount' => $paidAmount ?? $order_list->total_amount,
+                    'amount' =>  $order_list->total_amount,
                     'currency' => 'SY',
                     'payment_object_type_name' => 'invoice',
                     'target_table_type' => 'App\Models\Agency',
@@ -285,7 +284,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ]);
             }
 
-            return [$order_list, $order_list->Items, $total_amount_sy, $transaction, $toAccountAddress];
+            return [$order_list, $order_list->Items, $transaction];
         });
     }
 

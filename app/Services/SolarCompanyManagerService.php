@@ -428,7 +428,7 @@ class SolarCompanyManagerService
             $company,
             $paymentResponse,
             $request->payment_method,
-            $amount, $toAccountAddress ?? null
+            $amount
         );
 
         if ($deliveryPricing && is_array($result) && isset($result[0])) {
