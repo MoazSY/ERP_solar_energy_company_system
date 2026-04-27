@@ -450,7 +450,6 @@ class SolarCompanyManagerService
         if (!$company) {
             return collect();
         }
-
         return $this->solarCompanyManagerRepositoryInterface->get_purchase_requests_from_agencies($company);
     }
 

@@ -8,6 +8,7 @@ use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
+use App\Services\OsrmService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
@@ -72,20 +73,22 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         ]);
         return $company_address;
     }
+
     public function show_custom_subscriptions($user)
     {
-    $company=$user->solarCompanies()->first();
-    $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy.admin')->get();
-    return $custom_subscribtions;
+        $company = $user->solarCompanies()->first();
+        $custom_subscribtions = $company?->customSubscribes()->with('subscribePolicy.admin')->get();
+        return $custom_subscribtions;
     }
-    public function subscribe_in_policy($request, $company, $paymentData = null,$toAccountAddress=null)
+
+    public function subscribe_in_policy($request, $company, $paymentData = null, $toAccountAddress = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'company' || $subscribe_policy->is_active != true) {
             return null;
         }
 
-        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy,$toAccountAddress) {
+        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy, $toAccountAddress) {
             $payment = $company->paymentsMade()->create([
                 'amount' => $subscribe_policy->subscription_fee,
                 'currency' => $subscribe_policy->currency,
@@ -124,7 +127,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $custom_subscribe->save();
             }
 
-            return [$subscribe, $payment,$toAccountAddress];
+            return [$subscribe, $payment, $toAccountAddress];
         });
     }
 
@@ -202,7 +205,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             });
         }
 
-        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products','agencyManager'])->get();
+        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products', 'agencyManager'])->get();
     }
 
     public function show_agency_products($agency_id)
@@ -212,11 +215,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $products;
     }
 
-    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null,$toAccountAddress=null)
+    public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null, $toAccountAddress = null)
     {
         $agency = Agency::findOrFail($agency_id);
 
-        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount,$toAccountAddress) {
+        return DB::transaction(function () use ($agency, $request, $company, $paymentData, $paymentMethod, $paidAmount, $toAccountAddress) {
             $products = $request->products;
             $quantities = collect($products)->pluck('quantity', 'id')->toArray();
             $productIds = collect($products)->pluck('id')->toArray();
@@ -226,7 +229,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'orderable_entity_id' => $agency->id,
                 'status' => 'pending',
                 'with_delivery' => $request->with_delivery ?? false,
-                'request_datetime'=>now()
+                'request_datetime' => now()
             ]);
 
             foreach ($productIds as $productId) {
@@ -282,17 +285,18 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ]);
             }
 
-            return [$order_list, $order_list->Items, $total_amount_sy, $transaction,$toAccountAddress];
+            return [$order_list, $order_list->Items, $total_amount_sy, $transaction, $toAccountAddress];
         });
     }
 
     public function get_purchase_requests_from_agencies($company)
     {
+        $osrmService = app(OsrmService::class);
+
         $orders = Order_list::query()
             ->where('request_entity_type', Solar_company::class)
             ->where('request_entity_id', $company->id)
             ->with([
-                'request_entity',
                 'orderableEntityType',
                 'Items.product.inverters',
                 'Items.product.batteries',
@@ -302,13 +306,58 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->latest('id')
             ->get();
 
-        return $orders->map(function ($order) {
-            $latestInvoice = $order->purchaseInvoices->first()??null;
+        return $orders->map(function ($order) use ($company, $osrmService) {
+            $latestInvoice = $order->purchaseInvoices ?? null;
 
-            $order->invoice_due_date = $latestInvoice?->due_date??null;
-            $order->invoice_delivery_fee = $latestInvoice?->delivery_fee??null;
+            $order->invoice_due_date = $latestInvoice?->due_date ?? null;
+            // $order->invoice_delivery_fee = $latestInvoice?->delivery_fee ?? null;
 
-            return $order;
+            $order->transport_delivery_fee = null;
+            $order->transport_distance_km = null;
+            $order->transport_duration_minutes = null;
+
+            $order->transport_error = null;
+
+            if ($order->with_delivery) {
+                $agency = $order->orderableEntityType;
+
+                $products = $order->Items->map(function ($item) {
+                    return [
+                        'id' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ];
+                })->values();
+
+                $productsMap = $order
+                    ->Items
+                    ->filter(function ($item) {
+                        return $item->product !== null;
+                    })
+                    ->mapWithKeys(function ($item) {
+                        return [$item->product_id => $item->product];
+                    });
+
+                if ($agency instanceof Agency) {
+                    $deliveryPricing = $osrmService->calculateDeliveryFeeForPurchase($agency, $company, $products, $productsMap);
+
+                    if (isset($deliveryPricing['error'])) {
+                        $order->transport_error = $deliveryPricing['error'];
+                    } else {
+                        $order->transport_delivery_fee = $deliveryPricing['delivery_fee'] ?? null;
+                        $order->transport_distance_km = $deliveryPricing['distance_km'] ?? null;
+                        $order->transport_duration_minutes = $deliveryPricing['duration_minutes'] ?? null;
+
+                    }
+                } else {
+                    $order->transport_error = 'Order agency is missing for delivery calculation';
+                }
+            }
+
+            return[ 
+                // 'order'=>$order->getAttributes(),
+                'order'=>$order->load('Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals', 'purchaseInvoices'),
+
+            ];
         });
     }
 }
