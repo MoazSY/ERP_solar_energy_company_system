@@ -229,7 +229,7 @@ class AgencyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency, $paymentResponse, $toAccountAddress);
+        $subscribe = $this->agencyManagerRepositoryInterface->subscribe_in_policy($request, $agency, $paymentResponse);
         return $subscribe;
     }
 

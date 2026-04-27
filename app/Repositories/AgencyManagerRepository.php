@@ -83,7 +83,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         return $custom_subscribtions;
     }
 
-    public function subscribe_in_policy($request, $agency, $paymentData = null, $toAccountAddress = null)
+    public function subscribe_in_policy($request, $agency, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'agency' || $subscribe_policy->is_active != true) {
@@ -127,7 +127,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             $custom_subscribe->entity_subscribe = true;
             $custom_subscribe->save();
         }
-        return [$subscribe, $payment, $toAccountAddress];
+        return [$subscribe, $payment];
     }
 
     public function add_agency_products($request, $agency)

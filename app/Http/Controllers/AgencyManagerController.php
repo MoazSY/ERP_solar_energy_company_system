@@ -316,7 +316,6 @@ class AgencyManagerController extends Controller
             'message' => 'agency subscribed in policy successfully',
             'subscription' => $result[0],
             'payment' => $result[1],
-            'account_address' => $result[2]
         ]);
     }
 

@@ -8,7 +8,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function company_address($request, $solarCompany);
     public function company_manager_profile($manager_id);
     public function show_custom_subscriptions($user);
-    public function subscribe_in_policy($request, $company, $paymentData = null,$toAccountAddress=null);
+    public function subscribe_in_policy($request, $company, $paymentData = null);
     public function show_all_agency();
     public function filter_agency($filters);
     public function show_agency_products($agency_id);

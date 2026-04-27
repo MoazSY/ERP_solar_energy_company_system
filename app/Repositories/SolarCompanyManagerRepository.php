@@ -81,14 +81,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $custom_subscribtions;
     }
 
-    public function subscribe_in_policy($request, $company, $paymentData = null, $toAccountAddress = null)
+    public function subscribe_in_policy($request, $company, $paymentData = null)
     {
         $subscribe_policy = Subscribe_polices::findOrFail($request->subscribe_policy_id);
         if ($subscribe_policy->apply_to != 'company' || $subscribe_policy->is_active != true) {
             return null;
         }
 
-        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy, $toAccountAddress) {
+        return DB::transaction(function () use ($company, $request, $paymentData, $subscribe_policy) {
             $payment = $company->paymentsMade()->create([
                 'amount' => $subscribe_policy->subscription_fee,
                 'currency' => $subscribe_policy->currency,
@@ -127,7 +127,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $custom_subscribe->save();
             }
 
-            return [$subscribe, $payment, $toAccountAddress];
+            return [$subscribe, $payment];
         });
     }
 
@@ -352,7 +352,6 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                     $order->transport_error = 'Order agency is missing for delivery calculation';
                 }
             }
-
             return[ 
                 // 'order'=>$order->getAttributes(),
                 'order'=>$order->load('Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals', 'purchaseInvoices'),

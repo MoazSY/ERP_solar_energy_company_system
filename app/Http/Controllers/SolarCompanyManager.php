@@ -319,7 +319,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'message' => 'company subscribed in policy successfully',
             'subscription' => $result[0],
             'payment' => $result[1],
-            'account_address'=>$result[2]
         ]);
     }
 

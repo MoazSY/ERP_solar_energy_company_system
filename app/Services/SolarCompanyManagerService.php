@@ -253,7 +253,7 @@ class SolarCompanyManagerService
             return ['error' => $paymentResponse['message']];
         }
 
-        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse, $toAccountAddress);
+        $subscribe = $this->solarCompanyManagerRepositoryInterface->subscribe_in_policy($request, $company, $paymentResponse);
         return $subscribe;
     }
 
