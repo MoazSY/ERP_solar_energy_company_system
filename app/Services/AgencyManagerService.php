@@ -492,9 +492,9 @@ class AgencyManagerService
             if ($delivery_task->delivery_status != 'delivered') {
             return ['error' => 'cant pay to un delivered task'];
         }
-        if($delivery_task->driverPayments()->exists()){
-             return ['error' => 'payment already processed for this delivery task'];
-        }
+        // if($delivery_task->driverPayments()->exists()){
+        //      return ['error' => 'payment already processed for this delivery task'];
+        // }
         
         $driver_id=$delivery_task->driver->employee_id;
         $driver= \App\Models\Employee::findOrFail($driver_id);
@@ -557,6 +557,9 @@ class AgencyManagerService
         }
         else{
             return ['error' => 'Unsupported payment method'];
+        }
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
         }
        
         return $this->agencyManagerRepositoryInterface->paid_to_driver($request,$delivery_task,$agency,$paymentResponse);

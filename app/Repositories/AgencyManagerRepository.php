@@ -1040,8 +1040,6 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function paid_to_driver($request, $task, $agency, $paymentResponse = null)
     {
-
-        
        return  DB::transaction(function () use ($request, $task, $agency, $paymentResponse) {
             $payment = $agency->paymentsMade()->create([
                 'amount' => $task->delivery_fee,
