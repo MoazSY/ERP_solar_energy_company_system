@@ -492,9 +492,10 @@ class AgencyManagerService
             if ($delivery_task->delivery_status != 'delivered') {
             return ['error' => 'cant pay to un delivered task'];
         }
-        if($delivery_task->driverPayments){
-            return ['error' => 'payment already processed for this delivery task'];
+        if($delivery_task->driverPayments()->exists()){
+             return ['error' => 'payment already processed for this delivery task'];
         }
+        
         $driver_id=$delivery_task->driver->employee_id;
         $driver= \App\Models\Employee::findOrFail($driver_id);
         $amount=$delivery_task->delivery_fee;
