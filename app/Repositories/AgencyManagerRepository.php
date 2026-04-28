@@ -914,7 +914,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function assign_delivery_task($request, $agency, $orderList)
     {
-        $address = $orderList->request_entity()->addresses()->first();
+        $address = $orderList->request_entity->addresses->first();
         $delivery_task = $agency->Assign_delivery_tasks()->create([
             'deliverable_object_type' => get_class($orderList),
             'deliverable_object_id' => $orderList->id,
