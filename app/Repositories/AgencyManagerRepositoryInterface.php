@@ -33,4 +33,5 @@ interface AgencyManagerRepositoryInterface
     public function assign_delivery_task($request, $agency, $orderList);
     public function show_delivery_tasks($agency);
     public function filter_delivery_tasks($agency, $filters);
+    public function paid_to_driver($request,$task,$agency,$paymentResponse=null);
 }

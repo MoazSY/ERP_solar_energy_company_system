@@ -6,6 +6,7 @@ use App\Models\Agency_manager;
 use App\Models\Order_list;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
+use App\Models\Deliveries;
 use App\Repositories\AgencyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
@@ -388,6 +389,9 @@ class AgencyManagerService
         if ($orderList->request_entity_type !== 'App\Models\Solar_company') {
             return ['error' => 'this order is not from a solar company'];
         }
+        if($orderList->purchaseInvoices){
+            return ['error' => 'purchase invoice already created for this order'];
+        }
 
         return $this->agencyManagerRepositoryInterface->create_purchase_invoice($request, $agency, $orderList);
     }
@@ -445,6 +449,12 @@ class AgencyManagerService
         $agencyManager = Agency_manager::findOrFail($agencyManager->id);
         $agency = $agencyManager->agencies()->first();
         $orderList = Order_list::findOrFail($request->order_list_id);
+        if (!$agency) {
+            return ['error' => 'agency not found for the current manager'];
+        }
+        if(!$orderList->purchaseInvoices){
+            return ['error' => 'order list does not have associated purchase invoices'];
+        }
         return $this->agencyManagerRepositoryInterface->assign_delivery_task($request, $agency, $orderList);
     }
 
@@ -470,5 +480,84 @@ class AgencyManagerService
         }
 
         return $this->agencyManagerRepositoryInterface->filter_delivery_tasks($agency, $filters);
+    }
+    public function paid_to_driver($request,$task){
+        $agency_manager_id = Auth::guard('agency_manager')->user()->id;
+        $agency_manager = Agency_manager::findOrFail($agency_manager_id);
+        $agency = $agency_manager->agencies()->first();
+        $delivery_task=Deliveries::findOrFail($task);
+        if(!$delivery_task){
+            return ['error' => 'Delivery task not found'];
+        }
+            if ($delivery_task->delivery_status != 'delivered') {
+            return ['error' => 'cant pay to un delivered task'];
+        }
+        if($delivery_task->driverPayments){
+            return ['error' => 'payment already processed for this delivery task'];
+        }
+        $driver_id=$delivery_task->driver->employee_id;
+        $driver= \App\Models\Employee::findOrFail($driver_id);
+        $amount=$delivery_task->delivery_fee;
+        if($amount<=0){
+            return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
+        }
+        if($delivery_task->currency==='USD'){
+            $amount = $amount * 1.35; // convert to new syria pounds
+        }
+        else{
+            $amount = $amount / 100; // convert to new syria pounds
+        }
+
+        if (!$agency) {
+            return ['error' => 'agency not found for the current manager'];
+        }
+        if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
+        return ['error' => 'Unsupported payment method'];
+        }
+        if ($request->payment_method === 'syriatel_cash') {
+        $toGsm = $driver->syriatel_cash_phone;
+        if (!$toGsm) {
+        return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+        }
+        $paymentResponse = $this->apiSyriaService->transferCash(
+        $request->gsm,
+        $toGsm,
+        $amount,
+        $request->pin_code
+        );
+
+        }elseif($request->payment_method === 'shamcash') {
+        $toAccountAddress = $driver->account_number;
+        if (!$toAccountAddress) {
+        return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+        }
+        if (!$request->account_address) {
+        return ['error' => 'Your ShamCash account address is required for payment verification'];
+        }
+        $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+        $toAccountAddress,
+        $amount,
+        $request->account_address
+        );
+        if (!$verificationResult['success']) {
+        return ['error' => $verificationResult['message']];
+        }
+        $paymentResponse = [
+        'success' => true,
+        'message' => 'ShamCash payment verified from logs',
+        'data' => $verificationResult['matched_log'] ?? null,
+        ];
+        }elseif($request->payment_method==='cash'){
+            $paymentResponse=[
+                'success'=>true,
+                'message'=>'Cash payment selected, please confirm with the driver that the payment has been made',
+                'data'=>"null"
+             ];
+        }
+        else{
+            return ['error' => 'Unsupported payment method'];
+        }
+       
+        return $this->agencyManagerRepositoryInterface->paid_to_driver($request,$delivery_task,$agency,$paymentResponse);
     }
 }

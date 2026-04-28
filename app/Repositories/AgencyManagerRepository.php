@@ -12,6 +12,7 @@ use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
 
@@ -89,7 +90,6 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         if ($subscribe_policy->apply_to != 'agency' || $subscribe_policy->is_active != true) {
             return null;
         }
-
         $payment = $agency->paymentsMade()->create([
             'amount' => $subscribe_policy->subscription_fee,
             'currency' => $subscribe_policy->currency,
@@ -804,6 +804,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
                     'order_list' => $orderList,
                     'ask_delivery' => $orderList->with_delivery,
                     'assigned_delivery_task' => $assigned_delivery_task,
+                    'invoice_created' => $orderList->purchaseInvoices ? true : false,
                 ];
             });
     }
@@ -918,7 +919,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'deliverable_object_type' => get_class($orderList),
             'deliverable_object_id' => $orderList->id,
             'order_list_id' => $orderList->id,
-            'delivery_fee' => 0,  // temporary, to be calculated based on delivery rules and order details
+            'delivery_fee' => $orderList->purchaseInvoices->delivery_fee ?? 0,  // temporary, to be calculated based on delivery rules and order details
             'currency' => 'SY',  // obtain from delivery rules or order details
             'delivery_status' => 'pending',
             'address_id' => $address->id ?? null,
@@ -1035,5 +1036,36 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
                 'is_paid_to_driver' => $q->driverPayments->isNotEmpty(),
             ];
         });
+    }
+
+    public function paid_to_driver($request, $task, $agency, $paymentResponse = null)
+    {
+
+        
+       return  DB::transaction(function () use ($request, $task, $agency, $paymentResponse) {
+            $payment = $agency->paymentsMade()->create([
+                'amount' => $task->delivery_fee,
+                'currency' => $task->currency,
+                'payment_object_type_name' => 'service',
+                'target_table_type' => 'App\Models\Company_agency_employee',
+                'target_table_id' => $task->driver_id,
+                'payment_object_table_type' => 'App\Models\Deliveries',
+                'payment_object_table_id' => $task->id,
+                'paid_at' => Carbon::now(),
+                'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
+            ]);
+            if ($paymentResponse && isset($paymentResponse['data'])) {
+                Payment_transactions::create([
+                    'payment_id' => $payment->id,
+                    'gateway' => $request->payment_method,
+                    'external_id' => $paymentResponse['data']['transaction_no'] ?? $paymentResponse['data']['billcode'] ?? null,
+                    'payment_url' => $paymentResponse['data']['payment_url'] ?? null,
+                    'status' => $payment->status,
+                    'response' => $paymentResponse,
+                ]);
+            }
+            return $payment;
+        });
+        
     }
 }

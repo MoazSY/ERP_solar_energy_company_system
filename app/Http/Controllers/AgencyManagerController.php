@@ -848,7 +848,6 @@ class AgencyManagerController extends Controller
             'delivery_tasks' => $delivery_task,
         ]);
     }
-
     public function filter_delivery_tasks(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -872,6 +871,29 @@ class AgencyManagerController extends Controller
         return response()->json([
             'message' => 'Delivery tasks filtered successfully',
             'delivery_tasks' => $deliveryTasks,
+        ], 200);
+    }
+    public function paid_to_driver(Request $request, $task_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'payment_method' => 'required|string|in:syriatel_cash,shamcash,cash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->agencyManagerService->paid_to_driver($request, $task_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Driver paid successfully',
+            'payment' => $result,
         ], 200);
     }
 }
