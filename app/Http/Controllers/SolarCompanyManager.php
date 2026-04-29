@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\FilterAgencyRequest;
 use App\Http\Requests\StoreUserRequest;
+use App\Models\Order_list;
 use App\Models\Solar_company;
 use App\Services\SolarCompanyManagerService;
 use Illuminate\Http\Request;
@@ -502,5 +503,43 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'message' => 'Purchase requests retrieved successfully',
             'data' => $requests,
         ], 200);
+    }
+
+    public function assign_delivery_task(Request $request, Order_list $orderList)
+    {
+        $validate = Validator::make($request->all(), [
+            'driver_id' => 'required|exists:company_agency_employees,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->assign_delivery_task($request, $orderList);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Delivery task assigned successfully',
+            'task' => $result,
+        ], 201);
+    }
+
+    public function recieve_orderList(Order_list $orderList)
+    {
+        $result = $this->solarCompanyManagerService->recieve_orderList($orderList);
+
+        if (!$result) {
+            return response()->json(['message' => 'Failed to process the order list'], 500);
+        }
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Order list received and delivery task assigned successfully',
+            'orderList' => $result,
+        ]);
     }
 }

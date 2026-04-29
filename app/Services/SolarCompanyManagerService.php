@@ -4,6 +4,7 @@ namespace App\Services;
 // use App\Models\Agency;
 
 use App\Models\Agency_manager;
+use App\Models\Order_list;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
@@ -499,5 +500,45 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->delete_delivery_rule($company, $rule_id);
+    }
+
+    public function assign_delivery_task($request, Order_list $orderList)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $orderList = Order_list::with(['orderableEntityType', 'purchaseInvoices', 'Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals'])
+            ->findOrFail($orderList->id);
+
+        if ($orderList->request_entity_type !== Solar_company::class || (int) $orderList->request_entity_id !== (int) $company->id) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        if ($orderList->with_delivery) {
+            return ['error' => 'This order list has already been assigned for delivery from agency'];
+        }
+        if(!$orderList->purchaseInvoices){
+        return ['error' => 'order list does not have associated purchase invoices'];
+        }
+
+        if (!$orderList->orderableEntityType instanceof \App\Models\Agency) {
+            return ['error' => 'Agency not found for this order list'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->assign_delivery_task($request, $company, $orderList);
+    }
+
+    public function recieve_orderList($orderList)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+        return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($orderList, $company);
     }
 }

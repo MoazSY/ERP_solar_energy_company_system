@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Deliveries;
 use App\Models\Employee;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
@@ -203,20 +204,60 @@ class EmployeeService
 
         return ['error' => 'Unauthorized'];
     }
-    public function show_delivery_tasks(){
+
+    public function show_delivery_tasks()
+    {
         $employee_id = Auth::guard('employee')->user()->id;
         $employee = Employee::findOrFail($employee_id);
-        if($employee->employee_type != 'driver'){
+        if ($employee->employee_type != 'driver') {
             return ['error' => 'Unauthorized'];
         }
         return $this->employeeRepositoryInterface->show_delivery_tasks($employee);
     }
-    public function proccess_delivery_task($request){
+
+    public function proccess_delivery_task($request)
+    {
         $employee_id = Auth::guard('employee')->user()->id;
         $employee = Employee::findOrFail($employee_id);
-        if($employee->employee_type != 'driver'){
-        return ['error' => 'Unauthorized'];
+        if ($employee->employee_type != 'driver') {
+            return ['error' => 'Unauthorized'];
         }
-        return $this->employeeRepositoryInterface->proccess_delivery_task($request,$employee);
+        return $this->employeeRepositoryInterface->proccess_delivery_task($request, $employee);
+    }
+
+    public function deliver_orderList($request)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'driver') {
+            return ['error' => 'Unauthorized'];
+        }
+        $delivery = Deliveries::findOrFail($request->delivery_task_id);
+        if (!$delivery->shipped_at) {
+            return ['error' => 'Delivery has not been started yet'];
+        }
+        $delivery->delivery_status = 'delivered';
+        $delivery->delivered_at = now();
+        $delivery->save();
+        $delivery_time = $delivery->delivered_at->diffInMinutes($delivery->shipped_at);
+        $delivery->setAttribute('delivery_time', $delivery_time);
+        return $delivery;
+    }
+
+    public function task_start($request)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'driver') {
+            return ['error' => 'Unauthorized'];
+        }
+        $delivery = Deliveries::findOrFail($request->delivery_task_id);
+        if($delivery->driver_approved_delivery_task != 'approve'){
+            return ['error' => 'Delivery task has not been approved by the driver yet'];
+        }
+        $delivery->delivery_status = 'in_transit';
+        $delivery->shipped_at = now();
+        $delivery->save();
+        return $delivery;
     }
 }

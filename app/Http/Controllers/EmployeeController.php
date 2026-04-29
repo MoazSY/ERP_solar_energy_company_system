@@ -249,4 +249,36 @@ class EmployeeController extends Controller
             'delivery_task' => $result,
         ]);
     }
+        public function deliver_orderList(Request $request){
+        $validate = Validator::make($request->all(), [
+            'delivery_task_id' => 'required|exists:deliveries,id',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+        $result=$this->employeeService->deliver_orderList($request);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Order list marked as delivered successfully',
+            'delivery_task' => $result,
+        ]);
+    }
+    public function task_start(Request $request){
+        $validate = Validator::make($request->all(), [
+            'delivery_task_id' => 'required|exists:deliveries,id',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+        $result=$this->employeeService->task_start($request);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Delivery task started successfully',
+            'delivery_task' => $result,
+        ]);
+}
 }

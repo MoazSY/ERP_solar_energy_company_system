@@ -18,4 +18,6 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_delivery_rules($company);
     public function update_delivery_rule($company, $rule_id, $data);
     public function delete_delivery_rule($company, $rule_id);
+    public function recieve_orderList($orderList, $company);
+    public function assign_delivery_task($request, $company, $orderList);
 }

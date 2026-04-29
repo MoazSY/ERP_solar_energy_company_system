@@ -2,7 +2,7 @@
 namespace App\Repositories;
 
 use App\Models\Agency;
-use App\Models\Delivery_rules;
+// use App\Models\Delivery_rules;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -403,9 +403,72 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         if (!$rule) {
             return false;
         }
-
         $rule->delete();
-
         return true;
+    }
+
+    public function assign_delivery_task($request, $company, $orderList)
+    {
+        $agency = $orderList->orderableEntityType;
+        $address = $agency?->addresses()->latest('id')->first();
+
+        if (!$agency instanceof Agency) {
+            return ['error' => 'Agency not found for this order list'];
+        }
+
+        if (!$address) {
+            return ['error' => 'Agency address is missing for delivery assignment'];
+        }
+
+        return DB::transaction(function () use ($request, $orderList, $agency, $address) {
+            $delivery_task = $agency->Assign_delivery_tasks()->create([
+                'deliverable_object_type' => get_class($orderList),
+                'deliverable_object_id' => $orderList->id,
+                'order_list_id' => $orderList->id,
+                'delivery_fee' => $orderList->purchaseInvoices->delivery_fee ?? 0,
+                'currency' => 'SY',
+                'delivery_status' => 'pending',
+                'address_id' => $address->id ?? null,
+                'delivery_address' => $address->address_description ?? null,
+                'governorate_id' => $address->governorate_id ?? null,
+                'area_id' => $address->area_id ?? null,
+                'contact_name' => $agency->agency_name ?? 'agency',
+                'contact_phone' => $agency->agency_phone ?? null,
+                'latitude' => $address->latitude ?? null,
+                'longitude' => $address->longitude ?? null,
+                'driver_id' => $request->driver_id ?? null,
+                'scheduled_delivery_datetime' => $orderList->purchaseInvoices()->first()->due_date ?? null,
+                'weight_kg' => $orderList
+                    ->Items()
+                    ->with(['product.inverters', 'product.batteries', 'product.solarPanals'])
+                    ->get()
+                    ->sum(function ($item) {
+                        $unitWeight = $item->product?->inverters?->weight_kg
+                            ?? $item->product?->batteries?->weight_kg
+                            ?? $item->product?->solarPanals?->weight_kg
+                            ?? 0;
+
+                        return $unitWeight * ($item->quantity ?? 1);
+                    }),
+                'driver_approved_delivery_task' => 'pending',
+            ]);
+
+            return $delivery_task;
+        });
+    }
+
+    public function recieve_orderList($orderList, $company)
+    {
+        $orderList->status = 'completed';
+        $orderList->recieve_datetime = now();
+        $orderList->save();
+        if ($orderList->with_delivery) {
+            $delivery = $orderList->deliveries()->latest('id')->first();
+            if ($delivery) {
+                $delivery->client_recieve_delivery = true;
+                $delivery->save();
+            }
+        }
+        return $orderList;
     }
 }

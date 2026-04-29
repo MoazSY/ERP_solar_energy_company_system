@@ -1044,7 +1044,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             $payment = $agency->paymentsMade()->create([
                 'amount' => $task->delivery_fee,
                 'currency' => $task->currency,
-                'payment_object_type_name' => 'service',
+                'payment_object_type_name' => 'other',
                 'target_table_type' => 'App\Models\Company_agency_employee',
                 'target_table_id' => $task->driver_id,
                 'payment_object_table_type' => 'App\Models\Deliveries',
