@@ -133,7 +133,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'entity_source' => $delivery->entity_type,
                 'entity_target' => $targetEntity,
                 'address' => $targetEntity?->addresses()->first(),
-                'items' => $delivery->deliverable_object->Items()->with('product')->get(),
+                'items' => $delivery->deliverable_object->Items()->with('product')->get()??null,
                 'weight_kg' => $delivery
                     ->deliverable_object
                     ->Items()
