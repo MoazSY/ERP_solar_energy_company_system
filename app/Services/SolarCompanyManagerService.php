@@ -208,7 +208,7 @@ class SolarCompanyManagerService
         if ($subscribePolicy->currency == 'USD') {
             $amount = (float) $subscribePolicy->subscription_fee * 1.35;  // Convert USD to  new SYP
         } else {
-            $amount = (float) $subscribePolicy->subscription_fee/100; // Convert from old SYP to new SYP
+            $amount = (float) $subscribePolicy->subscription_fee / 100;  // Convert from old SYP to new SYP
         }
 
         if ($request->payment_method === 'syriatel_cash') {
@@ -261,14 +261,14 @@ class SolarCompanyManagerService
     {
         $agencies = $this->solarCompanyManagerRepositoryInterface->show_all_agency();
         $agencies = $agencies->map(function ($item) {
-            $manager_account=Agency_manager::findOrFail($item->agency_manager_id)->first()->account_number;
+            $manager_account = Agency_manager::findOrFail($item->agency_manager_id)->first()->account_number;
             $agency_logo = $item->agency_logo;
             if ($agency_logo == null) {
                 $agency_logoUrl = null;
             } else {
                 $agency_logoUrl = asset('storage/' . $agency_logo);
             }
-            return ['agency' => $item, 'agency_logoUrl' => $agency_logoUrl,'account_number'=>$manager_account];
+            return ['agency' => $item, 'agency_logoUrl' => $agency_logoUrl, 'account_number' => $manager_account];
         });
         return $agencies;
     }
@@ -349,8 +349,8 @@ class SolarCompanyManagerService
             $unitPrice = (float) $product->price;
             if ($product->currency === 'USD') {
                 $unitPrice *= 1.35;
-            }else{
-                $unitPrice /= 100; // convert from old SYP to new SYP
+            } else {
+                $unitPrice /= 100;  // convert from old SYP to new SYP
             }
 
             $quantity = (int) $item['quantity'];  //
@@ -453,5 +453,51 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->get_purchase_requests_from_agencies($company);
     }
 
+    public function delivery_rules($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
 
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->delivery_rules($request, $company);
+    }
+
+    public function show_delivery_rules()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return collect();
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_delivery_rules($company);
+    }
+
+    public function update_delivery_rule($rule_id, $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return null;
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->update_delivery_rule($company, $rule_id, $data);
+    }
+
+    public function delete_delivery_rule($rule_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return false;
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->delete_delivery_rule($company, $rule_id);
+    }
 }

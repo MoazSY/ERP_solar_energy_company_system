@@ -286,7 +286,8 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         $company_address = $this->solarCompanyManagerService->company_address($request, $solarCompany);
         return response()->json(['message' => 'company address added successfully', 'company_address' => $company_address]);
     }
-     public function show_custom_subscriptions()
+
+    public function show_custom_subscriptions()
     {
         $subscriptions = $this->solarCompanyManagerService->show_custom_subscriptions();
         return response()->json(['message' => 'custom subscriptions retrieved successfully', 'subscriptions' => $subscriptions]);
@@ -395,6 +396,97 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ]);
     }
 
+    public function delivery_rules(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'rule_name' => 'sometimes|string',
+            'governorate_id' => 'sometimes|exists:governorates,id',
+            'area_id' => 'sometimes|exists:areas,id',
+            'delivery_fee' => 'sometimes|numeric|min:0',
+            'price_per_km' => 'sometimes|numeric|min:0',
+            'max_weight_kg' => 'sometimes|integer|min:0',
+            'price_per_extra_kg' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $payload = $validate->validated();
+        $rule = $this->solarCompanyManagerService->delivery_rules($payload);
+
+        if (isset($rule['error'])) {
+            return response()->json(['message' => $rule['error']], 400);
+        }
+
+        return response()->json(['message' => 'Delivery rule created successfully', 'rule' => $rule], 201);
+    }
+
+    public function show_delivery_rules()
+    {
+        $rules = $this->solarCompanyManagerService->show_delivery_rules();
+
+        if ($rules->isEmpty()) {
+            return response()->json([
+                'message' => 'No delivery rules found',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Delivery rules retrieved successfully',
+            'data' => $rules
+        ], 200);
+    }
+
+    public function update_delivery_rule(Request $request, $rule_id)
+    {
+        $validate = Validator::make($request->all(), [
+            'rule_name' => 'sometimes|string',
+            'governorate_id' => 'sometimes|exists:governorates,id',
+            'area_id' => 'sometimes|exists:areas,id',
+            'delivery_fee' => 'sometimes|numeric|min:0',
+            'price_per_km' => 'sometimes|numeric|min:0',
+            'max_weight_kg' => 'sometimes|integer|min:0',
+            'price_per_extra_kg' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        if (empty($data)) {
+            return response()->json(['message' => 'No fields provided for update'], 422);
+        }
+
+        $rule = $this->solarCompanyManagerService->update_delivery_rule($rule_id, $data);
+
+        if (!$rule) {
+            return response()->json(['message' => 'Delivery rule not found or unauthorized'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Delivery rule updated successfully',
+            'rule' => $rule
+        ], 200);
+    }
+
+    public function delete_delivery_rule($rule_id)
+    {
+        $deleted = $this->solarCompanyManagerService->delete_delivery_rule($rule_id);
+
+        if (!$deleted) {
+            return response()->json(['message' => 'Delivery rule not found or unauthorized'], 404);
+        }
+
+        return response()->json(['message' => 'Delivery rule deleted successfully'], 200);
+    }
+
     public function get_purchase_requests_from_agencies()
     {
         $requests = $this->solarCompanyManagerService->get_purchase_requests_from_agencies();
@@ -411,5 +503,4 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'data' => $requests,
         ], 200);
     }
-
 }

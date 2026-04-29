@@ -2,6 +2,7 @@
 namespace App\Repositories;
 
 use App\Models\Agency;
+use App\Models\Delivery_rules;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -263,7 +264,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $transaction = null;
             if ($paymentData && isset($paymentData['data'])) {
                 $payment = $company->paymentsMade()->create([
-                    'amount' =>  $order_list->total_amount,
+                    'amount' => $order_list->total_amount,
                     'currency' => 'SY',
                     'payment_object_type_name' => 'invoice',
                     'target_table_type' => 'App\Models\Agency',
@@ -345,17 +346,66 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                         $order->transport_delivery_fee = $deliveryPricing['delivery_fee'] ?? null;
                         $order->transport_distance_km = $deliveryPricing['distance_km'] ?? null;
                         $order->transport_duration_minutes = $deliveryPricing['duration_minutes'] ?? null;
-
                     }
                 } else {
                     $order->transport_error = 'Order agency is missing for delivery calculation';
                 }
             }
-            return[ 
+            return [
                 // 'order'=>$order->getAttributes(),
-                'order'=>$order->load('Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals', 'purchaseInvoices'),
-
+                'order' => $order->load('Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals', 'purchaseInvoices'),
             ];
         });
+    }
+
+    public function delivery_rules($request, $company)
+    {
+        return $company->deliveryRules()->create([
+            'rule_name' => $request['rule_name'],
+            'governorate_id' => $request['governorate_id'],
+            'area_id' => $request['area_id'] ?? null,
+            'delivery_fee' => $request['delivery_fee'],
+            'price_per_km' => $request['price_per_km'],
+            'max_weight_kg' => $request['max_weight_kg'],
+            'price_per_extra_kg' => $request['price_per_extra_kg'],
+            'currency' => $request['currency'],
+            'is_active' => true,
+        ]);
+    }
+
+    public function show_delivery_rules($company)
+    {
+        return $company
+            ->deliveryRules()
+            ->with(['governorate', 'area'])
+            ->latest('id')
+            ->get();
+    }
+
+    public function update_delivery_rule($company, $rule_id, $data)
+    {
+        $rule = $company->deliveryRules()->find($rule_id);
+
+        if (!$rule) {
+            return null;
+        }
+
+        $rule->update($data);
+        $rule->refresh();
+
+        return $rule->load(['governorate', 'area']);
+    }
+
+    public function delete_delivery_rule($company, $rule_id)
+    {
+        $rule = $company->deliveryRules()->find($rule_id);
+
+        if (!$rule) {
+            return false;
+        }
+
+        $rule->delete();
+
+        return true;
     }
 }

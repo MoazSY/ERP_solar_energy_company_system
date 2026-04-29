@@ -58,6 +58,10 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
     Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
     Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
+    Route::post('company_manager/delivery_rules', [SolarCompanyManager::class, 'delivery_rules'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('company_manager/show_delivery_rules', [SolarCompanyManager::class, 'show_delivery_rules'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('company_manager/update_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'update_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('company_manager/delete_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'delete_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
