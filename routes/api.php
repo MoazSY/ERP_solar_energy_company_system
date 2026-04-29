@@ -59,12 +59,13 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
     Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
     Route::post('assign_delivery_task/{orderList}', [SolarCompanyManager::class, 'assign_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('company_manager/show_delivery_task', [SolarCompanyManager::class, 'show_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('company_manager/filter_delivery_tasks', [SolarCompanyManager::class, 'filter_delivery_tasks'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/delivery_rules', [SolarCompanyManager::class, 'delivery_rules'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::get('company_manager/show_delivery_rules', [SolarCompanyManager::class, 'show_delivery_rules'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/update_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'update_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/delete_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'delete_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('recieve_orderList/{orderList}', [SolarCompanyManager::class, 'recieve_orderList'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::post('assign_delivery_task/{orderList}',[SolarCompanyManager::class,'assign_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -119,5 +120,5 @@ Route::middleware('check_employee')->group(function () {
     Route::get('show_delivery_tasks', [EmployeeController::class, 'show_delivery_tasks']);
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
-    Route::post('task_start',[EmployeeController::class, 'task_start']);
+    Route::post('task_start', [EmployeeController::class, 'task_start']);
 });

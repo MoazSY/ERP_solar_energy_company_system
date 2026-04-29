@@ -2,7 +2,8 @@
 namespace App\Repositories;
 
 use App\Models\Agency;
-// use App\Models\Delivery_rules;
+use App\Models\Company_agency_employee;
+use App\Models\Deliveries;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -420,14 +421,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             return ['error' => 'Agency address is missing for delivery assignment'];
         }
 
-        return DB::transaction(function () use ($request, $orderList, $agency, $address) {
+        return DB::transaction(function () use ($request, $orderList, $agency, $address,$company) {
             $deliveryFeeResult = app(OsrmService::class)->calculate_delivery_fee_for_order_list($agency, $orderList);
             if (isset($deliveryFeeResult['error'])) {
                 return ['error' => $deliveryFeeResult['error']];
             }
             $delivery_fee = $deliveryFeeResult['delivery_fee'];
-            
-            $delivery_task = $agency->Assign_delivery_tasks()->create([
+
+            $delivery_task = $company->Assign_delivery_tasks()->create([
                 'deliverable_object_type' => get_class($orderList),
                 'deliverable_object_id' => $orderList->id,
                 'order_list_id' => $orderList->id,
@@ -476,5 +477,101 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             }
         }
         return $orderList;
+    }
+
+    public function show_delivery_task($company)
+    {
+        return $company
+            ->Assign_delivery_tasks()
+            ->with(['orderList.request_entity', 'driver.employee', 'address.governorate', 'address.area'])
+            ->latest('id')
+            ->get();
+    }
+
+    public function show_delivery_tasks($company)
+    {
+        return $company
+            ->Assign_delivery_tasks()
+            ->with(['orderList.request_entity', 'driver.employee', 'address.governorate', 'address.area'])
+            ->latest('id')
+            ->get();
+    }
+
+    public function filter_delivery_tasks($company, $filters)
+    {
+        $driverPaidBaseConstraint = function ($paymentQuery) {
+            $paymentQuery
+                ->where('status', 'paid')
+                ->where('target_table_type', Company_agency_employee::class)
+                ->where('payment_object_table_type', Deliveries::class);
+        };
+
+        $driverPaidConstraint = function ($paymentQuery) use ($driverPaidBaseConstraint) {
+            $driverPaidBaseConstraint($paymentQuery);
+            $paymentQuery->whereColumn('payments.target_table_id', 'deliveries.driver_id');
+        };
+
+        $query = $company
+            ->Assign_delivery_tasks()
+            ->with([
+                'orderList.request_entity',
+                'driver.employee',
+                'address.governorate',
+                'address.area',
+                'driverPayments' => $driverPaidBaseConstraint,
+            ]);
+
+        // فلترة التاريخ
+        $query->when(!empty($filters['date_from']), function ($q) use ($filters) {
+            $q->whereDate('scheduled_delivery_datetime', '>=', $filters['date_from']);
+        });
+        $query->when(!empty($filters['date_to']), function ($q) use ($filters) {
+            $q->whereDate('scheduled_delivery_datetime', '<=', $filters['date_to']);
+        });
+
+        // فلترة مكتمل / غير مكتمل
+        if (array_key_exists('is_completed', $filters)) {
+            if ((bool) $filters['is_completed']) {
+                $query->where(function ($q) {
+                    $q
+                        ->where('delivery_status', 'delivered')
+                        ->orWhereNotNull('delivered_at');
+                });
+            } else {
+                $query
+                    ->where('delivery_status', '!=', 'delivered')
+                    ->whereNull('delivered_at');
+            }
+        }
+
+        // فلترة حالة الدفع للسائق
+        if (!empty($filters['driver_payment_status'])) {
+            if ($filters['driver_payment_status'] === 'paid') {
+                $query->whereHas('driverPayments', $driverPaidConstraint);
+            } elseif ($filters['driver_payment_status'] === 'unpaid') {
+                $query->where(function ($q) use ($driverPaidConstraint) {
+                    $q
+                        ->whereNull('driver_id')
+                        ->orWhereDoesntHave('driverPayments', $driverPaidConstraint);
+                });
+            }
+        }
+
+        return $query->latest('id')->get()->map(function ($q) {
+            return [
+                'delivery_task' => $q->getAttributes(),
+                'order_list' => $q->orderList?->toArray(),
+                'request_entity' => $q->orderList?->request_entity?->toArray(),
+                'driver' => $q->driver?->toArray(),
+                'address' => $q->address?->toArray(),
+                'governorate' => $q->address?->governorate?->toArray(),
+                'area' => $q->address?->area?->toArray(),
+                'driver_payments' => $q->driverPayments->map(function ($payment) {
+                    return $payment->getAttributes();
+                })->values()->all(),
+                'delivery_status' => $q->delivery_status,
+                'is_paid_to_driver' => $q->driverPayments->isNotEmpty(),
+            ];
+        });
     }
 }

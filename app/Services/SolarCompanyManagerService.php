@@ -521,8 +521,8 @@ class SolarCompanyManagerService
         if ($orderList->with_delivery) {
             return ['error' => 'This order list has already been assigned for delivery from agency'];
         }
-        if(!$orderList->purchaseInvoices){
-        return ['error' => 'order list does not have associated purchase invoices'];
+        if (!$orderList->purchaseInvoices) {
+            return ['error' => 'order list does not have associated purchase invoices'];
         }
 
         if (!$orderList->orderableEntityType instanceof \App\Models\Agency) {
@@ -530,6 +530,27 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->assign_delivery_task($request, $company, $orderList);
+    }
+
+    public function show_delivery_task()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company_manager = Solar_company_manager::findOrFail($company_manager_id);
+        $company = $company_manager->solarCompanies()->first();
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+        return $this->solarCompanyManagerRepositoryInterface->show_delivery_tasks($company);
+    }
+
+    public function filter_delivery_tasks($filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+        return $this->solarCompanyManagerRepositoryInterface->filter_delivery_tasks($company, $filters);
     }
 
     public function recieve_orderList($orderList)

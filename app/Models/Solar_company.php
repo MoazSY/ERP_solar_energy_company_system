@@ -140,4 +140,8 @@ class Solar_company extends Model
     {
         return $this->morphMany(Employment_orders::class, 'entity_type');
     }
+        public function Assign_delivery_tasks(): MorphMany
+    {
+        return $this->morphMany(Deliveries::class, 'entity_type');
+    }
 }
