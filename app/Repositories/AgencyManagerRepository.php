@@ -953,7 +953,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
     {
         return $agency
             ->Assign_delivery_tasks()
-            ->with(['orderList.request_entity', 'driver', 'address.governorate', 'address.area'])
+            ->with(['orderList.request_entity', 'driver.employee', 'address.governorate', 'address.area'])
             ->latest('id')
             ->get();
     }
@@ -979,7 +979,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             ->Assign_delivery_tasks()
             ->with([
                 'orderList.request_entity',
-                'driver',
+                'driver.employee',
                 'address.governorate',
                 'address.area',
                 // نحمّل فقط المدفوعات الخاصة بالسائق إن احتجناها لاحقًا
