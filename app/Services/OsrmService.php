@@ -69,7 +69,7 @@ class OsrmService
         ) {
             return ['error' => 'Agency/company coordinates are required for delivery calculation'];
         }
-
+// هنا يجب حسب سياسة الجهة الطالبة المسعرة 
         $ruleQuery = $agency
             ->deliveryRules()
             ->where('is_active', true)

@@ -421,11 +421,17 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
 
         return DB::transaction(function () use ($request, $orderList, $agency, $address) {
+            $deliveryFeeResult = app(OsrmService::class)->calculate_delivery_fee_for_order_list($agency, $orderList);
+            if (isset($deliveryFeeResult['error'])) {
+                return ['error' => $deliveryFeeResult['error']];
+            }
+            $delivery_fee = $deliveryFeeResult['delivery_fee'];
+            
             $delivery_task = $agency->Assign_delivery_tasks()->create([
                 'deliverable_object_type' => get_class($orderList),
                 'deliverable_object_id' => $orderList->id,
                 'order_list_id' => $orderList->id,
-                'delivery_fee' => $orderList->purchaseInvoices->delivery_fee ?? 0,
+                'delivery_fee' => $delivery_fee,
                 'currency' => 'SY',
                 'delivery_status' => 'pending',
                 'address_id' => $address->id ?? null,
