@@ -464,10 +464,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         });
     }
 
-    public function recieve_orderList($orderList, $company)
+    public function recieve_orderList($request, $orderList, $company)
     {
         $orderList->status = 'completed';
         $orderList->recieve_datetime = now();
+        $orderList->inventory_manager_id=$request->inventory_manager_id;
         $orderList->save();
         if ($orderList->with_delivery) {
             $delivery = $orderList->deliveries()->latest('id')->first();
@@ -476,7 +477,15 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $delivery->save();
             }
         }
-        return $orderList;
+        $company->input_output_requests()->create([
+            'request_type' => 'input',
+            'inventory_manager_id'=>$request->inventory_manager_id,
+            'order_id' => $orderList->id,
+            'notes'=>$request->notes ?? null,
+        ]);
+        //notify inventory to enter the products in stock and update the inventory
+        $result=$orderList->load('input_output_request');
+        return $result;
     }
 
     public function show_delivery_task($company)

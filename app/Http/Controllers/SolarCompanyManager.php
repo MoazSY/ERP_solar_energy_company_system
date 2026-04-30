@@ -566,9 +566,16 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 200);
     }
 
-    public function recieve_orderList(Order_list $orderList)
+    public function recieve_orderList(Request $request ,Order_list $orderList)
     {
-        $result = $this->solarCompanyManagerService->recieve_orderList($orderList);
+        $validate = Validator::make(array_merge($request->all(), ['order_list_id' => $orderList->id]), [
+            'inventory_manager_id' => 'required|exists:company_agency_employees,id',
+            'notes' => 'sometimes|string',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        $result = $this->solarCompanyManagerService->recieve_orderList($request,$orderList);
 
         if (!$result) {
             return response()->json(['message' => 'Failed to process the order list'], 500);

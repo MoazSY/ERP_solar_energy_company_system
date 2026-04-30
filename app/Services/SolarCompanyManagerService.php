@@ -555,13 +555,13 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->filter_delivery_tasks($company, $filters);
     }
 
-    public function recieve_orderList($orderList)
+    public function recieve_orderList($request,$orderList)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
         if (!$company) {
             return ['error' => 'company not found for the current manager'];
         }
-        return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($orderList, $company);
+        return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);
     }
 }

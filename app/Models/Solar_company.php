@@ -144,4 +144,9 @@ class Solar_company extends Model
     {
         return $this->morphMany(Deliveries::class, 'entity_type');
     }
+    public function input_output_requests(): HasMany
+    {
+        return $this->hasMany(Input_output_request::class, 'company_id');
+    }
+
 }
