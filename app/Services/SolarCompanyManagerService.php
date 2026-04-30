@@ -562,6 +562,12 @@ class SolarCompanyManagerService
         if (!$company) {
             return ['error' => 'company not found for the current manager'];
         }
+        if($orderList->request_entity_type != Solar_company::class || (int)$orderList->request_entity_id != (int)$company->id){
+            return ['error' => 'Unauthorized'];
+        }
+        if($orderList->deliveries()->where('delivery_status','!=','delivered')->exists()){
+            return ['error' => 'Cannot receive order list with undelivered deliveries'];
+        }
         return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);
     }
 }

@@ -64,8 +64,8 @@ class Order_list extends Model
     public function Payment(): MorphOne{
         return $this->morphOne(Payment::class,'payment_object_table');
     }
-    public function input_output_request(): HasOne
+    public function input_output_request(): HasMany
     {
-        return $this->hasOne(Input_output_request::class, 'order_id');
+        return $this->hasMany(Input_output_request::class, 'order_id');
     }
 }
