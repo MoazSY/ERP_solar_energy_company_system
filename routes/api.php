@@ -58,7 +58,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
     Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
     Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
-    Route::post('assign_delivery_task/{orderList}', [SolarCompanyManager::class, 'assign_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('company_manager/assign_delivery_task', [SolarCompanyManager::class, 'assign_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::get('company_manager/show_delivery_task', [SolarCompanyManager::class, 'show_delivery_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/filter_delivery_tasks', [SolarCompanyManager::class, 'filter_delivery_tasks'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/delivery_rules', [SolarCompanyManager::class, 'delivery_rules'])->middleware(['check_company_manager_active', 'check_company_active']);

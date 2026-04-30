@@ -505,17 +505,18 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 200);
     }
 
-    public function assign_delivery_task(Request $request, Order_list $orderList)
+    public function assign_delivery_task(Request $request)
     {
         $validate = Validator::make($request->all(), [
             'driver_id' => 'required|exists:company_agency_employees,id',
+            'order_list_id' => 'required|exists:order_lists,id',
         ]);
 
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
 
-        $result = $this->solarCompanyManagerService->assign_delivery_task($request, $orderList);
+        $result = $this->solarCompanyManagerService->assign_delivery_task($request);
 
         if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 400);
@@ -580,4 +581,5 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'orderList' => $result,
         ]);
     }
+
 }

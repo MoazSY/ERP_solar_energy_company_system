@@ -502,7 +502,7 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->delete_delivery_rule($company, $rule_id);
     }
 
-    public function assign_delivery_task($request, Order_list $orderList)
+    public function assign_delivery_task($request)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
@@ -512,9 +512,11 @@ class SolarCompanyManagerService
         }
 
         $orderList = Order_list::with(['orderableEntityType', 'purchaseInvoices', 'Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals'])
-            ->findOrFail($orderList->id);
-
-        if ($orderList->request_entity_type !== Solar_company::class || (int) $orderList->request_entity_id !== (int) $company->id) {
+            ->findOrFail($request->order_list_id);
+            if(!$orderList) {
+                return ['error' => 'Order list not found'];
+            }
+        if ($orderList->request_entity_type != Solar_company::class || (int) $orderList->request_entity_id != (int) $company->id) {
             return ['error' => 'Unauthorized'];
         }
 
