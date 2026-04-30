@@ -9,6 +9,7 @@ use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Solar_company;
+use App\Models\Employee;
 use App\Models\Subscribe_polices;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\Auth;
@@ -914,6 +915,10 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function assign_delivery_task($request, $agency, $orderList)
     {
+        $driver=Employee::findOrFail(company_agency_employee::findOrFail($request->driver_id)->employee_id);
+        if($driver->employee_type != 'driver'){
+            return ['error' => 'The selected employee is not a driver.'];
+        }
         $address = $orderList->request_entity->addresses->first();
         $delivery_task = $agency->Assign_delivery_tasks()->create([
             'deliverable_object_type' => get_class($orderList),
@@ -930,7 +935,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'contact_phone' => $orderList->request_entity->company_phone ?? null,
             'latitude' => $address->latitude ?? null,
             'longitude' => $address->longitude ?? null,
-            'driver_id' => $request->driver_id ?? null,
+            'driver_id' => $driver->id ?? null,
             'scheduled_delivery_datetime' => $orderList->purchaseInvoices()->first()->due_date ?? null,
             'weight_kg' => $orderList
                 ->Items()

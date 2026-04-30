@@ -281,5 +281,15 @@ class EmployeeController extends Controller
             'delivery_task' => $result,
         ]);
 }
-
+    public function show_orderList_for_inventory_manager()
+    {
+        $orderLists = $this->employeeService->show_orderList_for_inventory_manager();
+                if (isset($orderLists['error'])) {
+            return response()->json(['message' => $orderLists['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Order lists retrieved successfully',
+            'order_lists' => $orderLists,
+        ]); 
+}
 }

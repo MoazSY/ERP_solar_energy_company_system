@@ -260,5 +260,12 @@ class EmployeeService
         $delivery->save();
         return $delivery;
     }
-    
+    public function show_orderList_for_inventory_manager(){
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'inventory_manager') {
+            return ['error' => 'Unauthorized'];
+        }
+        return $this->employeeRepositoryInterface->show_orderList_for_inventory_manager($employee);
+    }
 }

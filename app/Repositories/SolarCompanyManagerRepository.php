@@ -4,6 +4,7 @@ namespace App\Repositories;
 use App\Models\Agency;
 use App\Models\Company_agency_employee;
 use App\Models\Deliveries;
+use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -420,8 +421,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         if (!$address) {
             return ['error' => 'Agency address is missing for delivery assignment'];
         }
-
-        return DB::transaction(function () use ($request, $orderList, $agency, $address,$company) {
+        $driver = Employee::findOrFail(Company_agency_employee::findOrFail($request->driver_id)->employee_id);
+        if ($driver->employee_type != 'driver') {
+            return ['error' => 'The assigned employee is not a driver'];
+        }
+        return DB::transaction(function () use ($driver, $orderList, $agency, $address, $company) {
             $deliveryFeeResult = app(OsrmService::class)->calculate_delivery_fee_for_order_list($agency, $orderList);
             if (isset($deliveryFeeResult['error'])) {
                 return ['error' => $deliveryFeeResult['error']];
@@ -443,7 +447,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'contact_phone' => $agency->agency_phone ?? null,
                 'latitude' => $address->latitude ?? null,
                 'longitude' => $address->longitude ?? null,
-                'driver_id' => $request->driver_id ?? null,
+                'driver_id' => $driver->id ?? null,
                 'scheduled_delivery_datetime' => $orderList->purchaseInvoices()->first()->due_date ?? null,
                 'weight_kg' => $orderList
                     ->Items()
@@ -466,9 +470,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function recieve_orderList($request, $orderList, $company)
     {
+        $inventory_manager = Employee::findOrFail(company_agency_employee::findOrFail($request->inventory_manager_id)->employee_id);
+        if ($inventory_manager->employee_type != 'inventory_manager') {
+            return ['error' => 'The assigned employee is not an inventory manager'];
+        }
+
         $orderList->status = 'completed';
         $orderList->recieve_datetime = now();
-        $orderList->inventory_manager_id=$request->inventory_manager_id;
+        $orderList->inventory_manager_id = $request->inventory_manager_id;
         $orderList->save();
         if ($orderList->with_delivery) {
             $delivery = $orderList->deliveries()->latest('id')->first();
@@ -479,12 +488,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
         $company->input_output_requests()->create([
             'request_type' => 'input',
-            'inventory_manager_id'=>$request->inventory_manager_id,
+            'inventory_manager_id' => $inventory_manager->id,
             'order_id' => $orderList->id,
-            'notes'=>$request->notes ?? null,
+            'notes' => $request->notes ?? null,
         ]);
-        //notify inventory to enter the products in stock and update the inventory
-        $result=$orderList->load('input_output_request');
+        // notify inventory to enter the products in stock and update the inventory
+        $result = $orderList->load('input_output_request');
         return $result;
     }
 

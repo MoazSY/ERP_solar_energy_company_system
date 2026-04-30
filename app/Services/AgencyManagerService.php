@@ -496,7 +496,8 @@ class AgencyManagerService
         //      return ['error' => 'payment already processed for this delivery task'];
         // }
         
-        $driver_id=$delivery_task->driver->employee_id;
+        // $driver_id=$delivery_task->driver->employee_id;
+        $driver_id=$delivery_task->driver_id;
         $driver= \App\Models\Employee::findOrFail($driver_id);
         $amount=$delivery_task->delivery_fee;
         if($amount<=0){

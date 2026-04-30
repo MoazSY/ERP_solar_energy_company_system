@@ -14,4 +14,5 @@ interface EmployeeRepositoryInterface
     public function show_entity_employees($entity, $entityTypeClass);
     public function show_delivery_tasks($employee);
     public function proccess_delivery_task($request, $employee);
+    public function show_orderList_for_inventory_manager($employee);
 }

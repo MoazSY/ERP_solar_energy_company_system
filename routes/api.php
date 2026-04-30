@@ -121,4 +121,5 @@ Route::middleware('check_employee')->group(function () {
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'task_start']);
+    Route::get('show_orderList_for_inventory_manager',[EmployeeController::class,'show_orderList_for_inventory_manager']);
 });

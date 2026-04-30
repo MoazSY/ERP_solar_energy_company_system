@@ -5,6 +5,7 @@ use App\Models\Company_agency_employee;
 use App\Models\Deliveries;
 use App\Models\Employee;
 // use App\Models\Employment_orders;
+use App\Models\Input_output_request;
 use Illuminate\Support\Facades\Hash;
 
 class EmployeeRepository implements EmployeeRepositoryInterface
@@ -166,5 +167,11 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $delivery->driver_approved_delivery_task = $request->action === 'approve' ? 'approve' : 'reject';
         $delivery->save();
     return $delivery;
+    }
+    public function show_orderList_for_inventory_manager($employee){
+     $input_output_request=Input_output_request::query()
+     ->where('inventory_manager_id',$employee->id)
+     ->with(['order','order.request_entity','order.Items','order.Items.product','order.Items.product.inverters','order.Items.product.batteries'])->get();
+        return $input_output_request;
     }
 }
