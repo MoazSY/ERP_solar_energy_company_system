@@ -268,4 +268,88 @@ class EmployeeService
         }
         return $this->employeeRepositoryInterface->show_orderList_for_inventory_manager($employee);
     }
+        public function insert_product_to_stock($request, $data)
+    {
+        $inventory_manager_id = Auth::guard('employee')->user()->id;
+        $inventory_manager = Employee::findOrFail($inventory_manager_id);
+        if($inventory_manager->employee_type != 'inventory_manager'){
+            return ['error' => 'Unauthorized'];
+        }
+        $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
+        if ($request->hasFile('product_image')) {
+            $product_image = $request->file('product_image')->getClientOriginalName();
+            $product_image_path = $request->file('product_image')->storeAs('AgencyManager/product_images', $product_image, 'public');
+            $data['product_image'] = $product_image_path;
+            $product_image_URL = asset('storage/' . $product_image_path);
+        } else {
+            $data['product_image'] = null;
+            $product_image_URL = null;
+        }
+        $result = $this->employeeRepositoryInterface->insert_product_to_stock($data, $company);
+        return [$result, $product_image_URL];
+    }
+    public function add_inventory_product_battery($data, $product_id){
+        return $this->employeeRepositoryInterface->add_inventory_product_battery($data, $product_id);
+    }
+    public function add_inventory_product_inverter($data, $product_id){
+    return $this->employeeRepositoryInterface->add_inventory_product_inverter($data, $product_id);
+    }
+    public function add_inventory_product_solar_panel($data, $product_id){
+        return $this->employeeRepositoryInterface->add_inventory_product_solar_panel($data, $product_id);
+    }
+    public function update_inventory_product($request,$data, $product_id){
+        return $this->employeeRepositoryInterface->update_inventory_product($request,$data, $product_id);
+    }
+    public function delete_inventory_product($product_id){
+        return $this->employeeRepositoryInterface->delete_inventory_product($product_id);
+    }
+    public function delete_inventory_product_details($product_id){
+        return $this->employeeRepositoryInterface->delete_inventory_product_details($product_id);
+    }
+    public function show_inventory_products(){
+            $inventory_manager = Auth::guard('employee')->user();
+        $inventory_manager = Employee::findOrFail($inventory_manager->id);
+        $products = $this->employeeRepositoryInterface->show_inventory_products($inventory_manager);
+        $products = $products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
+            }
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
+        });
+        return $products;
+    }
+    public function filter_inventory_products($filters){
+            $products = $this->employeeRepositoryInterface->filter_inventory_products($filters);
+
+        $result = $products->map(function ($item) {
+            $product_image = $item->product_image;
+            if ($product_image == null) {
+                $product_image_URL = null;
+            } else {
+                $product_image_URL = asset('storage/' . $product_image);
+            }
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+            return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
+        });
+        return $result;
+    }
+
 }

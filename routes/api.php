@@ -121,5 +121,16 @@ Route::middleware('check_employee')->group(function () {
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'task_start']);
-    Route::get('show_orderList_for_inventory_manager',[EmployeeController::class,'show_orderList_for_inventory_manager']);
+    Route::get('show_orderList_for_inventory_manager', [EmployeeController::class, 'show_orderList_for_inventory_manager']);
+
+    // Inventory Management Routes
+    Route::post('insert_product_to_stock', [EmployeeController::class, 'insert_product_to_stock']);
+    Route::get('show_inventory_products', [EmployeeController::class, 'show_inventory_products']);
+    Route::post('add_inventory_product_battery/{product_id}', [EmployeeController::class, 'add_inventory_product_battery']);
+    Route::post('add_inventory_product_inverter/{product_id}', [EmployeeController::class, 'add_inventory_product_inverter']);
+    Route::post('add_inventory_product_solar_panel/{product_id}', [EmployeeController::class, 'add_inventory_product_solar_panel']);
+    Route::post('update_inventory_product/{product_id}', [EmployeeController::class, 'update_inventory_product']);
+    Route::post('delete_inventory_product/{product_id}', [EmployeeController::class, 'delete_inventory_product']);
+    Route::post('delete_inventory_product_details/{product_id}', [EmployeeController::class, 'delete_inventory_product_details']);
+    Route::post('filter_inventory_products', [EmployeeController::class, 'filter_inventory_products']);
 });
