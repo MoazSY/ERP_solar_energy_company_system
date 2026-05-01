@@ -364,6 +364,20 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ]);
     }
 
+    public function show_company_products()
+    {
+        $products = $this->solarCompanyManagerService->show_company_products();
+
+        if ($products === null) {
+            return response()->json(['message' => 'company not found'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Company products retrieved successfully',
+            'products' => $products,
+        ]);
+    }
+
     public function request_purchase_invoice_agency(Request $request, $agency_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['agency_id' => $agency_id]), [
@@ -566,7 +580,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 200);
     }
 
-    public function recieve_orderList(Request $request ,Order_list $orderList)
+    public function recieve_orderList(Request $request, Order_list $orderList)
     {
         $validate = Validator::make(array_merge($request->all(), ['order_list_id' => $orderList->id]), [
             'inventory_manager_id' => 'required|exists:company_agency_employees,id',
@@ -575,7 +589,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
-        $result = $this->solarCompanyManagerService->recieve_orderList($request,$orderList);
+        $result = $this->solarCompanyManagerService->recieve_orderList($request, $orderList);
 
         if (!$result) {
             return response()->json(['message' => 'Failed to process the order list'], 500);
@@ -588,5 +602,4 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'orderList' => $result,
         ]);
     }
-
 }

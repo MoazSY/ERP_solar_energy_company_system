@@ -290,7 +290,6 @@ class SolarCompanyManagerService
                 $product_image_URL = asset('storage/' . $product_image);
             }
 
-            // Add detailed information based on product type
             $detailed_info = null;
             switch ($item->product_type) {
                 case 'inverter':
@@ -317,6 +316,39 @@ class SolarCompanyManagerService
         });
 
         return $grouped_products;
+    }
+
+    public function show_company_products()
+    {
+        $companyManager = Auth::guard('company_manager')->user();
+        $companyManager = Solar_company_manager::findOrFail($companyManager->id);
+        $company = $companyManager->solarCompanies()->first();
+
+        if (!$company) {
+            return null;
+        }
+
+        $products = $this->solarCompanyManagerRepositoryInterface->show_company_products($company);
+        $products = $products->map(function ($item) {
+            $product_image = $item->product_image;
+            $product_image_URL = $product_image ? asset('storage/' . $product_image) : null;
+
+            $details = null;
+            if ($item->product_type === 'battery') {
+                $details = $item->batteries;
+            } elseif ($item->product_type === 'solar_panel') {
+                $details = $item->solarPanals;
+            } elseif ($item->product_type === 'inverter') {
+                $details = $item->inverters;
+            }
+
+            return [
+                'product' => $item,
+                'product_image' => $product_image_URL,
+                'details' => $details,
+            ];
+        });
+return $products;
     }
 
     public function request_purchase_invoice_agency($agency_id, $request)
@@ -513,9 +545,9 @@ class SolarCompanyManagerService
 
         $orderList = Order_list::with(['orderableEntityType', 'purchaseInvoices', 'Items.product.inverters', 'Items.product.batteries', 'Items.product.solarPanals'])
             ->findOrFail($request->order_list_id);
-            if(!$orderList) {
-                return ['error' => 'Order list not found'];
-            }
+        if (!$orderList) {
+            return ['error' => 'Order list not found'];
+        }
         if ($orderList->request_entity_type != Solar_company::class || (int) $orderList->request_entity_id != (int) $company->id) {
             return ['error' => 'Unauthorized'];
         }
@@ -555,17 +587,17 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->filter_delivery_tasks($company, $filters);
     }
 
-    public function recieve_orderList($request,$orderList)
+    public function recieve_orderList($request, $orderList)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
         if (!$company) {
             return ['error' => 'company not found for the current manager'];
         }
-        if($orderList->request_entity_type != Solar_company::class || (int)$orderList->request_entity_id != (int)$company->id){
+        if ($orderList->request_entity_type != Solar_company::class || (int) $orderList->request_entity_id != (int) $company->id) {
             return ['error' => 'Unauthorized'];
         }
-        if($orderList->deliveries()->where('delivery_status','!=','delivered')->exists()){
+        if ($orderList->deliveries()->where('delivery_status', '!=', 'delivered')->exists()) {
             return ['error' => 'Cannot receive order list with undelivered deliveries'];
         }
         return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);

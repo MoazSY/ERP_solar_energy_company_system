@@ -218,6 +218,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $products;
     }
 
+    public function show_company_products($company)
+    {
+        return $company->products()->with(['inverters', 'batteries', 'solarPanals'])->latest('id')->get();
+    }
+
     public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null)
     {
         $agency = Agency::findOrFail($agency_id);

@@ -53,6 +53,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('Update_company/{solarCompany}', [SolarCompanyManager::class, 'Update_company']);
     Route::post('Add_company_address/{solarCompany}', [SolarCompanyManager::class, 'Add_company_address']);
     Route::post('company_subscribe_in_policy', [SolarCompanyManager::class, 'subscribe_in_policy'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_company_products', [SolarCompanyManager::class, 'show_company_products']);
     Route::get('show_all_agency', [SolarCompanyManager::class, 'show_all_agency']);
     Route::post('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
