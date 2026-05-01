@@ -5,20 +5,43 @@ use App\Models\Agency;
 use App\Models\Agency_manager;
 use App\Models\Company_agency_employee;
 use App\Models\Deliveries;
+use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Solar_company;
-use App\Models\Employee;
 use App\Models\Subscribe_polices;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 {
+    private function generateProductModelNumber(string $productType): string
+    {
+        $prefixMap = [
+            'battery' => 'B_',
+            'inverter' => 'I_',
+            'solar_panel' => 'SP_',
+            'accessory' => 'A_',
+        ];
+
+        $prefix = $prefixMap[$productType] ?? 'P_';
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $modelNumber = $prefix . Str::upper(Str::random(10));
+
+            if (!Products::where('model_number', $modelNumber)->exists()) {
+                return $modelNumber;
+            }
+        }
+
+        throw new \RuntimeException('Unable to generate a unique model number.');
+    }
+
     public function Create($request, $image_path, $identification_image_path, $data)
     {
         $agency_manager = Agency_manager::create([
@@ -133,11 +156,13 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function add_agency_products($request, $agency)
     {
+        $modelNumber = $this->generateProductModelNumber($request['product_type']);
+
         $product = $agency->products()->create([
             'product_name' => $request['product_name'],
             'product_type' => $request['product_type'],
             'product_brand' => $request['product_brand'],
-            'model_number' => $request['model_number'],
+            'model_number' => $modelNumber,
             'quentity' => $request['quentity'],
             'price' => $request['price'],
             'disscount_type' => $request['disscount_type'],
@@ -915,8 +940,8 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function assign_delivery_task($request, $agency, $orderList)
     {
-        $driver=Employee::findOrFail(company_agency_employee::findOrFail($request->driver_id)->employee_id);
-        if($driver->employee_type != 'driver'){
+        $driver = Employee::findOrFail(company_agency_employee::findOrFail($request->driver_id)->employee_id);
+        if ($driver->employee_type != 'driver') {
             return ['error' => 'The selected employee is not a driver.'];
         }
         $address = $orderList->request_entity->addresses->first();
@@ -1045,7 +1070,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function paid_to_driver($request, $task, $agency, $paymentResponse = null)
     {
-       return  DB::transaction(function () use ($request, $task, $agency, $paymentResponse) {
+        return DB::transaction(function () use ($request, $task, $agency, $paymentResponse) {
             $payment = $agency->paymentsMade()->create([
                 'amount' => $task->delivery_fee,
                 'currency' => $task->currency,
@@ -1069,6 +1094,5 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             }
             return $payment;
         });
-        
     }
 }

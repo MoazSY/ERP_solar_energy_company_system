@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
+use App\Models\Order_list;
+use App\Models\Products;
 use App\Services\EmployeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
-use App\Models\Order_list;
-use App\Models\Products;
 
 class EmployeeController extends Controller
 {
@@ -223,8 +223,10 @@ class EmployeeController extends Controller
             'employees' => $employees,
         ]);
     }
-    public function show_delivery_tasks(){
-        $delivery_task=$this->employeeService->show_delivery_tasks();
+
+    public function show_delivery_tasks()
+    {
+        $delivery_task = $this->employeeService->show_delivery_tasks();
         if (isset($delivery_task['error'])) {
             return response()->json(['message' => $delivery_task['error']], 400);
         }
@@ -232,9 +234,10 @@ class EmployeeController extends Controller
             'message' => 'Delivery tasks retrieved successfully',
             'delivery_tasks' => $delivery_task,
         ]);
-
     }
-    public function proccess_delivery_task(Request $request){
+
+    public function proccess_delivery_task(Request $request)
+    {
         $validate = Validator::make($request->all(), [
             'delivery_id' => 'required|exists:deliveries,id',
             'action' => 'required|in:approve,reject',
@@ -242,23 +245,25 @@ class EmployeeController extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 400);
         }
-            $result=$this->employeeService->proccess_delivery_task($request);
-            if (isset($result['error'])) {
-                return response()->json(['message' => $result['error']], 400);
-            }
-            return response()->json([
+        $result = $this->employeeService->proccess_delivery_task($request);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
             'message' => 'Delivery task processed successfully',
             'delivery_task' => $result,
         ]);
     }
-        public function deliver_orderList(Request $request){
+
+    public function deliver_orderList(Request $request)
+    {
         $validate = Validator::make($request->all(), [
             'delivery_task_id' => 'required|exists:deliveries,id',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 400);
         }
-        $result=$this->employeeService->deliver_orderList($request);
+        $result = $this->employeeService->deliver_orderList($request);
         if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 400);
         }
@@ -267,14 +272,16 @@ class EmployeeController extends Controller
             'delivery_task' => $result,
         ]);
     }
-    public function task_start(Request $request){
+
+    public function task_start(Request $request)
+    {
         $validate = Validator::make($request->all(), [
             'delivery_task_id' => 'required|exists:deliveries,id',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 400);
         }
-        $result=$this->employeeService->task_start($request);
+        $result = $this->employeeService->task_start($request);
         if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 400);
         }
@@ -282,26 +289,30 @@ class EmployeeController extends Controller
             'message' => 'Delivery task started successfully',
             'delivery_task' => $result,
         ]);
-}
+    }
+
     public function show_orderList_for_inventory_manager()
     {
         $orderLists = $this->employeeService->show_orderList_for_inventory_manager();
-                if (isset($orderLists['error'])) {
+        if (isset($orderLists['error'])) {
             return response()->json(['message' => $orderLists['error']], 400);
         }
         return response()->json([
             'message' => 'Order lists retrieved successfully',
             'order_lists' => $orderLists,
         ]);
-}
-    public function proccess_input_output_order_request(Request $request, Order_list $orderlist){
-    // $validate=
     }
-    public function insert_product_to_stock(Request $request){
 
-        $validate = Validator::make($request->all(), [
-            'product_name' => 'required|string',
-            'product_type' => 'required|string|in:solar_panel,inverter,battery,accessory',
+    public function proccess_input_output_order_request(Request $request, Order_list $orderlist)
+    {
+        // $validate=
+    }
+
+    public function insert_product_to_stock(Request $request)
+    {
+        $rules = [
+            'product_name' => 'sometimes|string',
+            'product_type' => 'sometimes|string|in:solar_panel,inverter,battery,accessory',
             'product_brand' => 'sometimes|string',
             'model_number' => 'sometimes|string',
             'quentity' => 'sometimes|integer|min:0',
@@ -311,20 +322,75 @@ class EmployeeController extends Controller
             'currency' => 'required|string|in:USD,SY',
             'manufacture_date' => 'sometimes|date',
             'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
+            'with_technical_details' => 'sometimes|boolean',
+            'product_name_for_validation'=>'sometimes|string'
+        ];
+
+        if ($request->boolean('with_technical_details')) {
+            if ($request->input('product_type') === 'battery') {
+                $rules = array_merge($rules, [
+                    'battery_type' => 'required|string|in:lithium_ion,lead_acid,nickel_cadmium',
+                    'capacity_kwh' => 'required|numeric|min:0',
+                    'voltage_v' => 'required|string|in:12V,24V,48V',
+                    'cycle_life' => 'required|integer|min:0',
+                    'warranty_years' => 'required|numeric|min:0',
+                    'weight_kg' => 'required|numeric|min:0',
+                    'Amperage_Ah' => 'required|string|in:100Ah,200Ah,300Ah',
+                    'celles_type' => 'required|string|in:new,renewed',
+                    'celles_name' => 'sometimes|string',
+                ]);
+            } elseif ($request->input('product_type') === 'inverter') {
+                $rules = array_merge($rules, [
+                    'grid_type' => 'required|string|in:on_grid,off_grid,hybrid',
+                    'voltage_v' => 'required|string|in:12V,24V,48V',
+                    'grid_capacity_kw' => 'required|numeric|min:0',
+                    'solar_capacity_kw' => 'required|numeric|min:0',
+                    'inverter_open' => 'required|boolean',
+                    'voltage_open' => 'required|numeric|min:0',
+                    'weight_kg' => 'required|numeric|min:0',
+                    'warranty_years' => 'required|numeric|min:0',
+                ]);
+            } elseif ($request->input('product_type') === 'solar_panel') {
+                $rules = array_merge($rules, [
+                    'capacity_kw' => 'required|string|in:250w,300w,350w,400w,580w,620w',
+                    'basbar_number' => 'required|numeric|min:0',
+                    'is_half_cell' => 'required|boolean',
+                    'is_bifacial' => 'required|boolean',
+                    'warranty_years' => 'required|numeric|min:0',
+                    'weight_kg' => 'required|numeric|min:0',
+                    'length_m' => 'required|numeric|min:0',
+                    'width_m' => 'required|numeric|min:0',
+                ]);
+            } else {
+                return response()->json(['message' => 'technical details are only supported for battery, inverter, and solar_panel products'], 422);
+            }
+        }
+
+        $validate = Validator::make($request->all(), $rules);
         if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()]);
+            return response()->json(['message' => $validate->errors()], 422);
         }
         $data = $validate->validated();
         $result = $this->employeeService->insert_product_to_stock($request, $data);
-        if(isset($result['error'])){
+        if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 400);
         }
         if (!$result) {
             return response()->json(['message' => 'invalid entity type'], 400);
         }
-        return response()->json(['message' => 'product added successfully', 'product' => $result[0], 'product_image' => $result[1]]);
+        $operationResult = $result[0];
+        $message = ($operationResult['action'] ?? 'created') === 'updated'
+            ? 'product quantity updated successfully'
+            : 'product added successfully';
+
+        return response()->json([
+            'message' => $message,
+            'action' => $operationResult['action'] ?? 'created',
+            'product' => $operationResult['product'],
+            'product_image' => $result[1],
+        ]);
     }
+
     public function add_inventory_product_battery(Request $request, Products $product_id)
     {
         $validate = Validator::make($request->all(), [
@@ -587,5 +653,4 @@ class EmployeeController extends Controller
         }
         return response()->json(['message' => 'Products retrieved successfully', 'data' => $products], 200);
     }
-
 }

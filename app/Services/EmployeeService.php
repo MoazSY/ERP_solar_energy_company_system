@@ -252,7 +252,7 @@ class EmployeeService
             return ['error' => 'Unauthorized'];
         }
         $delivery = Deliveries::findOrFail($request->delivery_task_id);
-        if($delivery->driver_approved_delivery_task != 'approve'){
+        if ($delivery->driver_approved_delivery_task != 'approve') {
             return ['error' => 'Delivery task has not been approved by the driver yet'];
         }
         $delivery->delivery_status = 'in_transit';
@@ -260,7 +260,9 @@ class EmployeeService
         $delivery->save();
         return $delivery;
     }
-    public function show_orderList_for_inventory_manager(){
+
+    public function show_orderList_for_inventory_manager()
+    {
         $employee_id = Auth::guard('employee')->user()->id;
         $employee = Employee::findOrFail($employee_id);
         if ($employee->employee_type != 'inventory_manager') {
@@ -268,14 +270,18 @@ class EmployeeService
         }
         return $this->employeeRepositoryInterface->show_orderList_for_inventory_manager($employee);
     }
-        public function insert_product_to_stock($request, $data)
+
+    public function insert_product_to_stock($request, $data)
     {
         $inventory_manager_id = Auth::guard('employee')->user()->id;
         $inventory_manager = Employee::findOrFail($inventory_manager_id);
-        if($inventory_manager->employee_type != 'inventory_manager'){
+        if ($inventory_manager->employee_type != 'inventory_manager') {
             return ['error' => 'Unauthorized'];
         }
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
+        if (!$company) {
+            return ['error' => 'Company not found'];
+        }
         if ($request->hasFile('product_image')) {
             $product_image = $request->file('product_image')->getClientOriginalName();
             $product_image_path = $request->file('product_image')->storeAs('AgencyManager/product_images', $product_image, 'public');
@@ -288,26 +294,40 @@ class EmployeeService
         $result = $this->employeeRepositoryInterface->insert_product_to_stock($data, $company);
         return [$result, $product_image_URL];
     }
-    public function add_inventory_product_battery($data, $product_id){
+
+    public function add_inventory_product_battery($data, $product_id)
+    {
         return $this->employeeRepositoryInterface->add_inventory_product_battery($data, $product_id);
     }
-    public function add_inventory_product_inverter($data, $product_id){
-    return $this->employeeRepositoryInterface->add_inventory_product_inverter($data, $product_id);
+
+    public function add_inventory_product_inverter($data, $product_id)
+    {
+        return $this->employeeRepositoryInterface->add_inventory_product_inverter($data, $product_id);
     }
-    public function add_inventory_product_solar_panel($data, $product_id){
+
+    public function add_inventory_product_solar_panel($data, $product_id)
+    {
         return $this->employeeRepositoryInterface->add_inventory_product_solar_panel($data, $product_id);
     }
-    public function update_inventory_product($request,$data, $product_id){
-        return $this->employeeRepositoryInterface->update_inventory_product($request,$data, $product_id);
+
+    public function update_inventory_product($request, $data, $product_id)
+    {
+        return $this->employeeRepositoryInterface->update_inventory_product($request, $data, $product_id);
     }
-    public function delete_inventory_product($product_id){
+
+    public function delete_inventory_product($product_id)
+    {
         return $this->employeeRepositoryInterface->delete_inventory_product($product_id);
     }
-    public function delete_inventory_product_details($product_id){
+
+    public function delete_inventory_product_details($product_id)
+    {
         return $this->employeeRepositoryInterface->delete_inventory_product_details($product_id);
     }
-    public function show_inventory_products(){
-            $inventory_manager = Auth::guard('employee')->user();
+
+    public function show_inventory_products()
+    {
+        $inventory_manager = Auth::guard('employee')->user();
         $inventory_manager = Employee::findOrFail($inventory_manager->id);
         $products = $this->employeeRepositoryInterface->show_inventory_products($inventory_manager);
         $products = $products->map(function ($item) {
@@ -329,8 +349,10 @@ class EmployeeService
         });
         return $products;
     }
-    public function filter_inventory_products($filters){
-            $products = $this->employeeRepositoryInterface->filter_inventory_products($filters);
+
+    public function filter_inventory_products($filters)
+    {
+        $products = $this->employeeRepositoryInterface->filter_inventory_products($filters);
 
         $result = $products->map(function ($item) {
             $product_image = $item->product_image;
@@ -351,5 +373,4 @@ class EmployeeService
         });
         return $result;
     }
-
 }

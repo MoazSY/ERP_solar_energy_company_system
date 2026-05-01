@@ -8,10 +8,92 @@ use App\Models\Employee;
 use App\Models\Input_output_request;
 use App\Models\Products;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class EmployeeRepository implements EmployeeRepositoryInterface
 {
+    private function normalizeInventoryLookupValue(?string $value): string
+    {
+        $normalizedValue = strtolower(trim((string) $value));
+        return preg_replace('/[^a-z0-9]+/', '', $normalizedValue) ?? '';
+    }
+
+    private function resolveExistingStockProduct($company, array $data)
+    {
+        $products = $company->products()->get();
+        $targetProductType = $data['product_type'] ?? null;
+        $targetModelNumber = $this->normalizeInventoryLookupValue($data['model_number'] ?? null);
+        $targetProductName = $this->normalizeInventoryLookupValue($data['product_name'] ?? null);
+
+        if ($targetModelNumber !== '') {
+            $matchedProduct = $products->first(function ($product) use ($targetProductType, $targetModelNumber) {
+                return $product->product_type === $targetProductType &&
+                    $this->normalizeInventoryLookupValue($product->model_number) === $targetModelNumber;
+            });
+
+            if ($matchedProduct) {
+                return $matchedProduct;
+            }
+        }
+
+        if ($targetProductName !== '') {
+            return $products->first(function ($product) use ($targetProductType, $targetProductName) {
+                return $product->product_type === $targetProductType &&
+                    $this->normalizeInventoryLookupValue($product->product_name) === $targetProductName;
+            });
+        }
+
+        return null;
+    }
+
+    private function createInventoryTechnicalDetails($product, array $data): void
+    {
+        if (!($data['with_technical_details'] ?? false)) {
+            return;
+        }
+
+        if ($product->product_type === 'battery' && !$product->batteries) {
+            $product->batteries()->create([
+                'battery_type' => $data['battery_type'],
+                'capacity_kwh' => $data['capacity_kwh'],
+                'voltage_v' => $data['voltage_v'],
+                'cycle_life' => $data['cycle_life'],
+                'warranty_years' => $data['warranty_years'],
+                'weight_kg' => $data['weight_kg'],
+                'Amperage_Ah' => $data['Amperage_Ah'],
+                'celles_type' => $data['celles_type'],
+                'celles_name' => $data['celles_name'] ?? null,
+            ]);
+        }
+
+        if ($product->product_type === 'inverter' && !$product->inverters) {
+            $product->inverters()->create([
+                'grid_type' => $data['grid_type'],
+                'voltage_v' => $data['voltage_v'],
+                'grid_capacity_kw' => $data['grid_capacity_kw'],
+                'solar_capacity_kw' => $data['solar_capacity_kw'],
+                'inverter_open' => $data['inverter_open'],
+                'voltage_open' => $data['voltage_open'],
+                'weight_kg' => $data['weight_kg'],
+                'warranty_years' => $data['warranty_years'],
+            ]);
+        }
+
+        if ($product->product_type === 'solar_panel' && !$product->solarPanals) {
+            $product->solarPanals()->create([
+                'capacity_kw' => $data['capacity_kw'],
+                'basbar_number' => $data['basbar_number'],
+                'is_half_cell' => $data['is_half_cell'],
+                'is_bifacial' => $data['is_bifacial'],
+                'warranty_years' => $data['warranty_years'],
+                'weight_kg' => $data['weight_kg'],
+                'length_m' => $data['length_m'],
+                'width_m' => $data['width_m'],
+            ]);
+        }
+    }
+
     public function employee_profile($employee_id)
     {
         return Employee::findOrFail($employee_id);
@@ -124,6 +206,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ];
         });
     }
+
     public function show_delivery_tasks($employee)
     {
         $deliveries = $employee->driverDeliveries()->with(['deliverable_object', 'entity_type'])->get();
@@ -136,7 +219,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'entity_source' => $delivery->entity_type,
                 'entity_target' => $targetEntity,
                 'address' => $targetEntity?->addresses()->first(),
-                'items' => $delivery->deliverable_object->Items()->with('product')->get()??null,
+                'items' => $delivery->deliverable_object->Items()->with('product')->get() ?? null,
                 'weight_kg' => $delivery
                     ->deliverable_object
                     ->Items()
@@ -154,6 +237,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         });
         return $delivery_tasks;
     }
+
     public function proccess_delivery_task($request, $employee)
     {
         $delivery = Deliveries::findOrFail($request->delivery_id);
@@ -168,32 +252,81 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
         $delivery->driver_approved_delivery_task = $request->action === 'approve' ? 'approve' : 'reject';
         $delivery->save();
-    return $delivery;
+        return $delivery;
     }
-    public function show_orderList_for_inventory_manager($employee){
-     $input_output_request=Input_output_request::query()
-     ->where('inventory_manager_id',$employee->id)
-     ->with(['order','order.request_entity','order.Items','order.Items.product','order.Items.product.inverters','order.Items.product.batteries'])->get();
+
+    public function show_orderList_for_inventory_manager($employee)
+    {
+        $input_output_request = Input_output_request::query()
+            ->where('inventory_manager_id', $employee->id)
+            ->with(['order', 'order.request_entity', 'order.Items', 'order.Items.product', 'order.Items.product.inverters', 'order.Items.product.batteries'])
+            ->get();
         return $input_output_request;
     }
-    public function insert_product_to_stock($data,$company){
+
+    public function insert_product_to_stock($data, $company)
+    {
+        return DB::transaction(function () use ($data, $company) {
+            if(isset($data['product_name_for_validation'])){
+                $pruduct=$company->products()->where('product_name',$data['product_name_for_validation'])->first();
+                if($pruduct){
+                    $existingProduct = $pruduct;
+                    $existingQuantity = (int) ($existingProduct->quentity ?? 0);
+                    $incomingQuantity = (int) ($data['quentity'] ?? 0);
+                    $existingProduct->quentity = $existingQuantity + $incomingQuantity;
+                    $existingProduct->save();
+
+                    $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
+                    // $this->createInventoryTechnicalDetails($product, $data);
+
+                    return [
+                        'product' => $product->fresh(['batteries', 'inverters', 'solarPanals']),
+                        'action' => 'updated',
+                    ];
+                }
+            }
+            $existingProduct = $this->resolveExistingStockProduct($company, $data);
+
+            if ($existingProduct) {
+                $existingQuantity = (int) ($existingProduct->quentity ?? 0);
+                $incomingQuantity = (int) ($data['quentity'] ?? 0);
+                $existingProduct->quentity = $existingQuantity + $incomingQuantity;
+                $existingProduct->save();
+
+                $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
+                // $this->createInventoryTechnicalDetails($product, $data);
+
+                return [
+                    'product' => $product->fresh(['batteries', 'inverters', 'solarPanals']),
+                    'action' => 'updated',
+                ];
+            }
             $product = $company->products()->create([
-            'product_name' => $data['product_name'],
-            'product_type' => $data['product_type'],
-            'product_brand' => $data['product_brand'],
-            'model_number' => $data['model_number'],
-            'quentity' => $data['quentity'],
-            'price' => $data['price'],
-            'disscount_type' => $data['disscount_type'],
-            'disscount_value' => $data['disscount_value'],
-            'currency' => $data['currency'],
-            'manufacture_date' => $data['manufacture_date'],
-            'product_image' => $data['product_image'],
-        ]);
-        return $product;
+                'product_name' => $data['product_name'],
+                'product_type' => $data['product_type'],
+                'product_brand' => $data['product_brand'] ?? null,
+                'model_number' => $data['model_number'] ?? null,
+                'quentity' => $data['quentity'] ?? null,
+                'price' => $data['price'],
+                'disscount_type' => $data['disscount_type'] ?? null,
+                'disscount_value' => $data['disscount_value'] ?? null,
+                'currency' => $data['currency'],
+                'manufacture_date' => $data['manufacture_date'] ?? null,
+                'product_image' => $data['product_image'] ?? null,
+            ]);
+
+            $this->createInventoryTechnicalDetails($product, $data);
+
+            return [
+                'product' => $product->fresh(['batteries', 'inverters', 'solarPanals']),
+                'action' => 'created',
+            ];
+        });
     }
-    public function add_inventory_product_battery($request, $product_id){
-  $product = Products::findOrFail($product_id->id);
+
+    public function add_inventory_product_battery($request, $product_id)
+    {
+        $product = Products::findOrFail($product_id->id);
         if ($product->product_type != 'battery') {
             return null;
         }
@@ -210,8 +343,10 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         ]);
         return $battery;
     }
-    public function add_inventory_product_inverter($request, $product_id){
-     $product = Products::findOrFail($product_id->id);
+
+    public function add_inventory_product_inverter($request, $product_id)
+    {
+        $product = Products::findOrFail($product_id->id);
         if ($product->product_type != 'inverter') {
             return null;
         }
@@ -227,7 +362,9 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         ]);
         return $inverter;
     }
-    public function add_inventory_product_solar_panel($request, $product_id){
+
+    public function add_inventory_product_solar_panel($request, $product_id)
+    {
         $product = Products::findOrFail($product_id->id);
         if ($product->product_type != 'solar_panel') {
             return null;
@@ -244,7 +381,9 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         ]);
         return $solar_panel;
     }
-        public function update_inventory_product($request,$data, $product_id){
+
+    public function update_inventory_product($request, $data, $product_id)
+    {
         $inventory_manager = Auth::guard('employee')->user();
         $inventory_manager = Employee::findOrFail($inventory_manager->id);
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
@@ -333,10 +472,11 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         //     $product_image_URL = asset('storage/' . $data['product_image']);
         // }
         return [$product, $product_image_URL];
-
     }
-    public function delete_inventory_product($product_id){
-       $inventory_manager = Auth::guard('employee')->user();
+
+    public function delete_inventory_product($product_id)
+    {
+        $inventory_manager = Auth::guard('employee')->user();
         $inventory_manager = Employee::findOrFail($inventory_manager->id);
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
 
@@ -361,7 +501,9 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $product->delete();
         return true;
     }
-    public function delete_inventory_product_details($product_id){
+
+    public function delete_inventory_product_details($product_id)
+    {
         $inventory_manager = Auth::guard('employee')->user();
         $inventory_manager = Employee::findOrFail($inventory_manager->id);
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
@@ -385,8 +527,10 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         }
         return true;
     }
-    public function filter_inventory_products($filters){
-     $inventory_manager = Auth::guard('employee')->user();
+
+    public function filter_inventory_products($filters)
+    {
+        $inventory_manager = Auth::guard('employee')->user();
         $inventory_manager = Employee::findOrFail($inventory_manager->id);
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
 
@@ -608,12 +752,13 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
         return $query->with(['batteries', 'inverters', 'solarPanals'])->get();
     }
-    public function show_inventory_products($inventory_manager){
+
+    public function show_inventory_products($inventory_manager)
+    {
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();
         if (!$company) {
             return null;
         }
         return $company->products()->get();
     }
-
 }
