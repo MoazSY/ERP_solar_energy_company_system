@@ -165,7 +165,12 @@ class OtpService
             }
 
             cache()->forget('otp_' . $column_value);
-            return ['message' => 'code verify successfully login successfully', 'verify' => true, 'user' => $user,'user_type'=>class_basename(get_class($user)), 'user_status' => $userStatus];  // هنا المستخدم مسجل في النظام ويتحقق من الكود من اجل ان يسجل دخوله
+            if($user instanceof Employee){
+                $user_type=$user->employee_type;
+            }else{
+                $user_type=class_basename(get_class($user));
+            }
+            return ['message' => 'code verify successfully login successfully', 'verify' => true, 'user' => $user,'user_type'=> $user_type, 'user_status' => $userStatus];  // هنا المستخدم مسجل في النظام ويتحقق من الكود من اجل ان يسجل دخوله
         } elseif ($forRegister && $otp == $request->otp) {
             $cachedOtp['status'] = 'verified';
             if ($otp_type == 'WhatsApp') {
@@ -216,7 +221,12 @@ class OtpService
                         $available_account=false;
                     }
                 }
-                return ['token' => $token, 'refresh_token' => $refresh_token, 'user_type' => class_basename($type), 'user' => $user, 'status' => true,'available_account'=>$available_account];
+                if($type==\App\Models\Employee::class){
+                    $user_type=$user->employee_type;
+                }else{
+                    $user_type=class_basename(get_class($user));
+                }
+                return ['token' => $token, 'refresh_token' => $refresh_token, 'user_type' => $user_type, 'user' => $user, 'status' => true,'available_account'=>$available_account];
             }
         }
         return ['status' => false];

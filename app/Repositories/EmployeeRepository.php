@@ -423,7 +423,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
         $product->save();
         $product->refresh();  // Refresh the model to get the latest data
-
+        if(isset($data['update_technical_details']) && $data['update_technical_details'] == true){
         if ($data['update_technical_details'] == true && $product->product_type == 'battery') {
             $battery = $product->batteries;
             $battery->update([
@@ -466,7 +466,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ]);
             $solar_panel->save();
             $solar_panel->refresh();
-        }
+        }}
 
         // if ($data['product_image'] != null) {
         //     $product_image_URL = asset('storage/' . $data['product_image']);

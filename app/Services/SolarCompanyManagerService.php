@@ -348,7 +348,7 @@ class SolarCompanyManagerService
                 'details' => $details,
             ];
         });
-return $products;
+    return $products;
     }
 
     public function request_purchase_invoice_agency($agency_id, $request)
@@ -551,7 +551,7 @@ return $products;
         if ($orderList->request_entity_type != Solar_company::class || (int) $orderList->request_entity_id != (int) $company->id) {
             return ['error' => 'Unauthorized'];
         }
-
+                    
         if ($orderList->with_delivery) {
             return ['error' => 'This order list has already been assigned for delivery from agency'];
         }

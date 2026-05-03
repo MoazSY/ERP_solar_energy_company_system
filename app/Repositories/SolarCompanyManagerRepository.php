@@ -324,8 +324,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $order->transport_duration_minutes = null;
 
             $order->transport_error = null;
-
+            $order_delivery = $order->deliveries()->first()->delivery_status??null;
+            $order->order_delivery=$order_delivery;
             if ($order->with_delivery) {
+       
                 $agency = $order->orderableEntityType;
 
                 $products = $order->Items->map(function ($item) {
@@ -357,6 +359,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 } else {
                     $order->transport_error = 'Order agency is missing for delivery calculation';
                 }
+            }else{
+            $company=$order->request_entity;
+            if($company->Assign_delivery_tasks()->exists()){
+                $assignedDelivery=true;
+            }    
+            $order->assigned_delivery=$assignedDelivery??false;
             }
             return [
                 // 'order'=>$order->getAttributes(),
@@ -515,7 +523,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     {
         return $company
             ->Assign_delivery_tasks()
-            ->with(['orderList.request_entity', 'driver.employee', 'address.governorate', 'address.area'])
+            ->with(['orderList.orderable_entity', 'driver.employee', 'address.governorate', 'address.area'])
             ->latest('id')
             ->get();
     }

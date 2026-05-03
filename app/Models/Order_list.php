@@ -41,7 +41,11 @@ class Order_list extends Model
     {
         return $this->morphTo(null, 'request_entity_type', 'request_entity_id');
     }
-    public function orderableEntityType(): MorphTo
+    public function orderable_entity(): MorphTo
+    {
+        return $this->morphTo(null, 'orderable_entity_type', 'orderable_entity_id');
+    }
+        public function orderableEntityType(): MorphTo
     {
         return $this->morphTo(null, 'orderable_entity_type', 'orderable_entity_id');
     }
