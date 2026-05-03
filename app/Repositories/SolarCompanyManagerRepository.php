@@ -523,7 +523,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     {
         return $company
             ->Assign_delivery_tasks()
-            ->with(['orderList.orderable_entity', 'driver.employee', 'address.governorate', 'address.area'])
+            ->with(['orderList.request_entity','orderList.orderable_entity', 'driver.employee', 'address.governorate', 'address.area'])
             ->latest('id')
             ->get();
     }
