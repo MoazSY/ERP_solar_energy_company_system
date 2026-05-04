@@ -732,11 +732,11 @@ class SolarCompanyManagerService
                     continue;
                 }
                 $unitPrice = (float) $product->price;
-                if ($product->currency === 'USD') {
-                    $unitPrice *= 1.35;
-                } else {
-                    $unitPrice /= 100;
-                }
+                // if ($product->currency === 'USD') {
+                //     $unitPrice *= 1.35;
+                // } else {
+                //     $unitPrice /= 100;
+                // }
                 $quantity = (int) $item['quantity'];
                 $lineSubTotal = $unitPrice * $quantity;
                 if ($product->disscount_type === 'percentage') {
