@@ -24,4 +24,5 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_delivery_task($company);
     public function show_delivery_tasks($company);
     public function filter_delivery_tasks($company, $filters);
+    public function paid_to_employee($request,$task,$company,$amount,$paymentResponse=null);
 }

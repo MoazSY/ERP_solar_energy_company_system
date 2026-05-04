@@ -602,4 +602,30 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'orderList' => $result,
         ]);
     }
+    public function paid_to_employee(Request $request, $task_id){
+        $validate = Validator::make($request->all(), [
+            'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
+            'task_type'=>'required|string|in:delivery,project_task',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->paid_to_employee($request, $task_id);
+
+        if (!$result) {
+            return response()->json(['message' => 'Failed to process payment'], 500);
+        }
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Payment processed successfully',
+            'transaction' => $result,
+        ]);
+    }
 }

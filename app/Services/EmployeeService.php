@@ -4,8 +4,12 @@ namespace App\Services;
 
 use App\Models\Agency;
 use App\Models\Agency_manager;
+use App\Models\Company_agency_employee;
 use App\Models\Deliveries;
 use App\Models\Employee;
+use App\Models\Payment;
+use App\Models\Payment_transactions;
+use App\Models\Project_task;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Repositories\EmployeeRepositoryInterface;
@@ -372,5 +376,96 @@ class EmployeeService
             return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
         });
         return $result;
+    }
+
+    public function recieve_cash_from_manager($taskId)
+    {
+        $employeeAuth = Auth::guard('employee')->user();
+
+        if (!$employeeAuth) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $employee = Employee::findOrFail($employeeAuth->id);
+
+        // Identify task and ensure it belongs to the current employee
+        if ($employee->employee_type === 'driver') {
+            $task = Deliveries::find($taskId);
+            if (!$task) {
+                return ['error' => 'Delivery task not found'];
+            }
+            if ($task->driver_id != $employee->id) {
+                return ['error' => 'This delivery task is not assigned to the current employee'];
+            }
+            $paymentObjectType = Deliveries::class;
+            $paymentObjectId = $task->id;
+        } else {
+            $task = Project_task::find($taskId);
+            if (!$task) {
+                return ['error' => 'Project task not found'];
+            }
+            if ($task->employee_id != $employee->id) {
+                return ['error' => 'This project task is not assigned to the current employee'];
+            }
+            $paymentObjectType = Project_task::class;
+            $paymentObjectId = $task->id;
+        }
+
+        $payment = Payment::query()
+            ->where('payment_object_table_type', $paymentObjectType)
+            ->where('payment_object_table_id', $paymentObjectId)
+            ->where('target_table_type', Company_agency_employee::class)
+            ->where('target_table_id', $employee->id)
+            ->latest('id')
+            ->first();
+
+        if (!$payment) {
+            return ['error' => 'Pending payment not found for this task and employee'];
+        }
+
+        if ($payment->status === 'paid') {
+            return ['error' => 'Payment is already received'];
+        }
+
+        $transaction = Payment_transactions::query()
+            ->where('payment_id', $payment->id)
+            ->latest('id')
+            ->first();
+
+        if ($transaction && $transaction->gateway !== 'cash') {
+            return ['error' => 'Only cash payments can be confirmed from this endpoint'];
+        }
+
+        if ($payment->status !== 'pending') {
+            return ['error' => 'Only pending payments can be confirmed'];
+        }
+
+        $payment->status = 'paid';
+        if (!$payment->paid_at) {
+            $payment->paid_at = now();
+        }
+        $payment->save();
+
+        if ($transaction) {
+            $transaction->status = 'paid';
+            $transaction->save();
+        } else {
+            $transaction = Payment_transactions::create([
+                'payment_id' => $payment->id,
+                'gateway' => 'cash',
+                'external_id' => null,
+                'payment_url' => null,
+                'status' => 'paid',
+                'response' => [
+                    'success' => true,
+                    'message' => 'Cash received and confirmed by employee',
+                ],
+            ]);
+        }
+
+        return [
+            'payment' => $payment->fresh(),
+            'transaction' => $transaction,
+        ];
     }
 }

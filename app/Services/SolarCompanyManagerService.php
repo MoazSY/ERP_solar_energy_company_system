@@ -10,6 +10,7 @@ use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
+use App\Models\Deliveries;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
@@ -601,5 +602,115 @@ class SolarCompanyManagerService
             return ['error' => 'Cannot receive order list with undelivered deliveries'];
         }
         return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);
+    }
+    public function paid_to_employee($request, $task_id){
+        $amount=0;
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+        if($request->task_type=='delivery'){
+        $delivery_task=Deliveries::findOrFail($task_id);
+        $task=$delivery_task;
+        if(!$delivery_task){
+            return ['error' => 'Delivery task not found'];
+        }
+            if ($delivery_task->delivery_status != 'delivered') {
+            return ['error' => 'cant pay to un delivered task'];
+        }
+        if($delivery_task->client_recieve_delivery!=true){
+            return ['error' => 'cant pay to task before client recieve the delivery'];
+        }
+         $driver_id=$delivery_task->driver_id;
+        $driver= \App\Models\Employee::findOrFail($driver_id);
+        $employee=$driver;
+        $amount=$delivery_task->delivery_fee;
+        if($amount<=0){
+        return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
+        }
+        if($delivery_task->currency==='USD'){
+            $amount = $amount * 1.35; // convert to new syria pounds
+        }
+        else{
+            $amount = $amount / 100; // convert to new syria pounds
+        }
+        }
+        elseif($request->task_type=='project_task'){
+         $project_task= \App\Models\Project_task::findOrFail($task_id);
+         $task=$project_task;
+            if(!$project_task){
+            return ['error' => 'Project task not found'];
+        }
+            if ($project_task->task_status != 'completed') {
+            return ['error' => 'cant pay to un completed task'];
+        }
+        if($project_task->client_recieve_task!=true){
+            return ['error' => 'cant pay to task before client recieve the delivery'];
+        }  
+        $employee_id=$project_task->employee_id;
+        $employee= \App\Models\Employee::findOrFail($employee_id);
+        $amount=$project_task->task_fee;
+        if($amount<=0){
+        return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
+        }
+        if($project_task->currency==='USD'){
+            $amount = $amount * 1.35; // convert to new syria pounds
+        }
+        else{
+            $amount = $amount / 100; // convert to new syria pounds
+        } 
+        }
+        if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
+        return ['error' => 'Unsupported payment method'];
+        }
+        if ($request->payment_method === 'syriatel_cash') {
+        $toGsm = $employee->syriatel_cash_phone;
+        if (!$toGsm) {
+        return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+        }
+        $paymentResponse = $this->apiSyriaService->transferCash(
+        $request->gsm,
+        $toGsm,
+        $amount,
+        $request->pin_code
+        );
+        }
+        elseif($request->payment_method === 'shamcash') {
+        $toAccountAddress = $employee->account_number;
+        if (!$toAccountAddress) {
+        return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+        }
+        if (!$request->account_address) {
+        return ['error' => 'Your ShamCash account address is required for payment verification'];
+        }
+        $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+        $toAccountAddress,
+        $amount,
+        $request->account_address
+        );
+        if (!$verificationResult['success']) {
+        return ['error' => $verificationResult['message']];
+        }
+        $paymentResponse = [
+        'success' => true,
+        'message' => 'ShamCash payment verified from logs',
+        'data' => $verificationResult['matched_log'] ?? null,
+        ];
+        }elseif($request->payment_method==='cash'){
+            $paymentResponse=[
+                'success'=>true,
+                'message'=>'Cash payment selected, please confirm with the driver that the payment has been made',
+                'data'=>"null"
+             ];
+        }
+                else{
+            return ['error' => 'Unsupported payment method'];
+        }
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
+        }
+       
+        return $this->solarCompanyManagerRepositoryInterface->paid_to_employee($request,$task,$company,$amount,$paymentResponse);
     }
 }

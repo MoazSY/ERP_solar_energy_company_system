@@ -67,6 +67,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('company_manager/update_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'update_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('company_manager/delete_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'delete_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('recieve_orderList/{orderList}', [SolarCompanyManager::class, 'recieve_orderList'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('paid_to_employee/{task_id}', [SolarCompanyManager::class, 'paid_to_employee'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -134,4 +135,5 @@ Route::middleware('check_employee')->group(function () {
     Route::post('delete_inventory_product/{product_id}', [EmployeeController::class, 'delete_inventory_product']);
     Route::post('delete_inventory_product_details/{product_id}', [EmployeeController::class, 'delete_inventory_product_details']);
     Route::post('filter_inventory_products', [EmployeeController::class, 'filter_inventory_products']);
+    Route::post('recieve_cash_from_manager', [EmployeeController::class, 'recieve_cash_from_manager']);
 });

@@ -492,6 +492,9 @@ class AgencyManagerService
             if ($delivery_task->delivery_status != 'delivered') {
             return ['error' => 'cant pay to un delivered task'];
         }
+        if($delivery_task->client_recieve_delivery!=true){
+            return ['error' => 'cant pay to task before client recieve the delivery'];
+        }
         // if($delivery_task->driverPayments()->exists()){
         //      return ['error' => 'payment already processed for this delivery task'];
         // }
@@ -521,6 +524,7 @@ class AgencyManagerService
         if (!$toGsm) {
         return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
         }
+
         $paymentResponse = $this->apiSyriaService->transferCash(
         $request->gsm,
         $toGsm,

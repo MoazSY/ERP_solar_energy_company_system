@@ -323,7 +323,7 @@ class EmployeeController extends Controller
             'manufacture_date' => 'sometimes|date',
             'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
             'with_technical_details' => 'sometimes|boolean',
-            'product_name_for_validation'=>'sometimes|string'
+            'product_name_for_validation' => 'sometimes|string'
         ];
 
         if ($request->boolean('with_technical_details')) {
@@ -652,5 +652,28 @@ class EmployeeController extends Controller
             return response()->json(['message' => 'No products found matching the filters', 'data' => []], 200);
         }
         return response()->json(['message' => 'Products retrieved successfully', 'data' => $products], 200);
+    }
+
+    public function recieve_cash_from_manager(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->recieve_cash_from_manager($request->task_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Cash received from manager successfully',
+            'payment' => $result['payment'],
+            'transaction' => $result['transaction'],
+        ], 200);
     }
 }

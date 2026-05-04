@@ -3,7 +3,7 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Company_agency_employee;
-use App\Models\Deliveries;
+// use App\Models\Deliveries;
 use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
@@ -533,8 +533,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         $driverPaidBaseConstraint = function ($paymentQuery) {
             $paymentQuery
                 ->where('status', 'paid')
-                ->where('target_table_type', Company_agency_employee::class)
-                ->where('payment_object_table_type', Deliveries::class);
+                ->where('target_table_type', Company_agency_employee::class);
+                // ->where('payment_object_table_type', Deliveries::class);
         };
 
         $driverPaidConstraint = function ($paymentQuery) use ($driverPaidBaseConstraint) {
@@ -603,6 +603,39 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'delivery_status' => $q->delivery_status,
                 'is_paid_to_driver' => $q->driverPayments->isNotEmpty(),
             ];
+        });
+    }
+    public function paid_to_employee($request,$task,$company,$amount,$paymentResponse=null){
+     return DB::transaction(function () use ($request, $task, $company, $amount, $paymentResponse) {
+        if($request->task_type=='delivery'){
+            $employee_id=$task->driver_id;
+            $payment_object='App\Models\Deliveries';
+        }else{
+        $employee_id=$task->employee_id;
+        $payment_object='App\Models\Project_task';
+        }
+            $payment = $company->paymentsMade()->create([
+                'amount' => $amount*100, // old 
+                'currency' => $task->currency,
+                'payment_object_type_name' => 'other',
+                'target_table_type' => 'App\Models\Company_agency_employee',// employee 
+                'target_table_id' => $employee_id,
+                'payment_object_table_type' => $payment_object,
+                'payment_object_table_id' => $task->id,
+                'paid_at' => Carbon::now(),
+                'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
+            ]);
+            if ($paymentResponse && isset($paymentResponse['data'])) {
+                Payment_transactions::create([
+                    'payment_id' => $payment->id,
+                    'gateway' => $request->payment_method,
+                    'external_id' => $paymentResponse['data']['transaction_no'] ?? $paymentResponse['data']['billcode'] ?? null,
+                    'payment_url' => $paymentResponse['data']['payment_url'] ?? null,
+                    'status' => $payment->status,
+                    'response' => $paymentResponse,
+                ]);
+            }
+            return $payment;
         });
     }
 }
