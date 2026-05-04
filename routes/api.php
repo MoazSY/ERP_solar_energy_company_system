@@ -68,6 +68,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('company_manager/delete_delivery_rule/{rule_id}', [SolarCompanyManager::class, 'delete_delivery_rule'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('recieve_orderList/{orderList}', [SolarCompanyManager::class, 'recieve_orderList'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('paid_to_employee/{task_id}', [SolarCompanyManager::class, 'paid_to_employee'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('solar_system_offers', [SolarCompanyManager::class, 'solar_system_offers'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

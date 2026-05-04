@@ -4,17 +4,19 @@ namespace App\Services;
 // use App\Models\Agency;
 
 use App\Models\Agency_manager;
+use App\Models\Deliveries;
+// use App\Models\Offers;
 use App\Models\Order_list;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
-use App\Models\Deliveries;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -349,7 +351,7 @@ class SolarCompanyManagerService
                 'details' => $details,
             ];
         });
-    return $products;
+        return $products;
     }
 
     public function request_purchase_invoice_agency($agency_id, $request)
@@ -552,7 +554,7 @@ class SolarCompanyManagerService
         if ($orderList->request_entity_type != Solar_company::class || (int) $orderList->request_entity_id != (int) $company->id) {
             return ['error' => 'Unauthorized'];
         }
-                    
+
         if ($orderList->with_delivery) {
             return ['error' => 'This order list has already been assigned for delivery from agency'];
         }
@@ -603,114 +605,238 @@ class SolarCompanyManagerService
         }
         return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);
     }
-    public function paid_to_employee($request, $task_id){
-        $amount=0;
+
+    public function paid_to_employee($request, $task_id)
+    {
+        $amount = 0;
         $company_manager_id = Auth::guard('company_manager')->user()->id;
         $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
         if (!$company) {
             return ['error' => 'company not found for the current manager'];
         }
-        if($request->task_type=='delivery'){
-        $delivery_task=Deliveries::findOrFail($task_id);
-        $task=$delivery_task;
-        if(!$delivery_task){
-            return ['error' => 'Delivery task not found'];
-        }
+        if ($request->task_type == 'delivery') {
+            $delivery_task = Deliveries::findOrFail($task_id);
+            $task = $delivery_task;
+            if (!$delivery_task) {
+                return ['error' => 'Delivery task not found'];
+            }
             if ($delivery_task->delivery_status != 'delivered') {
-            return ['error' => 'cant pay to un delivered task'];
-        }
-        if($delivery_task->client_recieve_delivery!=true){
-            return ['error' => 'cant pay to task before client recieve the delivery'];
-        }
-         $driver_id=$delivery_task->driver_id;
-        $driver= \App\Models\Employee::findOrFail($driver_id);
-        $employee=$driver;
-        $amount=$delivery_task->delivery_fee;
-        if($amount<=0){
-        return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
-        }
-        if($delivery_task->currency==='USD'){
-            $amount = $amount * 1.35; // convert to new syria pounds
-        }
-        else{
-            $amount = $amount / 100; // convert to new syria pounds
-        }
-        }
-        elseif($request->task_type=='project_task'){
-         $project_task= \App\Models\Project_task::findOrFail($task_id);
-         $task=$project_task;
-            if(!$project_task){
-            return ['error' => 'Project task not found'];
-        }
+                return ['error' => 'cant pay to un delivered task'];
+            }
+            if ($delivery_task->client_recieve_delivery != true) {
+                return ['error' => 'cant pay to task before client recieve the delivery'];
+            }
+            $driver_id = $delivery_task->driver_id;
+            $driver = \App\Models\Employee::findOrFail($driver_id);
+            $employee = $driver;
+            $amount = $delivery_task->delivery_fee;
+            if ($amount <= 0) {
+                return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
+            }
+            if ($delivery_task->currency === 'USD') {
+                $amount = $amount * 1.35;  // convert to new syria pounds
+            } else {
+                $amount = $amount / 100;  // convert to new syria pounds
+            }
+        } elseif ($request->task_type == 'project_task') {
+            $project_task = \App\Models\Project_task::findOrFail($task_id);
+            $task = $project_task;
+            if (!$project_task) {
+                return ['error' => 'Project task not found'];
+            }
             if ($project_task->task_status != 'completed') {
-            return ['error' => 'cant pay to un completed task'];
-        }
-        if($project_task->client_recieve_task!=true){
-            return ['error' => 'cant pay to task before client recieve the delivery'];
-        }  
-        $employee_id=$project_task->employee_id;
-        $employee= \App\Models\Employee::findOrFail($employee_id);
-        $amount=$project_task->task_fee;
-        if($amount<=0){
-        return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
-        }
-        if($project_task->currency==='USD'){
-            $amount = $amount * 1.35; // convert to new syria pounds
-        }
-        else{
-            $amount = $amount / 100; // convert to new syria pounds
-        } 
+                return ['error' => 'cant pay to un completed task'];
+            }
+            if ($project_task->client_recieve_task != true) {
+                return ['error' => 'cant pay to task before client recieve the delivery'];
+            }
+            $employee_id = $project_task->employee_id;
+            $employee = \App\Models\Employee::findOrFail($employee_id);
+            $amount = $project_task->task_fee;
+            if ($amount <= 0) {
+                return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
+            }
+            if ($project_task->currency === 'USD') {
+                $amount = $amount * 1.35;  // convert to new syria pounds
+            } else {
+                $amount = $amount / 100;  // convert to new syria pounds
+            }
         }
         if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
-        return ['error' => 'Unsupported payment method'];
+            return ['error' => 'Unsupported payment method'];
         }
         if ($request->payment_method === 'syriatel_cash') {
-        $toGsm = $employee->syriatel_cash_phone;
-        if (!$toGsm) {
-        return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
-        }
-        $paymentResponse = $this->apiSyriaService->transferCash(
-        $request->gsm,
-        $toGsm,
-        $amount,
-        $request->pin_code
-        );
-        }
-        elseif($request->payment_method === 'shamcash') {
-        $toAccountAddress = $employee->account_number;
-        if (!$toAccountAddress) {
-        return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
-        }
-        if (!$request->account_address) {
-        return ['error' => 'Your ShamCash account address is required for payment verification'];
-        }
-        $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
-        $toAccountAddress,
-        $amount,
-        $request->account_address
-        );
-        if (!$verificationResult['success']) {
-        return ['error' => $verificationResult['message']];
-        }
-        $paymentResponse = [
-        'success' => true,
-        'message' => 'ShamCash payment verified from logs',
-        'data' => $verificationResult['matched_log'] ?? null,
-        ];
-        }elseif($request->payment_method==='cash'){
-            $paymentResponse=[
-                'success'=>true,
-                'message'=>'Cash payment selected, please confirm with the driver that the payment has been made',
-                'data'=>"null"
-             ];
-        }
-                else{
+            $toGsm = $employee->syriatel_cash_phone;
+            if (!$toGsm) {
+                return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+            }
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $toGsm,
+                $amount,
+                $request->pin_code
+            );
+        } elseif ($request->payment_method === 'shamcash') {
+            $toAccountAddress = $employee->account_number;
+            if (!$toAccountAddress) {
+                return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+            }
+            if (!$request->account_address) {
+                return ['error' => 'Your ShamCash account address is required for payment verification'];
+            }
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $toAccountAddress,
+                $amount,
+                $request->account_address
+            );
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+        } elseif ($request->payment_method === 'cash') {
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'Cash payment selected, please confirm with the driver that the payment has been made',
+                'data' => 'null'
+            ];
+        } else {
             return ['error' => 'Unsupported payment method'];
         }
         if (!$paymentResponse['success']) {
             return ['error' => $paymentResponse['message']];
         }
-       
-        return $this->solarCompanyManagerRepositoryInterface->paid_to_employee($request,$task,$company,$amount,$paymentResponse);
+
+        return $this->solarCompanyManagerRepositoryInterface->paid_to_employee($request, $task, $company, $amount, $paymentResponse);
+    }
+
+    public function solar_system_offers($request, array $data = [])
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return DB::transaction(function () use ($request, $data, $company) {
+            $products = collect($data['products'] ?? []);
+            $productsMap = Products::whereIn('id', $products->pluck('id')->all())->get()->keyBy('id');
+            $subtotalAmount = 0;
+            foreach ($products as $item) {
+                $product = $productsMap->get($item['id']);
+                if (!$product) {
+                    continue;
+                }
+                $unitPrice = (float) $product->price;
+                if ($product->currency === 'USD') {
+                    $unitPrice *= 1.35;
+                } else {
+                    $unitPrice /= 100;
+                }
+                $quantity = (int) $item['quantity'];
+                $lineSubTotal = $unitPrice * $quantity;
+                if ($product->disscount_type === 'percentage') {
+                    $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+                } else {
+                    $discount = (float) $product->disscount_value * $quantity;
+                }
+                $subtotalAmount += max($lineSubTotal - $discount, 0);
+            }
+            $offerLevelDiscountAmount = 0;
+            if (($data['discount_type'] ?? 'fixed') === 'percentage') {
+                $offerLevelDiscountAmount = ($subtotalAmount * (float) ($data['discount_value'] ?? 0)) / 100;
+            } else {
+                $offerLevelDiscountAmount = (float) ($data['discount_value'] ?? 0);
+            }
+            $totalAmount = max(
+                $subtotalAmount
+                    - $offerLevelDiscountAmount
+                    + (float) ($data['average_delivery_cost'] ?? 0)
+                    + (float) ($data['average_installation_cost'] ?? 0)
+                    + (float) ($data['average_metal_installation_cost'] ?? 0),
+                0
+            );
+            $panarImages = [];
+            if ($request->hasFile('panar_image')) {
+                foreach ((array) $request->file('panar_image') as $image) {
+                    $originalName = $image->getClientOriginalName();
+                    $path = $image->storeAs('CompanyManager/offers/images', $originalName, 'public');
+                    $panarImages[] = $path;
+                }
+            }
+            $videoPath = null;
+            if ($request->hasFile('video')) {
+                $video = $request->file('video');
+                $originalName = $video->getClientOriginalName();
+                $videoPath = $video->storeAs('CompanyManager/offers/videos', $originalName, 'public');
+            }
+            $offerExpiredDate = $data['offer_expired_date'] ?? null;
+            if (!$offerExpiredDate && !empty($data['offer_date']) && !empty($data['validity_days'])) {
+                $offerExpiredDate = now()->parse($data['offer_date'])->addDays((int) $data['validity_days'])->toDateString();
+            }
+            $offer = $company->offers()->create([
+                'customer_id' => $data['customer_id'] ?? null,
+                'customer_name' => $data['customer_name'] ?? null,
+                'offer_name' => $data['offer_name'] ?? null,
+                'offer_details' => $data['offer_details'] ?? null,
+                'system_type' => $data['system_type'] ?? 'off_grid',
+                'subtotal_amount' => $subtotalAmount,
+                'discount_amount' => $offerLevelDiscountAmount,
+                'discount_type' => $data['discount_type'] ?? 'fixed',
+                'average_total_amount' => $totalAmount,
+                'currency' => $data['currency'] ?? 'SY',
+                'validity_days' => $data['validity_days'] ?? 0,
+                'average_delivery_cost' => $data['average_delivery_cost'] ?? 0,
+                'average_installation_cost' => $data['average_installation_cost'] ?? 0,
+                'average_metal_installation_cost' => $data['average_metal_installation_cost'] ?? 0,
+                'status_reply' => 'pending',
+                'offer_available' => true,
+                'panar_image' => $panarImages,
+                'video' => $videoPath,
+                'public_private' => $data['public_private'] ?? 'private',
+                'offer_date' => $data['offer_date'] ?? now()->toDateString(),
+                'offer_expired_date' => $offerExpiredDate,
+            ]);
+            foreach ($products as $item) {
+                $product = $productsMap->get($item['id']);
+                if (!$product) {
+                    continue;
+                }
+                $quantity = (int) $item['quantity'];
+                $unitPrice = (float) $product->price;
+                $lineSubTotal = $unitPrice * $quantity;
+
+                $unitDiscountAmount = (float) ($product->disscount_value ?? 0);
+                $lineDiscount = $product->disscount_type === 'percentage'
+                    ? (($unitDiscountAmount / 100) * $lineSubTotal)
+                    : ($unitDiscountAmount * $quantity);
+
+                $offer->Items()->create([
+                    'product_id' => $product->id,
+                    'item_name_snapshot' => $product->product_name,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total_price' => max($lineSubTotal - $lineDiscount, 0),
+                    'unit_discount_amount' => $unitDiscountAmount,
+                    'total_discount_amount' => $lineDiscount,
+                    'discount_type' => $product->disscount_type,
+                    'currency' => $product->currency,
+                ]);
+            }
+            $panarImagesUrl= array_map(function ($path) {
+                return asset('storage/' . $path);
+            }, $panarImages);
+            $videoUrl = $videoPath ? asset('storage/' . $videoPath) : null;
+            return [
+                $offer->load('Items','Items.product'),
+
+                $panarImagesUrl,
+                $videoUrl,
+            ];
+        });
     }
 }

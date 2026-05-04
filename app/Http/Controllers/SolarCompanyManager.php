@@ -602,13 +602,15 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'orderList' => $result,
         ]);
     }
-    public function paid_to_employee(Request $request, $task_id){
+
+    public function paid_to_employee(Request $request, $task_id)
+    {
         $validate = Validator::make($request->all(), [
             'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
             'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
             'pin_code' => 'required_if:payment_method,syriatel_cash|string',
             'account_address' => 'required_if:payment_method,shamcash|string',
-            'task_type'=>'required|string|in:delivery,project_task',
+            'task_type' => 'required|string|in:delivery,project_task',
         ]);
 
         if ($validate->fails()) {
@@ -627,5 +629,49 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'message' => 'Payment processed successfully',
             'transaction' => $result,
         ]);
+    }
+
+    public function solar_system_offers(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'products' => 'required|array',
+            'products.*.id' => 'required|integer|exists:products,id',
+            'products.*.quantity' => 'required|integer|min:1',
+            'customer_id' => 'sometimes|integer|exists:customers,id',
+            'customer_name' => 'sometimes|string|max:255',
+            'offer_name' => 'sometimes|string|max:255',
+            'offer_details' => 'sometimes|string',
+            'system_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
+            'discount_type' => 'sometimes|string|in:percentage,fixed',
+            'discount_value' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'validity_days' => 'sometimes|integer|min:1',
+            'average_delivery_cost' => 'sometimes|numeric|min:0',
+            'average_installation_cost' => 'sometimes|numeric|min:0',
+            'average_metal_installation_cost' => 'sometimes|numeric|min:0',
+            'panar_image' => 'sometimes|array',
+            'panar_image.*' => 'sometimes|mimes:jpg,jpeg,png,webp|max:2048',
+            'video' => 'sometimes|file|mimes:mp4,mkv,avi|max:10240',
+            'public_private' => 'sometimes|string|in:public,private',
+            'offer_date' => 'sometimes|date',
+            'offer_expired_date' => 'sometimes|date|after_or_equal:offer_date',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        $data = $validate->validated();
+        $result = $this->solarCompanyManagerService->solar_system_offers($request, $data);
+        if (!$result) {
+            return response()->json(['message' => 'Failed to create offer'], 500);
+        }
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Solar system offer created successfully',
+            'offer' => $result[0],
+            'panar_image_urls' => $result[1],
+            'video_url' => $result[2],
+        ], 201);
     }
 }
