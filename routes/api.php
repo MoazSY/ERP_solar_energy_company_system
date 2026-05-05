@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgencyManagerController;
 use App\Http\Controllers\ApiSyriaToolsController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\OtpController;
 use App\Http\Controllers\SolarCompanyManager;
@@ -26,8 +27,11 @@ Route::get('show_subscribtions_policies', [System_admin::class, 'show_subscribti
 Route::post('login', [OtpController::class, 'login']);
 Route::get('show_all_company_registerd', [System_admin::class, 'show_all_company_registerd']);
 Route::get('show_all_agency_registerd', [System_admin::class, 'show_all_agency_registerd']);
+Route::post('customer_register', [CustomerController::class, 'Register']);
 Route::post('logout', [OtpController::class, 'logout'])->middleware('auth:sanctum');
 Route::post('filter_employee', [EmployeeController::class, 'filter_employee']);
+Route::post('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
+Route::post('filter_solar_companies', [AgencyManagerController::class, 'filter_solar_companies']);
 
 Route::middleware('check_admin')->group(function () {
     Route::get('Admin_profile', [System_admin::class, 'Admin_profile']);
@@ -55,7 +59,6 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('company_subscribe_in_policy', [SolarCompanyManager::class, 'subscribe_in_policy'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::get('show_company_products', [SolarCompanyManager::class, 'show_company_products']);
     Route::get('show_all_agency', [SolarCompanyManager::class, 'show_all_agency']);
-    Route::post('filter_agency', [SolarCompanyManager::class, 'filter_agency']);
     Route::get('show_agency_products/{agency_id}', [SolarCompanyManager::class, 'show_agency_products']);
     Route::post('request_purchase_invoice_agency/{agency_id}', [SolarCompanyManager::class, 'request_purchase_invoice_agency']);
     Route::get('get_purchase_requests_from_agencies', [SolarCompanyManager::class, 'get_purchase_requests_from_agencies']);
@@ -99,7 +102,6 @@ Route::middleware('check_Agency_manager')->group(function () {
     Route::post('delete_agency_product/{product_id}', [AgencyManagerController::class, 'delete_agency_product'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('delete_agency_product_details/{product_id}', [AgencyManagerController::class, 'delete_agency_product_details'])->middleware(['check_agency_manager_active', 'check_agency_active', 'check_agency_subscription']);
     Route::post('filter_agency_products', [AgencyManagerController::class, 'filter_agency_products'])->middleware(['check_agency_manager_active', 'check_agency_active']);
-    Route::post('filter_solar_companies', [AgencyManagerController::class, 'filter_solar_companies'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('create_custom_discount/{solar_company_id}', [AgencyManagerController::class, 'create_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::get('show_custom_discounts/{solar_company_id}', [AgencyManagerController::class, 'show_custom_discounts'])->middleware(['check_agency_manager_active', 'check_agency_active']);
     Route::post('update_custom_discount/{discount_id}', [AgencyManagerController::class, 'update_custom_discount'])->middleware(['check_agency_manager_active', 'check_agency_active']);
@@ -137,4 +139,9 @@ Route::middleware('check_employee')->group(function () {
     Route::post('delete_inventory_product_details/{product_id}', [EmployeeController::class, 'delete_inventory_product_details']);
     Route::post('filter_inventory_products', [EmployeeController::class, 'filter_inventory_products']);
     Route::post('recieve_cash_from_manager', [EmployeeController::class, 'recieve_cash_from_manager']);
+});
+
+Route::middleware('check_customer')->group(function () {
+    Route::get('customer_profile', [CustomerController::class, 'customer_profile']);
+    Route::post('customer/update_profile', [CustomerController::class, 'update_profile']);
 });

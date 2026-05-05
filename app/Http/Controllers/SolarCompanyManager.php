@@ -674,4 +674,5 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'video_url' => $result[2],
         ], 201);
     }
+    
 }

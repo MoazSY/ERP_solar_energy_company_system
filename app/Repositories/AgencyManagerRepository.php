@@ -615,13 +615,13 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
 
     public function filter_solar_companies($filters)
     {
-        $agency_manager = Auth::guard('agency_manager')->user();
-        $agency_manager = Agency_manager::findOrFail($agency_manager->id);
-        $agency = $agency_manager->agencies()->first();
+        // $agency_manager = Auth::guard('agency_manager')->user();
+        // $agency_manager = Agency_manager::findOrFail($agency_manager->id);
+        // $agency = $agency_manager->agencies()->first();
 
-        if (!$agency) {
-            return collect();
-        }
+        // if (!$agency) {
+        //     return collect();
+        // }
 
         $query = Solar_company::query();
 
