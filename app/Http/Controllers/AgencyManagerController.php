@@ -896,4 +896,10 @@ class AgencyManagerController extends Controller
             'payment' => $result,
         ], 200);
     }
+
+    public function show_company_profits(Request $request){}
+     public function show_company_expenses(Request $request){}
+     public function filter_company_profits(Request $request){}
+     public function filter_company_expenses(Request $request){}
+     
 }

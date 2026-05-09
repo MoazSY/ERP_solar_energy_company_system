@@ -69,7 +69,7 @@ class OsrmService
         ) {
             return ['error' => 'Agency/company coordinates are required for delivery calculation'];
         }
-// هنا يجب حسب سياسة الجهة الطالبة المسعرة 
+        // هنا يجب حسب سياسة الجهة الطالبة المسعرة
         $ruleQuery = $agency
             ->deliveryRules()
             ->where('is_active', true)
@@ -221,6 +221,105 @@ class OsrmService
             $deliveryFee *= 1.35;
         } else {
             $deliveryFee /= 100;  // convert from old SYP to new SYP
+        }
+
+        return [
+            'rule_id' => $rule->id,
+            'distance_km' => $distanceData['distance_km'],
+            'duration_minutes' => $distanceData['duration_minutes'],
+            'weight_kg' => round($weightKg, 2),
+            'delivery_fee' => round($deliveryFee, 2),
+            'currency' => 'SY',
+        ];
+    }
+
+    /**
+     * Calculate delivery fee when company ships to a customer (company -> customer)
+     * Mirrors calculateDeliveryFeeForPurchase but uses company delivery rules and customer address.
+     */
+    public function calculateDeliveryFeeForCompanyToCustomer($company, $customer, $products, $productsMap): array
+    {
+        $companyAddress = $company->addresses()->latest('id')->first();
+
+        // Customer address via Address model (customer may not define addresses relation)
+        $customerAddress = \App\Models\Address::where('entity_type_type', \App\Models\Customer::class)
+            ->where('entity_type_id', $customer->id)
+            ->latest('id')
+            ->first();
+
+        if (!$companyAddress || !$customerAddress) {
+            return ['error' => 'Company or customer address missing for delivery calculation'];
+        }
+
+        if (
+            $companyAddress->latitude === null ||
+            $companyAddress->longitude === null ||
+            $customerAddress->latitude === null ||
+            $customerAddress->longitude === null
+        ) {
+            return ['error' => 'Coordinates required for delivery calculation'];
+        }
+
+        $ruleQuery = $company
+            ->deliveryRules()
+            ->where('is_active', true)
+            ->where('governorate_id', $customerAddress->governorate_id)
+            ->where(function ($query) use ($customerAddress) {
+                if ($customerAddress->area_id) {
+                    $query
+                        ->where('area_id', $customerAddress->area_id)
+                        ->orWhereNull('area_id');
+                } else {
+                    $query->whereNull('area_id');
+                }
+            });
+
+        if ($customerAddress->area_id) {
+            $ruleQuery->orderByRaw('CASE WHEN area_id = ? THEN 0 ELSE 1 END', [$customerAddress->area_id]);
+        }
+
+        $rule = $ruleQuery->latest('id')->first();
+
+        if (!$rule) {
+            return ['error' => 'No active delivery pricing rule found for customer location'];
+        }
+
+        try {
+            $distanceData = $this->getDrivingDistance(
+                (float) $companyAddress->latitude,
+                (float) $companyAddress->longitude,
+                (float) $customerAddress->latitude,
+                (float) $customerAddress->longitude
+            );
+        } catch (\Throwable $exception) {
+            return ['error' => 'Failed to calculate driving distance using OSRM'];
+        }
+
+        $weightKg = collect($products)->sum(function ($item) use ($productsMap) {
+            $product = $productsMap->get($item['id']);
+            if (!$product) {
+                return 0;
+            }
+
+            $unitWeight = $product->inverters?->weight_kg
+                ?? $product->batteries?->weight_kg
+                ?? $product->solarPanals?->weight_kg
+                ?? 0;
+
+            return (float) $unitWeight * (int) ($item['quantity'] ?? 1);
+        });
+
+        $baseFee = (float) ($rule->delivery_fee ?? 0);
+        $distanceFee = ((float) $distanceData['distance_km']) * (float) ($rule->price_per_km ?? 0);
+
+        $maxWeight = (float) ($rule->max_weight_kg ?? 0);
+        $extraWeight = max($weightKg - $maxWeight, 0);
+        $extraWeightFee = $extraWeight * (float) ($rule->price_per_extra_kg ?? 0);
+
+        $deliveryFee = $baseFee + $distanceFee + $extraWeightFee;
+
+        if (strtoupper((string) $rule->currency) === 'USD') {
+            $deliveryFee *= 1.35;
         }
 
         return [

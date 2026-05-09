@@ -273,8 +273,9 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function task_start(Request $request)
+    public function delivery_task_start(Request $request)
     {
+
         $validate = Validator::make($request->all(), [
             'delivery_task_id' => 'required|exists:deliveries,id',
         ]);
@@ -291,7 +292,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function show_orderList_for_inventory_manager()
+    public function show_input_orderList_for_inventory_manager()
     {
         $orderLists = $this->employeeService->show_orderList_for_inventory_manager();
         if (isset($orderLists['error'])) {
@@ -301,11 +302,6 @@ class EmployeeController extends Controller
             'message' => 'Order lists retrieved successfully',
             'order_lists' => $orderLists,
         ]);
-    }
-
-    public function proccess_input_output_order_request(Request $request, Order_list $orderlist)
-    {
-        // $validate=
     }
 
     public function insert_product_to_stock(Request $request)
@@ -676,4 +672,90 @@ class EmployeeController extends Controller
             'transaction' => $result['transaction'],
         ], 200);
     }
+
+    public function show_output_orderList_for_inventory_manager(){
+    // رؤية قائمة الطلبات التي يجب اخراجها او تخصيصها بوقت وتاريخ معين 
+
+    }
+    public function proccess_input_output_order_request(Request $request, Order_list $orderlist) {
+        // تعيين الحالة والتاريخ الاستجابة اي تعيين انه تم ادخالها او اخراجها بنجاح
+        // في حال كانت طلبية اخراج يجب تسجيل الارقام التسلسلية للمنتجات في الطلبية 
+    }
+    public function create_conflict_invoice(Request $request,$invoice_id){
+        // في حال وجود اي مشكلة في الطلبية او في عملية التسليم او الاستلام يتم انشاء فاتورة خلافية لتوثيق المشكلة وحلها
+        // يتم تعيين التضارب في الفاتورة المستلمة من الوكالة 
+    }
+    public function show_installation_tasks(){
+        //رؤية مهام التركيب المخصصة للتقنيين مع كافة المعلومات والتفاصيل عن المهمة 
+
+    }
+    public function filter_installation_tasks(Request $request){
+        // فلترة مهام التركيب حسب الحالة او حسب التاريخ او حسب العميل او حسب نوع النظام او المنتهي او المقبوض اختر ما تراه مناسبا للفلترة
+    }
+    public function proccess_installation_task(Request $request){
+        // معالجة مهمة التركيب من حيث تعيينها كمقبولة او مرفوضة من قبل التقني  
+    }
+    public function define_solar_system_for_customer(Request $request){
+        // في حال قبول مهمة التركيب من قبل التقني يتم تعريف نظام الطاقة الشمسية المناسب للعميل حسب طلبه واحتياجه وامكانياته المادية في حال قام العميل بطلب كشف فني 
+    }
+    public function installation_task_start(Request $request){
+        // بدء مهمة التركيب من قبل التقني وتسجيل الوقت والتاريخ لبداية المهمة
+    }
+    public function installation_task_complete(Request $request){
+    /*
+        اكمال مهمة التركيب من قبل التقني وتسجيل الوقت والتاريخ لنهاية المهمة 
+    تسجيل الملاحظات وتصوير المنظومة اذا كان فني تركيب ورفع صور القاعدة اذا كان فني قواعد 
+    اذا كان فني تركيب يجب مسح QR code  لاتمام التركيب 
+    */
+    }
+    public function define_system_attachments(Request $request){
+        /*
+        عندما يستلم الفني مهمة التركيب ويوافق عليها 
+        بعد ما يطلع على قائمة الطلبات يستطيع اضافة قائمة من المنتجات ليقوم مدير المستودع لاحقا بتعديل قائمة الطلبات استجابة لطلب الفني
+        التي هي غالبا من فئة الاكسوارات اي المرفقات للطاقة
+        القائمة في جدول products technicians مع ربطها بمهمة التركيب وبالعميل وبالطلبية وبالفاتورة
+        */
+    }
+
+    public function show_system_attachments_for_technician(Request $request){
+    // رؤية القائمة التي يريدها الفني من المرفقات الاضافية عن الطلبية او الفاتورة 
+    }
+    public function extract_attachments(Request $request){
+    // ادخالها للطلبية او تعديل كميات او حذفها حسب الحاجة طبعا الذي يقوم بذلك مدير المستودع
+    }
+    public function register_consumable_material(Request $request){
+    // تسجيل المستهلكات التي استهلكها الفني في التركيب عند الفني اي المرفقات من كابلات وقواطع ومستلزمات واكسسوارت كهربائية
+    }
+    public function update_consumable_material(Request $request){
+    // امكانية تعديلها او كمياتها او حذف البعض 
+    }
+    public function recieve_cash_from_customer(Request $request){
+    // في حال كان العميل سيدفع كاش عند التسليم يقوم الفني بتسجيل استلام المبلغ من العميل وتوثيقه في النظام
+    }
+    public function show_profits_from_installation_tasks(Request $request){
+    // رؤية الارباح التي حققها من مهام التركيب التي قام بها 
+    }
+    public function filter_profits_from_installation_tasks(Request $request){
+    // فلترة الارباح حسب التاريخ او حسب العميل او حسب نوع النظام او المنتهي او المقبوض اختر ما تراه مناسبا للفلترة تاريخ يومي شهري 
+    // من شركة محددة فلتر بما تراه مناسبا 
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
