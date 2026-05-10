@@ -151,6 +151,7 @@ Route::middleware('check_customer')->group(function () {
     Route::get('my_subscribe_offers', [CustomerController::class, 'show_subscribe_offers']);
     Route::post('request_solar_system', [CustomerController::class, 'request_solar_system']);
     Route::post('request_solar_system/electrical_devices', [CustomerController::class, 'add_electrical_devices_to_request_solar_system']);
+    Route::get('electrical_devices', [CustomerController::class, 'electrical_devices']);
     Route::post('request_technical_inspection', [CustomerController::class, 'request_technical_inspection']);
     Route::get('my_requests', [CustomerController::class, 'show_my_requests']);
     Route::get('my_solar_systems', [CustomerController::class, 'show_my_solar_systems']);

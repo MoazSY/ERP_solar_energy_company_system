@@ -114,6 +114,11 @@ class CustomerService
         return $result;
     }
 
+    public function get_all_electrical_devices()
+    {
+        return $this->customerRepositoryInterface->find_all_electrical_devices();
+    }
+
     private function currentCustomer(): Customer
     {
         return Auth::guard('customer')->user();
@@ -368,15 +373,13 @@ class CustomerService
     public function request_solar_system($request)
     {
         /*
-         اذا تم ارسال معرف الشركة يتم البحث عن الطلبية بمعرف الشركة وتعديلها 
-         اذا لم يتم ايجادها فيتم انشاء واحدة جديدة 
-         اذا لم يتم ارسال معرف الشركة  يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة
-        يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة 
-اذا وجدت يتم تحديثها بالبيانات الجديدة و ربطها بالشركة المختارة
-اذا لا يوجد شركة null  يتم اضافة طلب جديد 
-
-
-        */
+         * اذا تم ارسال معرف الشركة يتم البحث عن الطلبية بمعرف الشركة وتعديلها
+         *          اذا لم يتم ايجادها فيتم انشاء واحدة جديدة
+         *          اذا لم يتم ارسال معرف الشركة  يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة
+         *         يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة
+         * اذا وجدت يتم تحديثها بالبيانات الجديدة و ربطها بالشركة المختارة
+         * اذا لا يوجد شركة null  يتم اضافة طلب جديد
+         */
         $customer = $this->currentCustomer();
         $payload = $request->only([
             'company_id',
@@ -414,31 +417,30 @@ class CustomerService
         if ($request->has('additional_details')) {
             $payload['additional_details'] = $request->input('additional_details');
         }
-        if($request->has('company_id')){
-        $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
-        if($requestSolarSystem){
-            $payload['company_id'] = $request->input('company_id');
-            $requestSolarSystem->update($payload);
-            $requestSolarSystem->save();
-            $requestSolarSystem->refresh();
-        }else
-        $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
-        }
-        else{
+        if ($request->has('company_id')) {
+            $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
+            if ($requestSolarSystem) {
+                $payload['company_id'] = $request->input('company_id');
+                $requestSolarSystem->update($payload);
+                $requestSolarSystem->save();
+                $requestSolarSystem->refresh();
+            } else
+                $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
+        } else {
             $requestSolarSystem = $customer
-            ->requestSolarSystems()
-            ->whereNull('company_id')
-            ->has('electricalDeviceCharacteristics')
-            ->latest()->first();
-        if($requestSolarSystem) {
-            $payload['company_id'] = $request->input('company_id');
-            $requestSolarSystem->update($payload);
-            $requestSolarSystem->save();
-            $requestSolarSystem->refresh();
-        }else{
-           return ['error' => 'no existing request found, and company_id is required to create a new request']; 
-        }
-        
+                ->requestSolarSystems()
+                ->whereNull('company_id')
+                ->has('electricalDeviceCharacteristics')
+                ->latest()
+                ->first();
+            if ($requestSolarSystem) {
+                $payload['company_id'] = $request->input('company_id');
+                $requestSolarSystem->update($payload);
+                $requestSolarSystem->save();
+                $requestSolarSystem->refresh();
+            } else {
+                return ['error' => 'no existing request found, and company_id is required to create a new request'];
+            }
         }
         return $this->requestSolarSystemToArray($requestSolarSystem);
     }

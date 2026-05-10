@@ -144,6 +144,13 @@ class CustomerRepository implements CustomerRepositoryInterface
         return $characteristic->refresh();
     }
 
+    public function find_all_electrical_devices()
+    {
+        return \App\Models\Electrical_device::select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
     public function find_request_solar_system($customer_id, $request_id)
     {
         return Request_solar_system::where('customer_id', $customer_id)->find($request_id);

@@ -159,6 +159,13 @@ class CustomerController extends Controller
         return response()->json(['message' => 'company offers retrieved successfully', 'offers' => $offers]);
     }
 
+    public function electrical_devices()
+    {
+        $devices = $this->customerService->get_all_electrical_devices();
+
+        return response()->json(['message' => 'electrical devices retrieved successfully', 'devices' => $devices]);
+    }
+
     public function show_my_specific_offers()
     {
         $result = $this->customerService->show_my_specific_offers();

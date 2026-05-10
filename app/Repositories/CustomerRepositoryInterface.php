@@ -18,6 +18,7 @@ interface CustomerRepositoryInterface
     public function create_customer_electrical_device_characteristic(array $data);
     public function find_customer_electrical_device_characteristic($request_solar_system_id);
     public function update_customer_electrical_device_characteristic($characteristic, array $data);
+    public function find_all_electrical_devices();
     public function find_request_solar_system($customer_id, $request_id);
     public function update_request_solar_system($requestSolarSystem, array $data);
     public function delete_request_solar_system($requestSolarSystem);
