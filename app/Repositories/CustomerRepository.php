@@ -3,6 +3,7 @@ namespace App\Repositories;
 
 use App\Models\Company_protofolio;
 use App\Models\Customer;
+use App\Models\Customer_electrical_device_characteristic;
 use App\Models\Customer_rate_feedback;
 use App\Models\Metainence_request;
 use App\Models\Offers;
@@ -114,7 +115,8 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function show_subscribe_offers($customer_id)
     {
-        return Subscribe_offer::where('customer_id', $customer_id)->where('subscription_status', 'accepted')
+        return Subscribe_offer::where('customer_id', $customer_id)
+            ->where('subscription_status', 'accepted')
             ->latest('id')
             ->get();
     }
@@ -122,6 +124,24 @@ class CustomerRepository implements CustomerRepositoryInterface
     public function create_request_solar_system(array $data)
     {
         return Request_solar_system::create($data);
+    }
+
+    public function create_customer_electrical_device_characteristic(array $data)
+    {
+        return Customer_electrical_device_characteristic::create($data);
+    }
+
+    public function find_customer_electrical_device_characteristic($request_solar_system_id)
+    {
+        return Customer_electrical_device_characteristic::where('request_solar_system_id', $request_solar_system_id)
+            ->first();
+    }
+
+    public function update_customer_electrical_device_characteristic($characteristic, array $data)
+    {
+        $characteristic->update($data);
+
+        return $characteristic->refresh();
     }
 
     public function find_request_solar_system($customer_id, $request_id)

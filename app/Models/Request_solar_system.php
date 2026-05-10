@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Customer_electrical_device_characteristic;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Model;
 
 class Request_solar_system extends Model
 {
@@ -33,6 +35,7 @@ class Request_solar_system extends Model
         'metal_base_type',
         'front_base_height_m',
         'back_base_height_m',
+        'additional_details',
         'surface_image',
     ];
 
@@ -40,8 +43,14 @@ class Request_solar_system extends Model
     {
         return $this->belongsTo(Customer::class, 'customer_id');
     }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Solar_company::class, 'company_id');
+    }
+
+    public function electricalDeviceCharacteristics(): HasMany
+    {
+        return $this->hasMany(Customer_electrical_device_characteristic::class, 'request_solar_system_id');
     }
 }

@@ -15,6 +15,9 @@ interface CustomerRepositoryInterface
     public function update_offer_subscription($subscription, array $data);
     public function show_subscribe_offers($customer_id);
     public function create_request_solar_system(array $data);
+    public function create_customer_electrical_device_characteristic(array $data);
+    public function find_customer_electrical_device_characteristic($request_solar_system_id);
+    public function update_customer_electrical_device_characteristic($characteristic, array $data);
     public function find_request_solar_system($customer_id, $request_id);
     public function update_request_solar_system($requestSolarSystem, array $data);
     public function delete_request_solar_system($requestSolarSystem);

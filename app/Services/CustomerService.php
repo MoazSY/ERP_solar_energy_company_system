@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company_protofolio;
 use App\Models\Customer;
+use App\Models\Customer_electrical_device_characteristic;
 use App\Models\Metainence_request;
 use App\Models\Offers;
 use App\Models\Project_task;
@@ -152,11 +153,42 @@ class CustomerService
 
     private function requestSolarSystemToArray(Request_solar_system $requestSolarSystem): array
     {
-        $requestSolarSystem->loadMissing(['company']);
+        $powerSummary = $this->electricalDevicePowerSummary($requestSolarSystem);
 
         return [
             'request' => $requestSolarSystem,
             'surface_image' => $this->storageUrl($requestSolarSystem->surface_image),
+            'electrical_devices' => $requestSolarSystem->electricalDeviceCharacteristics->map(function (Customer_electrical_device_characteristic $characteristic) {
+                return [
+                    'id' => $characteristic->id,
+                    'electrical_device' => $characteristic->electricalDevice,
+                    'capacity' => $characteristic->capacity,
+                    'unit' => $characteristic->unit,
+                    'usage_time' => $characteristic->usage_time,
+                    'notes' => $characteristic->notes,
+                ];
+            }),
+            'power_summary' => $powerSummary,
+        ];
+    }
+
+    private function electricalDevicePowerSummary(Request_solar_system $requestSolarSystem): array
+    {
+        $devices = $requestSolarSystem->electricalDeviceCharacteristics ?? collect();
+
+        $totalCapacity = (float) $devices->sum(function (Customer_electrical_device_characteristic $characteristic) {
+            return (float) ($characteristic->capacity ?? 0);
+        });
+
+        return [
+            'total_capacity' => $totalCapacity,
+            'total_capacity_kw' => round($totalCapacity / 1000, 3),
+            'dayly_capacity' => (float) $devices
+                ->where('usage_time', 'dayly')
+                ->sum(fn(Customer_electrical_device_characteristic $characteristic) => (float) ($characteristic->capacity ?? 0)),
+            'nightly_capacity' => (float) $devices
+                ->where('usage_time', 'nightly')
+                ->sum(fn(Customer_electrical_device_characteristic $characteristic) => (float) ($characteristic->capacity ?? 0)),
         ];
     }
 
@@ -335,6 +367,16 @@ class CustomerService
 
     public function request_solar_system($request)
     {
+        /*
+         اذا تم ارسال معرف الشركة يتم البحث عن الطلبية بمعرف الشركة وتعديلها 
+         اذا لم يتم ايجادها فيتم انشاء واحدة جديدة 
+         اذا لم يتم ارسال معرف الشركة  يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة
+        يتم البحث عن طلبية فيها ال  company_id  لها  null ولها اجهزة مضافة 
+اذا وجدت يتم تحديثها بالبيانات الجديدة و ربطها بالشركة المختارة
+اذا لا يوجد شركة null  يتم اضافة طلب جديد 
+
+
+        */
         $customer = $this->currentCustomer();
         $payload = $request->only([
             'company_id',
@@ -359,6 +401,7 @@ class CustomerService
             'metal_base_type',
             'front_base_height_m',
             'back_base_height_m',
+            'additional_details',
         ]);
 
         $payload['customer_id'] = $customer->id;
@@ -368,9 +411,93 @@ class CustomerService
             $payload['surface_image'] = $request->file('surface_image')->storeAs('Customer/request_solar_systems', $surfaceImage, 'public');
         }
 
+        if ($request->has('additional_details')) {
+            $payload['additional_details'] = $request->input('additional_details');
+        }
+        if($request->has('company_id')){
+        $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
+        if($requestSolarSystem){
+            $payload['company_id'] = $request->input('company_id');
+            $requestSolarSystem->update($payload);
+            $requestSolarSystem->save();
+            $requestSolarSystem->refresh();
+        }else
         $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
+        }
+        else{
+            $requestSolarSystem = $customer
+            ->requestSolarSystems()
+            ->whereNull('company_id')
+            ->has('electricalDeviceCharacteristics')
+            ->latest()->first();
+        if($requestSolarSystem) {
+            $payload['company_id'] = $request->input('company_id');
+            $requestSolarSystem->update($payload);
+            $requestSolarSystem->save();
+            $requestSolarSystem->refresh();
+        }else{
+           return ['error' => 'no existing request found, and company_id is required to create a new request']; 
+        }
+        
+        }
+        return $this->requestSolarSystemToArray($requestSolarSystem);
+    }
 
-        return $this->requestSolarSystemToArray($requestSolarSystem->fresh());
+    public function add_electrical_devices_to_request_solar_system($request)
+    {
+        /*
+         * اذا تم ادخال ال  request id
+         * يتم البحث عن الطلبية اذا وجدت يتم تحديث الاجهزة الكهربائية لها
+         * اذا لم توجد يتم اضافة الاجهزة الكهربائية لها
+         * اذا لم يتم ادخال  request id  يتم انشاء واحدة جديدة واضافة الاجهزة الكهربائية لها
+         */
+        $customer = $this->currentCustomer();
+        $requestId = $request->input('request_id');
+        if ($requestId) {
+            $requestSolarSystem = $this->customerRepositoryInterface->find_request_solar_system($customer->id, $requestId);
+        } else {
+            $requestSolarSystem = $this
+                ->customerRepositoryInterface
+                ->show_customer_solar_system_requests($customer->id)
+                ->first();
+        }
+        if (!$requestSolarSystem) {
+            // return ['error' => 'solar system request not found'];
+            $requestSolarSystem = Request_solar_system::create([
+                'customer_id' => $customer->id,
+            ]);
+        }
+
+        $electricalDevices = collect($request->input('electrical_devices', []));
+
+        if ($electricalDevices->isEmpty()) {
+            return ['error' => 'electrical devices are required'];
+        }
+
+        $electricalDevices->each(function (array $device) use ($customer, $requestSolarSystem) {
+            $characteristic = $this->customerRepositoryInterface->find_customer_electrical_device_characteristic(
+                $requestSolarSystem->id
+            );
+
+            $data = [
+                'customer_id' => $customer->id,
+                'electrical_device_id' => $device['electrical_device_id'],
+                'request_solar_system_id' => $requestSolarSystem->id ?? null,
+                'capacity' => $device['capacity'],
+                'unit' => $device['unit'] ?? 'W',
+                'usage_time' => $device['usage_time'] ?? 'dayly',
+                'notes' => $device['notes'] ?? null,
+            ];
+
+            if ($characteristic) {
+                $this->customerRepositoryInterface->update_customer_electrical_device_characteristic($characteristic, $data);
+                return;
+            }
+
+            $this->customerRepositoryInterface->create_customer_electrical_device_characteristic($data);
+        });
+
+        return $this->requestSolarSystemToArray($requestSolarSystem);
     }
 
     public function request_technical_inspection($request)

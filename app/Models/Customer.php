@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Container\Attributes\Auth;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 // use Illuminate\Database\Eloquent\Model;
+use App\Models\Customer_electrical_device_characteristic;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -68,6 +69,11 @@ class Customer extends Authenticatable
     public function requestSolarSystems(): HasMany
     {
         return $this->hasMany(Request_solar_system::class, 'customer_id');
+    }
+
+    public function electricalDeviceCharacteristics(): HasMany
+    {
+        return $this->hasMany(Customer_electrical_device_characteristic::class, 'customer_id');
     }
 
     public function metainenceRequests(): HasMany
