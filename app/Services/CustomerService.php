@@ -218,6 +218,13 @@ class CustomerService
         ];
     }
 
+    private function requestHasInvoice(string $entityType, int $entityId): bool
+    {
+        return \App\Models\Purchase_invoice::where('object_entity_type', $entityType)
+            ->where('object_entity_id', $entityId)
+            ->exists();
+    }
+
     private function invoiceToArray(Purchase_invoice $invoice): array
     {
         $invoice->loadMissing(['orderList.Items.product', 'payments', 'seller_entity', 'buyer_entity', 'object_entity']);
@@ -532,17 +539,15 @@ class CustomerService
         $payload['customer_phone'] = $customer->phoneNumber;
 
         // Get customer address from addresses table
-        if($request->has('customer_address') && !empty($request->input('customer_address'))){
+        if ($request->has('customer_address') && !empty($request->input('customer_address'))) {
             $payload['customer_address'] = $request->input('customer_address');
-        }else{
-        $customerAddress = \App\Models\Address::where('entity_type_type', Customer::class)
-            ->where('entity_type_id', $customer->id)
-            ->first();
-        $payload['customer_address'] = $customerAddress ? $customerAddress->address : null;
+        } else {
+            $customerAddress = \App\Models\Address::where('entity_type_type', Customer::class)
+                ->where('entity_type_id', $customer->id)
+                ->first();
+            $payload['customer_address'] = $customerAddress ? $customerAddress->address : null;
         }
         $payload['inspection_status'] = 'pending';
-
-
 
         $technicalInspection = $this->customerRepositoryInterface->create_technical_inspection_request($payload);
 
@@ -558,13 +563,25 @@ class CustomerService
                 ->customerRepositoryInterface
                 ->show_customer_solar_system_requests($customer->id)
                 ->map(function (Request_solar_system $requestSolarSystem) {
-                    return $this->requestSolarSystemToArray($requestSolarSystem);
+                    return array_merge($this->requestSolarSystemToArray($requestSolarSystem), [
+                        'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
+                    ]);
                 }),
             'maintenance_requests' => $this
                 ->customerRepositoryInterface
                 ->show_customer_maintenance_requests($customer->id)
                 ->map(function (Metainence_request $maintenanceRequest) {
-                    return $this->maintenanceRequestToArray($maintenanceRequest);
+                    return array_merge($this->maintenanceRequestToArray($maintenanceRequest), [
+                        'invoice_created' => $this->requestHasInvoice(Metainence_request::class, $maintenanceRequest->id),
+                    ]);
+                }),
+            'technical_inspection_requests' => $this
+                ->customerRepositoryInterface
+                ->show_customer_technical_inspections($customer->id)
+                ->map(function (Technical_inspection_request $inspectionRequest) {
+                    return array_merge($this->technicalInspectionToArray($inspectionRequest), [
+                        'invoice_created' => $this->requestHasInvoice(Technical_inspection_request::class, $inspectionRequest->id),
+                    ]);
                 }),
             'product_orders' => $this->customerRepositoryInterface->show_customer_product_orders($customer->id),
         ];
