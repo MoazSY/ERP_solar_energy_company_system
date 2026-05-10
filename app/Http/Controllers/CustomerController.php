@@ -290,7 +290,7 @@ class CustomerController extends Controller
         $validate = Validator::make($request->all(), [
             'company_id' => 'required|exists:solar_companies,id',
             'issue_description' => 'sometimes|nullable|string',
-            'customer_address'=> 'sometimes|nullable|string',
+            'customer_address' => 'sometimes|nullable|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -309,13 +309,15 @@ class CustomerController extends Controller
         $result = $this->customerService->show_my_requests();
         return response()->json(['message' => 'customer requests retrieved successfully', 'requests' => $result]);
     }
-////////////////////////////////////////////////////////////////
+
+    // //////////////////////////////////////////////////////////////
     public function show_my_solar_systems()
     {
         $result = $this->customerService->show_my_solar_systems();
         return response()->json(['message' => 'customer solar systems retrieved successfully', 'solar_systems' => $result]);
     }
-///////////////////////////////////////////////////////////////////
+
+    // /////////////////////////////////////////////////////////////////
     public function filter_requests(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -553,12 +555,8 @@ class CustomerController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
-            'products.*.unit_price' => 'sometimes|numeric|min:0',
-            'products.*.discount_type' => 'sometimes|nullable|string',
-            'products.*.discount_value' => 'sometimes|numeric|min:0',
-            'products.*.discount_amount' => 'sometimes|numeric|min:0',
             'with_delivery' => 'sometimes|boolean',
-            'request_note' => 'sometimes|nullable|string',
+
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -570,6 +568,67 @@ class CustomerController extends Controller
         }
 
         return response()->json(['message' => 'product order created successfully', 'order' => $result], 201);
+    }
+
+    public function filter_company_products(Request $request, $company_id)
+    {
+        $validate = Validator::make(array_merge($request->all(), ['company_id' => $company_id]), [
+            'company_id' => 'required|exists:solar_companies,id',
+            'product_type' => 'nullable|string|in:battery,inverter,solar_panel,accessory',
+            'product_name' => 'nullable|string',
+            'product_brand' => 'nullable|string',
+            'model_number' => 'nullable|string',
+            'price_min' => 'nullable|numeric|min:0',
+            'price_max' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string',
+            'quentity_min' => 'nullable|integer|min:0',
+            'quentity_max' => 'nullable|integer|min:0',
+            // Battery details
+            'battery_type' => 'nullable|string|in:lithium_ion,lead_acid,nickel_cadmium',
+            'capacity_kwh' => 'nullable|numeric|min:0',
+            'voltage_v' => 'nullable|string|in:12V,24V,48V',
+            'cycle_life_min' => 'nullable|integer|min:0',
+            'cycle_life_max' => 'nullable|integer|min:0',
+            'warranty_years_min' => 'nullable|numeric|min:0',
+            'warranty_years_max' => 'nullable|numeric|min:0',
+            'weight_kg_min' => 'nullable|numeric|min:0',
+            'weight_kg_max' => 'nullable|numeric|min:0',
+            'Amperage_Ah' => 'nullable|string|in:100Ah,200Ah,300Ah',
+            'celles_type' => 'nullable|string|in:new,renewed',
+            'celles_name' => 'nullable|string',
+            // Inverter details
+            'grid_type' => 'nullable|string|in:on_grid,off_grid,hybrid',
+            'grid_capacity_kw_min' => 'nullable|numeric|min:0',
+            'grid_capacity_kw_max' => 'nullable|numeric|min:0',
+            'solar_capacity_kw_min' => 'nullable|numeric|min:0',
+            'solar_capacity_kw_max' => 'nullable|numeric|min:0',
+            'inverter_open' => 'nullable|boolean',
+            'voltage_open_min' => 'nullable|numeric|min:0',
+            'voltage_open_max' => 'nullable|numeric|min:0',
+            // Solar panel details
+            'capacity_kw' => 'nullable|string|in:250w,300w,350w,400w,580w,620w',
+            'basbar_number_min' => 'nullable|numeric|min:0',
+            'basbar_number_max' => 'nullable|numeric|min:0',
+            'is_half_cell' => 'nullable|boolean',
+            'is_bifacial' => 'nullable|boolean',
+            'length_m_min' => 'nullable|numeric|min:0',
+            'length_m_max' => 'nullable|numeric|min:0',
+            'width_m_min' => 'nullable|numeric|min:0',
+            'width_m_max' => 'nullable|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $products = $this->customerService->filter_company_products($company_id, $filters);
+
+        if (empty($products)) {
+            return response()->json(['message' => 'No products found matching the filters', 'data' => []], 200);
+        }
+
+        return response()->json(['message' => 'Products retrieved successfully', 'data' => $products], 200);
     }
 
     public function show_requested_products_orders()

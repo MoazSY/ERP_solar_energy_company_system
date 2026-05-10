@@ -157,6 +157,7 @@ Route::middleware('check_customer')->group(function () {
     Route::get('my_solar_systems', [CustomerController::class, 'show_my_solar_systems']);
     // Route::post('filter_requests', [CustomerController::class, 'filter_requests']);
     Route::post('cancel_solar_system_request/{request_id}', [CustomerController::class, 'cancel_solar_system_request']);
+    Route::post('filter_company_products/{company_id}', [CustomerController::class, 'filter_company_products']);
     // Route::post('update_solar_system_request/{request_id}', [CustomerController::class, 'update_solar_system_request']);
     Route::get('invoices_details', [CustomerController::class, 'show_invoices_details']);
     Route::post('approve_pay_invoice/{invoice_id}', [CustomerController::class, 'approve_pay_invoice']);

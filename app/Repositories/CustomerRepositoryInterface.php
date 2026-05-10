@@ -49,4 +49,5 @@ interface CustomerRepositoryInterface
     public function create_technical_inspection_request(array $data);
     public function find_technical_inspection_request($customer_id, $request_id);
     public function show_customer_technical_inspections($customer_id);
+    public function filter_company_products($company_id, $filters);
 }

@@ -15,6 +15,7 @@ use App\Models\Project_warranties;
 use App\Models\Purchase_invoice;
 use App\Models\Report;
 use App\Models\Request_solar_system;
+use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
 use App\Models\System_admin;
 use App\Models\Technical_inspection_request;
@@ -384,5 +385,228 @@ class CustomerRepository implements CustomerRepositoryInterface
         return Technical_inspection_request::where('customer_id', $customer_id)
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    public function filter_company_products($company_id, $filters)
+    {
+        $company = Solar_company::find($company_id);
+
+        if (!$company) {
+            return [];
+        }
+
+        $query = $company->products();
+
+        // فلترة البيانات الأساسية للمنتج
+        if (isset($filters['product_type'])) {
+            $query->where('product_type', $filters['product_type']);
+        }
+
+        if (isset($filters['product_name'])) {
+            $query->where('product_name', 'like', '%' . $filters['product_name'] . '%');
+        }
+
+        if (isset($filters['product_brand'])) {
+            $query->where('product_brand', 'like', '%' . $filters['product_brand'] . '%');
+        }
+
+        if (isset($filters['model_number'])) {
+            $query->where('model_number', 'like', '%' . $filters['model_number'] . '%');
+        }
+
+        if (isset($filters['price_min'])) {
+            $query->where('price', '>=', $filters['price_min']);
+        }
+
+        if (isset($filters['price_max'])) {
+            $query->where('price', '<=', $filters['price_max']);
+        }
+
+        if (isset($filters['currency'])) {
+            $query->where('currency', $filters['currency']);
+        }
+
+        if (isset($filters['quentity_min'])) {
+            $query->where('quentity', '>=', $filters['quentity_min']);
+        }
+
+        if (isset($filters['quentity_max'])) {
+            $query->where('quentity', '<=', $filters['quentity_max']);
+        }
+
+        // فلترة تفاصيل البطارية
+        if (($filters['product_type'] ?? null) === 'battery') {
+            if (isset($filters['battery_type']) ||
+                    isset($filters['capacity_kwh']) ||
+                    isset($filters['voltage_v']) ||
+                    isset($filters['cycle_life_min']) ||
+                    isset($filters['cycle_life_max']) ||
+                    isset($filters['warranty_years_min']) ||
+                    isset($filters['warranty_years_max']) ||
+                    isset($filters['weight_kg_min']) ||
+                    isset($filters['weight_kg_max']) ||
+                    isset($filters['Amperage_Ah']) ||
+                    isset($filters['celles_type']) ||
+                    isset($filters['celles_name'])) {
+                $query->whereHas('batteries', function ($batteryQuery) use ($filters) {
+                    if (isset($filters['battery_type'])) {
+                        $batteryQuery->where('battery_type', $filters['battery_type']);
+                    }
+                    if (isset($filters['capacity_kwh'])) {
+                        $batteryQuery->where('capacity_kwh', $filters['capacity_kwh']);
+                    }
+                    if (isset($filters['voltage_v'])) {
+                        $batteryQuery->where('voltage_v', $filters['voltage_v']);
+                    }
+                    if (isset($filters['cycle_life_min'])) {
+                        $batteryQuery->where('cycle_life', '>=', $filters['cycle_life_min']);
+                    }
+                    if (isset($filters['cycle_life_max'])) {
+                        $batteryQuery->where('cycle_life', '<=', $filters['cycle_life_max']);
+                    }
+                    if (isset($filters['warranty_years_min'])) {
+                        $batteryQuery->where('warranty_years', '>=', $filters['warranty_years_min']);
+                    }
+                    if (isset($filters['warranty_years_max'])) {
+                        $batteryQuery->where('warranty_years', '<=', $filters['warranty_years_max']);
+                    }
+                    if (isset($filters['weight_kg_min'])) {
+                        $batteryQuery->where('weight_kg', '>=', $filters['weight_kg_min']);
+                    }
+                    if (isset($filters['weight_kg_max'])) {
+                        $batteryQuery->where('weight_kg', '<=', $filters['weight_kg_max']);
+                    }
+                    if (isset($filters['Amperage_Ah'])) {
+                        $batteryQuery->where('Amperage_Ah', $filters['Amperage_Ah']);
+                    }
+                    if (isset($filters['celles_type'])) {
+                        $batteryQuery->where('celles_type', $filters['celles_type']);
+                    }
+                    if (isset($filters['celles_name'])) {
+                        $batteryQuery->where('celles_name', 'like', '%' . $filters['celles_name'] . '%');
+                    }
+                });
+            }
+        }
+
+        // فلترة تفاصيل المحول (Inverter)
+        if (($filters['product_type'] ?? null) === 'inverter') {
+            if (isset($filters['grid_type']) ||
+                    isset($filters['voltage_v']) ||
+                    isset($filters['grid_capacity_kw_min']) ||
+                    isset($filters['grid_capacity_kw_max']) ||
+                    isset($filters['solar_capacity_kw_min']) ||
+                    isset($filters['solar_capacity_kw_max']) ||
+                    isset($filters['inverter_open']) ||
+                    isset($filters['voltage_open_min']) ||
+                    isset($filters['voltage_open_max']) ||
+                    isset($filters['weight_kg_min']) ||
+                    isset($filters['weight_kg_max']) ||
+                    isset($filters['warranty_years_min']) ||
+                    isset($filters['warranty_years_max'])) {
+                $query->whereHas('inverters', function ($inverterQuery) use ($filters) {
+                    if (isset($filters['grid_type'])) {
+                        $inverterQuery->where('grid_type', $filters['grid_type']);
+                    }
+                    if (isset($filters['voltage_v'])) {
+                        $inverterQuery->where('voltage_v', $filters['voltage_v']);
+                    }
+                    if (isset($filters['grid_capacity_kw_min'])) {
+                        $inverterQuery->where('grid_capacity_kw', '>=', $filters['grid_capacity_kw_min']);
+                    }
+                    if (isset($filters['grid_capacity_kw_max'])) {
+                        $inverterQuery->where('grid_capacity_kw', '<=', $filters['grid_capacity_kw_max']);
+                    }
+                    if (isset($filters['solar_capacity_kw_min'])) {
+                        $inverterQuery->where('solar_capacity_kw', '>=', $filters['solar_capacity_kw_min']);
+                    }
+                    if (isset($filters['solar_capacity_kw_max'])) {
+                        $inverterQuery->where('solar_capacity_kw', '<=', $filters['solar_capacity_kw_max']);
+                    }
+                    if (isset($filters['inverter_open'])) {
+                        $inverterQuery->where('inverter_open', $filters['inverter_open']);
+                    }
+                    if (isset($filters['voltage_open_min'])) {
+                        $inverterQuery->where('voltage_open', '>=', $filters['voltage_open_min']);
+                    }
+                    if (isset($filters['voltage_open_max'])) {
+                        $inverterQuery->where('voltage_open', '<=', $filters['voltage_open_max']);
+                    }
+                    if (isset($filters['weight_kg_min'])) {
+                        $inverterQuery->where('weight_kg', '>=', $filters['weight_kg_min']);
+                    }
+                    if (isset($filters['weight_kg_max'])) {
+                        $inverterQuery->where('weight_kg', '<=', $filters['weight_kg_max']);
+                    }
+                    if (isset($filters['warranty_years_min'])) {
+                        $inverterQuery->where('warranty_years', '>=', $filters['warranty_years_min']);
+                    }
+                    if (isset($filters['warranty_years_max'])) {
+                        $inverterQuery->where('warranty_years', '<=', $filters['warranty_years_max']);
+                    }
+                });
+            }
+        }
+
+        // فلترة تفاصيل الألواح الشمسية
+        if (($filters['product_type'] ?? null) === 'solar_panel') {
+            if (isset($filters['capacity_kw']) ||
+                    isset($filters['basbar_number_min']) ||
+                    isset($filters['basbar_number_max']) ||
+                    isset($filters['is_half_cell']) ||
+                    isset($filters['is_bifacial']) ||
+                    isset($filters['warranty_years_min']) ||
+                    isset($filters['warranty_years_max']) ||
+                    isset($filters['weight_kg_min']) ||
+                    isset($filters['weight_kg_max']) ||
+                    isset($filters['length_m_min']) ||
+                    isset($filters['length_m_max']) ||
+                    isset($filters['width_m_min']) ||
+                    isset($filters['width_m_max'])) {
+                $query->whereHas('solarPanals', function ($panelQuery) use ($filters) {
+                    if (isset($filters['capacity_kw'])) {
+                        $panelQuery->where('capacity_kw', $filters['capacity_kw']);
+                    }
+                    if (isset($filters['basbar_number_min'])) {
+                        $panelQuery->where('basbar_number', '>=', $filters['basbar_number_min']);
+                    }
+                    if (isset($filters['basbar_number_max'])) {
+                        $panelQuery->where('basbar_number', '<=', $filters['basbar_number_max']);
+                    }
+                    if (isset($filters['is_half_cell'])) {
+                        $panelQuery->where('is_half_cell', $filters['is_half_cell']);
+                    }
+                    if (isset($filters['is_bifacial'])) {
+                        $panelQuery->where('is_bifacial', $filters['is_bifacial']);
+                    }
+                    if (isset($filters['warranty_years_min'])) {
+                        $panelQuery->where('warranty_years', '>=', $filters['warranty_years_min']);
+                    }
+                    if (isset($filters['warranty_years_max'])) {
+                        $panelQuery->where('warranty_years', '<=', $filters['warranty_years_max']);
+                    }
+                    if (isset($filters['weight_kg_min'])) {
+                        $panelQuery->where('weight_kg', '>=', $filters['weight_kg_min']);
+                    }
+                    if (isset($filters['weight_kg_max'])) {
+                        $panelQuery->where('weight_kg', '<=', $filters['weight_kg_max']);
+                    }
+                    if (isset($filters['length_m_min'])) {
+                        $panelQuery->where('length_m', '>=', $filters['length_m_min']);
+                    }
+                    if (isset($filters['length_m_max'])) {
+                        $panelQuery->where('length_m', '<=', $filters['length_m_max']);
+                    }
+                    if (isset($filters['width_m_min'])) {
+                        $panelQuery->where('width_m', '>=', $filters['width_m_min']);
+                    }
+                    if (isset($filters['width_m_max'])) {
+                        $panelQuery->where('width_m', '<=', $filters['width_m_max']);
+                    }
+                });
+            }
+        }
+
+        return $query->with(['batteries', 'inverters', 'solarPanals'])->get();
     }
 }

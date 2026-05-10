@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Customer_electrical_device_characteristic;
 use App\Models\Metainence_request;
 use App\Models\Offers;
+use App\Models\Products;
 use App\Models\Project_task;
 use App\Models\Purchase_invoice;
 use App\Models\Report;
@@ -659,8 +660,8 @@ class CustomerService
         if (!$solarRequest) {
             return ['error' => 'solar system request not found'];
         }
-        $hasInvoice=$this->requestHasInvoice(Request_solar_system::class, $solarRequest->id);
-        if($hasInvoice){
+        $hasInvoice = $this->requestHasInvoice(Request_solar_system::class, $solarRequest->id);
+        if ($hasInvoice) {
             return ['error' => 'cannot cancel request with existing invoice'];
         }
         $deletedRequest = $this->requestSolarSystemToArray($solarRequest);
@@ -962,6 +963,27 @@ class CustomerService
         $customer = $this->currentCustomer();
 
         return $this->customerRepositoryInterface->show_customer_product_orders($customer->id);
+    }
+
+    public function filter_company_products($company_id, $filters)
+    {
+        return $this->customerRepositoryInterface->filter_company_products($company_id, $filters)->map(function (Products $product) {
+            $imageUrl = $product->product_image ? asset('storage/' . $product->product_image) : null;
+            $productData = [
+                'product' => $product,
+                'product_image' => $imageUrl,
+            ];
+
+            if ($product->product_type === 'battery') {
+                $productData['technical_details'] = $product->batteries;
+            } elseif ($product->product_type === 'inverter') {
+                $productData['technical_details'] = $product->inverters;
+            } elseif ($product->product_type === 'solar_panel' ) {
+                $productData['technical_details'] = $product->solarPanals;
+            }
+
+            return $productData;
+        });
     }
 
     public function request_maintenance_service($request)
