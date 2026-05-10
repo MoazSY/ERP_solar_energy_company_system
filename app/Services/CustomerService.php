@@ -659,7 +659,10 @@ class CustomerService
         if (!$solarRequest) {
             return ['error' => 'solar system request not found'];
         }
-
+        $hasInvoice=$this->requestHasInvoice(Request_solar_system::class, $solarRequest->id);
+        if($hasInvoice){
+            return ['error' => 'cannot cancel request with existing invoice'];
+        }
         $deletedRequest = $this->requestSolarSystemToArray($solarRequest);
         $this->customerRepositoryInterface->delete_request_solar_system($solarRequest);
 

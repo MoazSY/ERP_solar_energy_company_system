@@ -165,6 +165,10 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function delete_request_solar_system($requestSolarSystem)
     {
+        $elecricalDeviceCharacteristic = Customer_electrical_device_characteristic::where('request_solar_system_id', $requestSolarSystem->id)->first();
+        if ($elecricalDeviceCharacteristic) {
+            $elecricalDeviceCharacteristic->delete();
+        }
         return $requestSolarSystem->delete();
     }
 

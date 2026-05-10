@@ -309,13 +309,13 @@ class CustomerController extends Controller
         $result = $this->customerService->show_my_requests();
         return response()->json(['message' => 'customer requests retrieved successfully', 'requests' => $result]);
     }
-
+////////////////////////////////////////////////////////////////
     public function show_my_solar_systems()
     {
         $result = $this->customerService->show_my_solar_systems();
         return response()->json(['message' => 'customer solar systems retrieved successfully', 'solar_systems' => $result]);
     }
-
+///////////////////////////////////////////////////////////////////
     public function filter_requests(Request $request)
     {
         $validate = Validator::make($request->all(), [
