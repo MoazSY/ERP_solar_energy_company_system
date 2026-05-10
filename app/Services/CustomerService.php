@@ -13,6 +13,7 @@ use App\Models\Report;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
+use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
@@ -204,6 +205,16 @@ class CustomerService
         return [
             'request' => $maintenanceRequest,
             'image_state' => $this->storageUrl($maintenanceRequest->image_state),
+        ];
+    }
+
+    private function technicalInspectionToArray(Technical_inspection_request $inspection): array
+    {
+        $inspection->loadMissing(['company']);
+
+        return [
+            'inspection' => $inspection,
+            'image_state' => $this->storageUrl($inspection->image_state),
         ];
     }
 
@@ -507,39 +518,35 @@ class CustomerService
         $customer = $this->currentCustomer();
         $payload = $request->only([
             'company_id',
-            'metainence_type',
-            'issue_category',
-            'priority',
+            // 'priority',
             'issue_description',
-            'system_sn',
-            'warranty_number',
-            'estimated_cost',
-            'problem_name',
-            'problem_cause',
-            'payment_method',
-            'currency',
+            // 'inspection_price',
+            // 'expected_date',
+            // 'payment_method',
+            // 'currency',
+            'customer_address'
         ]);
 
         $payload['customer_id'] = $customer->id;
         $payload['customer_name'] = trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? ''));
         $payload['customer_phone'] = $customer->phoneNumber;
-        $payload['metainence_type'] = $payload['metainence_type'] ?? 'preventive';
-        $payload['issue_category'] = $payload['issue_category'] ?? 'fullsystem';
-        $payload['priority'] = $payload['priority'] ?? 'medium';
-        $payload['manager_approval'] = false;
-        $payload['metainence_status'] = 'pending';
-        $payload['is_paid'] = false;
-        $payload['payment_method'] = $payload['payment_method'] ?? 'cash';
-        $payload['currency'] = $payload['currency'] ?? 'SY';
 
-        if ($request->hasFile('image_state')) {
-            $imageState = $request->file('image_state')->getClientOriginalName();
-            $payload['image_state'] = $request->file('image_state')->storeAs('Customer/metainence_requests', $imageState, 'public');
+        // Get customer address from addresses table
+        if($request->has('customer_address') && !empty($request->input('customer_address'))){
+            $payload['customer_address'] = $request->input('customer_address');
+        }else{
+        $customerAddress = \App\Models\Address::where('entity_type_type', Customer::class)
+            ->where('entity_type_id', $customer->id)
+            ->first();
+        $payload['customer_address'] = $customerAddress ? $customerAddress->address : null;
         }
+        $payload['inspection_status'] = 'pending';
 
-        $maintenanceRequest = $this->customerRepositoryInterface->create_maintenance_request($payload);
 
-        return $this->maintenanceRequestToArray($maintenanceRequest->fresh());
+
+        $technicalInspection = $this->customerRepositoryInterface->create_technical_inspection_request($payload);
+
+        return $this->technicalInspectionToArray($technicalInspection->fresh());
     }
 
     public function show_my_requests()

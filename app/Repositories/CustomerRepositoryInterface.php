@@ -46,4 +46,7 @@ interface CustomerRepositoryInterface
     public function show_company_gallary($company_id);
     public function find_products_by_ids(array $ids);
     public function calculateDeliveryCost($customer_id, $company_id);
+    public function create_technical_inspection_request(array $data);
+    public function find_technical_inspection_request($customer_id, $request_id);
+    public function show_customer_technical_inspections($customer_id);
 }

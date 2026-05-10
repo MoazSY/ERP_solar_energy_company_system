@@ -289,18 +289,8 @@ class CustomerController extends Controller
     {
         $validate = Validator::make($request->all(), [
             'company_id' => 'required|exists:solar_companies,id',
-            'metainence_type' => 'sometimes|string',
-            'issue_category' => 'sometimes|string',
-            'priority' => 'sometimes|string',
             'issue_description' => 'sometimes|nullable|string',
-            'system_sn' => 'sometimes|nullable|string',
-            'warranty_number' => 'sometimes|nullable|string',
-            'estimated_cost' => 'sometimes|numeric|min:0',
-            'problem_name' => 'sometimes|nullable|string',
-            'problem_cause' => 'sometimes|nullable|string',
-            'payment_method' => 'sometimes|string',
-            'currency' => 'sometimes|string',
-            'image_state' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'customer_address'=> 'sometimes|nullable|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -311,7 +301,7 @@ class CustomerController extends Controller
             return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'technical inspection request created successfully', 'request' => $result], 201);
+        return response()->json(['message' => 'technical inspection request created successfully', 'inspection' => $result], 201);
     }
 
     public function show_my_requests()

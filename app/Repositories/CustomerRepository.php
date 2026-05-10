@@ -17,6 +17,7 @@ use App\Models\Report;
 use App\Models\Request_solar_system;
 use App\Models\Subscribe_offer;
 use App\Models\System_admin;
+use App\Models\Technical_inspection_request;
 use Illuminate\Support\Facades\Hash;
 
 class CustomerRepository implements CustomerRepositoryInterface
@@ -360,5 +361,24 @@ class CustomerRepository implements CustomerRepositoryInterface
             ->first();
 
         return (float) ($deliveryRule->delivery_fee ?? 0);
+    }
+
+    public function create_technical_inspection_request(array $data)
+    {
+        return Technical_inspection_request::create($data);
+    }
+
+    public function find_technical_inspection_request($customer_id, $request_id)
+    {
+        return Technical_inspection_request::where('customer_id', $customer_id)
+            ->where('id', $request_id)
+            ->first();
+    }
+
+    public function show_customer_technical_inspections($customer_id)
+    {
+        return Technical_inspection_request::where('customer_id', $customer_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 }
