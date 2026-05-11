@@ -797,8 +797,16 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function show_technical_inspection_request()
     {
-        // استقبال طلبات ارسال فني للكشف وتحديد المنظومة والاحمال من قبل العملاء
-        // اذا لا يوجد جدول فقم بالاعدادات اللازمة
+        $inspections = $this->solarCompanyManagerService->show_technical_inspection_requests();
+
+        if (isset($inspections['error'])) {
+            return response()->json(['message' => $inspections['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Technical inspection requests retrieved successfully',
+            'inspections' => $inspections,
+        ]);
     }
 
     public function create_invoice(Request $request, $order_id)

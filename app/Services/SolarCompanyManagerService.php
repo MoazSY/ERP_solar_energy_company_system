@@ -13,6 +13,7 @@ use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
+use App\Models\Technical_inspection_request;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
@@ -885,6 +886,25 @@ class SolarCompanyManagerService
         });
 
         return $requests;
+    }
+
+    public function show_technical_inspection_requests()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $inspectionRequests = $this->solarCompanyManagerRepositoryInterface->show_technical_inspection_requests($company);
+
+        return $inspectionRequests->map(function (Technical_inspection_request $inspection) {
+            return [
+                'inspection' => $inspection,
+                'invoice_created' => $this->requestHasInvoice(Technical_inspection_request::class, $inspection->id),
+            ];
+        });
     }
 
     public function show_subscribers_in_offer($offer_id)

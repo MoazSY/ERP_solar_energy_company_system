@@ -14,6 +14,7 @@ use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
+use App\Models\Technical_inspection_request;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -828,5 +829,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'solar_system_requests' => $solarSystemRequests,
             'product_orders' => $productOrders,
         ];
+    }
+
+    public function show_technical_inspection_requests($company)
+    {
+        return Technical_inspection_request::query()
+            ->where('company_id', $company->id)
+            ->with(['customer', 'company'])
+            ->latest('id')
+            ->get();
     }
 }
