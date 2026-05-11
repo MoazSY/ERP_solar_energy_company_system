@@ -678,30 +678,105 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     public function show_company_offers()
     {
         // رؤية العروض التي انشاها المدير مع كافة تفاصيلها والمنتجات وحتى المشتركين وعدد المشتركين بهذا العرض
+        $offers = $this->solarCompanyManagerService->show_company_offers();
+
+        if (isset($offers['error'])) {
+            return response()->json(['message' => $offers['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Company offers retrieved successfully',
+            'offers' => $offers
+        ]);
     }
 
     public function show_subscribers_in_offer($offer_id)
     {
         // رؤية المشتركين في عرض معين مع تفاصيلهم اي الذين طلبوا هذا العرض
         // ليسهل عليه تعيين المرفقات وتوليد الفاتورة لاحقا
+        $validate = Validator::make(['offer_id' => $offer_id], [
+            'offer_id' => 'required|integer|exists:offers,id'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $subscribers = $this->solarCompanyManagerService->show_subscribers_in_offer($offer_id);
+
+        if (isset($subscribers['error'])) {
+            return response()->json(['message' => $subscribers['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Offer subscribers retrieved successfully',
+            'subscribers' => $subscribers
+        ]);
     }
 
     public function update_company_offer(Request $request, $offer_id)
     {
         // يمكنه تعديل العرض وتفاصيله
+        $validate = Validator::make(array_merge($request->all(), ['offer_id' => $offer_id]), [
+            'offer_id' => 'required|integer|exists:offers,id',
+            'offer_name' => 'sometimes|string|max:255',
+            'offer_details' => 'sometimes|string',
+            'system_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
+            // 'status_reply' => 'sometimes|string|in:pending,approved,rejected',
+            'offer_available' => 'sometimes|boolean',
+            'validity_days' => 'sometimes|integer|min:1',
+            'average_delivery_cost' => 'sometimes|numeric|min:0',
+            'average_installation_cost' => 'sometimes|numeric|min:0',
+            'average_metal_installation_cost' => 'sometimes|numeric|min:0',
+            'offer_expired_date' => 'sometimes|date|after_or_equal:today',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        $request=$validate->validated();
+        $result = $this->solarCompanyManagerService->update_company_offer($request, $offer_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Company offer updated successfully',
+            'offer' => $result
+        ]);
     }
 
     public function delete_company_offer($offer_id)
     {
         //  يمكنه حذف عرض معين
+        $validate = Validator::make(['offer_id' => $offer_id], [
+            'offer_id' => 'required|integer|exists:offers,id'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 400);
+        }
+
+        $result = $this->solarCompanyManagerService->delete_company_offer($offer_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        if ($result === true) {
+            return response()->json([
+                'message' => 'Company offer deleted successfully'
+            ]);
+        }
+
+        return response()->json(['message' => 'Failed to delete offer'], 500);
     }
 
     public function show_customer_requests()
     {
         // رؤية طلبات العملاء في جدول request system  اي طلبات المنظومات
-        // اريد اضافة حقل في هذا الجدول او جدول اضافي مرتبط فيه هو الاجهزة المراد تشغيلها مع مواصفاتها
-        //  بحيث العميل ليس له القدرة على تحديد الاحمال فانه يحدد الاجهزة فقط والنظام يحسب الاحمال تقريبيا
-        // توضع الاحمال الكلية كحقل اضافي يحسب من الاجهزة المدخلة من العميل
+
         // كما ويستقبل طلبات الشراء للمنتجات المنفردة مع توصيل او بدون
         // ليقوم لاحقا بتوليد فاتورة مع اضافة المرفقات عند الحاجة
     }

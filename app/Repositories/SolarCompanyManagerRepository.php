@@ -324,10 +324,9 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $order->transport_duration_minutes = null;
 
             $order->transport_error = null;
-            $order_delivery = $order->deliveries()->first()->delivery_status??null;
-            $order->order_delivery=$order_delivery;
+            $order_delivery = $order->deliveries()->first()->delivery_status ?? null;
+            $order->order_delivery = $order_delivery;
             if ($order->with_delivery) {
-       
                 $agency = $order->orderableEntityType;
 
                 $products = $order->Items->map(function ($item) {
@@ -359,12 +358,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 } else {
                     $order->transport_error = 'Order agency is missing for delivery calculation';
                 }
-            }else{
-            $company=$order->request_entity;
-            if($company->Assign_delivery_tasks()->exists()){
-                $assignedDelivery=true;
-            }    
-            $order->assigned_delivery=$assignedDelivery??false;
+            } else {
+                $company = $order->request_entity;
+                if ($company->Assign_delivery_tasks()->exists()) {
+                    $assignedDelivery = true;
+                }
+                $order->assigned_delivery = $assignedDelivery ?? false;
             }
             return [
                 // 'order'=>$order->getAttributes(),
@@ -523,7 +522,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     {
         return $company
             ->Assign_delivery_tasks()
-            ->with(['orderList.request_entity','orderList.orderable_entity', 'driver.employee', 'address.governorate', 'address.area'])
+            ->with(['orderList.request_entity', 'orderList.orderable_entity', 'driver.employee', 'address.governorate', 'address.area'])
             ->latest('id')
             ->get();
     }
@@ -534,7 +533,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $paymentQuery
                 ->where('status', 'paid')
                 ->where('target_table_type', Company_agency_employee::class);
-                // ->where('payment_object_table_type', Deliveries::class);
+            // ->where('payment_object_table_type', Deliveries::class);
         };
 
         $driverPaidConstraint = function ($paymentQuery) use ($driverPaidBaseConstraint) {
@@ -605,20 +604,22 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ];
         });
     }
-    public function paid_to_employee($request,$task,$company,$amount,$paymentResponse=null){
-     return DB::transaction(function () use ($request, $task, $company, $amount, $paymentResponse) {
-        if($request->task_type=='delivery'){
-            $employee_id=$task->driver_id;
-            $payment_object='App\Models\Deliveries';
-        }else{
-        $employee_id=$task->employee_id;
-        $payment_object='App\Models\Project_task';
-        }
+
+    public function paid_to_employee($request, $task, $company, $amount, $paymentResponse = null)
+    {
+        return DB::transaction(function () use ($request, $task, $company, $amount, $paymentResponse) {
+            if ($request->task_type == 'delivery') {
+                $employee_id = $task->driver_id;
+                $payment_object = 'App\Models\Deliveries';
+            } else {
+                $employee_id = $task->employee_id;
+                $payment_object = 'App\Models\Project_task';
+            }
             $payment = $company->paymentsMade()->create([
-                'amount' => $amount*100, // old 
+                'amount' => $amount * 100,  // old
                 'currency' => $task->currency,
                 'payment_object_type_name' => 'other',
-                'target_table_type' => 'App\Models\Company_agency_employee',// employee 
+                'target_table_type' => 'App\Models\Company_agency_employee',  // employee
                 'target_table_id' => $employee_id,
                 'payment_object_table_type' => $payment_object,
                 'payment_object_table_id' => $task->id,
@@ -636,6 +637,171 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ]);
             }
             return $payment;
+        });
+    }
+
+    public function show_company_offers($company)
+    {
+        $offers = $company
+            ->offers()
+            ->with([
+                'Items.product',
+                'subscribeOffers'
+            ])
+            ->latest('id')
+            ->get()
+            ->map(function ($offer) {
+                return [
+                    'id' => $offer->id,
+                    'offer_name' => $offer->offer_name,
+                    'offer_details' => $offer->offer_details,
+                    'system_type' => $offer->system_type,
+                    'subtotal_amount' => $offer->subtotal_amount,
+                    'discount_amount' => $offer->discount_amount,
+                    'discount_type' => $offer->discount_type,
+                    'average_total_amount' => $offer->average_total_amount,
+                    'currency' => $offer->currency,
+                    'average_delivery_cost' => $offer->average_delivery_cost,
+                    'average_installation_cost' => $offer->average_installation_cost,
+                    'average_metal_installation_cost' => $offer->average_metal_installation_cost,
+                    'validity_days' => $offer->validity_days,
+                    'offer_date' => $offer->offer_date,
+                    'offer_expired_date' => $offer->offer_expired_date,
+                    'status_reply' => $offer->status_reply,
+                    'offer_available' => $offer->offer_available,
+                    'public_private' => $offer->public_private,
+                    'products' => $offer->Items->map(function ($item) {
+                        return [
+                            'item_id' => $item->id,
+                            'product_id' => $item->product_id,
+                            'item_name_snapshot' => $item->item_name_snapshot,
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->unit_price,
+                            'total_price' => $item->total_price,
+                            'unit_discount_amount' => $item->unit_discount_amount,
+                            'total_discount_amount' => $item->total_discount_amount,
+                            'discount_type' => $item->discount_type,
+                            'currency' => $item->currency,
+                            'product' => $item->product ? [
+                                'id' => $item->product->id,
+                                'product_name' => $item->product->product_name,
+                                'price' => $item->product->price,
+                                'currency' => $item->product->currency,
+                            ] : null,
+                        ];
+                    })->toArray(),
+                    'subscribers_count' => $offer->subscribeOffers->count(),
+                    'total_subscribers_amount' => $offer->subscribeOffers->sum('final_amount'),
+                ];
+            });
+
+        return $offers;
+    }
+
+    public function show_subscribers_in_offer($offer_id, $company)
+    {
+        $offer = $company->offers()->findOrFail($offer_id);
+
+        $subscribers = $offer
+            ->subscribeOffers()
+            ->with([
+                'customer.addresses'
+            ])
+            ->get()
+            ->map(function ($subscriber) {
+                $customer = $subscriber->customer;
+                $address = $customer?->addresses()->latest('id')->first();
+
+                return [
+                    'subscription_id' => $subscriber->id,
+                    'customer_id' => $subscriber->customer_id,
+                    'customer_name' => $subscriber->customer_name,
+                    'customer_phone' => $subscriber->customer_phone,
+                    'system_sn' => $subscriber->system_sn,
+                    'with_installation' => $subscriber->with_installation,
+                    'subscription_status' => $subscriber->subscription_status,
+                    'subscription_date' => $subscriber->subscription_date,
+                    'total_amount' => $subscriber->total_amount,
+                    'additional_cost_amount' => $subscriber->additional_cost_amount,
+                    'additional_entitlement_amount' => $subscriber->additional_entitlement_amount,
+                    'final_amount' => $subscriber->final_amount,
+                    'customer' => [
+                        'id' => $customer?->id,
+                        'email' => $customer?->email,
+                        'phoneNumber' => $customer?->phoneNumber,
+                    ],
+                    'address' => [
+                        'governorate_id' => $address?->governorate_id,
+                        'area_id' => $address?->area_id,
+                        'neighborhood_id' => $address?->neighborhood_id,
+                        'address_description' => $address?->address_description,
+                        'latitude' => $address?->latitude,
+                        'longitude' => $address?->longitude,
+                    ],
+                ];
+            });
+
+        return $subscribers;
+    }
+
+    public function update_company_offer($offer_id, $company, $data)
+    {
+        $offer = $company->offers()->findOrFail($offer_id);
+
+        return DB::transaction(function () use ($offer, $data) {
+            // Update basic offer fields
+            if (isset($data['offer_name'])) {
+                $offer->offer_name = $data['offer_name'];
+            }
+            if (isset($data['offer_details'])) {
+                $offer->offer_details = $data['offer_details'];
+            }
+            if (isset($data['system_type'])) {
+                $offer->system_type = $data['system_type'];
+            }
+            if (isset($data['status_reply'])) {
+                $offer->status_reply = $data['status_reply'];
+            }
+            if (isset($data['offer_available'])) {
+                $offer->offer_available = $data['offer_available'];
+            }
+            if (isset($data['validity_days'])) {
+                $offer->validity_days = $data['validity_days'];
+            }
+            if (isset($data['average_delivery_cost'])) {
+                $offer->average_delivery_cost = $data['average_delivery_cost'];
+            }
+            if (isset($data['average_installation_cost'])) {
+                $offer->average_installation_cost = $data['average_installation_cost'];
+            }
+            if (isset($data['average_metal_installation_cost'])) {
+                $offer->average_metal_installation_cost = $data['average_metal_installation_cost'];
+            }
+            if (isset($data['offer_expired_date'])) {
+                $offer->offer_expired_date = $data['offer_expired_date'];
+            }
+
+            $offer->save();
+
+            return $offer->load('Items.product', 'subscribeOffers');
+        });
+    }
+
+    public function delete_company_offer($offer_id, $company)
+    {
+        $offer = $company->offers()->findOrFail($offer_id);
+
+        return DB::transaction(function () use ($offer) {
+            // Delete related items
+            $offer->Items()->delete();
+
+            // Delete related subscriptions
+            $offer->subscribeOffers()->delete();
+
+            // Delete the offer
+            $offer->delete();
+
+            return true;
         });
     }
 }

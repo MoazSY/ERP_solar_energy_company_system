@@ -72,6 +72,10 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('recieve_orderList/{orderList}', [SolarCompanyManager::class, 'recieve_orderList'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('paid_to_employee/{task_id}', [SolarCompanyManager::class, 'paid_to_employee'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('solar_system_offers', [SolarCompanyManager::class, 'solar_system_offers'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_company_offers', [SolarCompanyManager::class, 'show_company_offers'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_subscribers_in_offer/{offer_id}', [SolarCompanyManager::class, 'show_subscribers_in_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('update_company_offer/{offer_id}', [SolarCompanyManager::class, 'update_company_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('delete_company_offer/{offer_id}', [SolarCompanyManager::class, 'delete_company_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -144,7 +148,7 @@ Route::middleware('check_employee')->group(function () {
 Route::middleware('check_customer')->group(function () {
     Route::get('customer_profile', [CustomerController::class, 'customer_profile']);
     Route::post('customer/update_profile', [CustomerController::class, 'update_profile']);
-    Route::post('add_customer_address', [CustomerController::class, 'add_customer_address']);   
+    Route::post('add_customer_address', [CustomerController::class, 'add_customer_address']);
     Route::get('company_offers/{company_id}', [CustomerController::class, 'show_company_offers']);
     Route::get('customer_specific_offers', [CustomerController::class, 'show_my_specific_offers']);
     Route::post('subscribe_offer/{offer_id}', [CustomerController::class, 'subscribe_offer']);

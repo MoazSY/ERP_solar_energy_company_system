@@ -827,16 +827,64 @@ class SolarCompanyManagerService
                     'currency' => $product->currency,
                 ]);
             }
-            $panarImagesUrl= array_map(function ($path) {
+            $panarImagesUrl = array_map(function ($path) {
                 return asset('storage/' . $path);
             }, $panarImages);
             $videoUrl = $videoPath ? asset('storage/' . $videoPath) : null;
             return [
-                $offer->load('Items','Items.product'),
-
+                $offer->load('Items', 'Items.product'),
                 $panarImagesUrl,
                 $videoUrl,
             ];
         });
+    }
+
+    public function show_company_offers()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_company_offers($company);
+    }
+
+    public function show_subscribers_in_offer($offer_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_subscribers_in_offer($offer_id, $company);
+    }
+
+    public function update_company_offer($request, $offer_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        // $data = $request->validated();
+        return $this->solarCompanyManagerRepositoryInterface->update_company_offer($offer_id, $company, $request);
+    }
+
+    public function delete_company_offer($offer_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->delete_company_offer($offer_id, $company);
     }
 }
