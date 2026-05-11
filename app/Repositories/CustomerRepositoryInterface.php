@@ -7,6 +7,7 @@ interface CustomerRepositoryInterface
     public function customer_profile($customer_id);
     public function findCustomerById($customer_id);
     public function updateCustomer($customer, array $data);
+    public function add_customer_address($request,$customer);
     public function show_company_offers($company_id, $customer_id);
     public function show_my_specific_offers($customer_id);
     public function findOfferById($offer_id);
@@ -50,4 +51,5 @@ interface CustomerRepositoryInterface
     public function find_technical_inspection_request($customer_id, $request_id);
     public function show_customer_technical_inspections($customer_id);
     public function filter_company_products($company_id, $filters);
+    public function request_purchase_invoice_company($customer, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null);
 }

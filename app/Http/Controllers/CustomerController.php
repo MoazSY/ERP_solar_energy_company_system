@@ -146,7 +146,21 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'customer profile update', 'profile' => $profile[0], 'imageUrl' => $profile[1]]);
     }
-
+        public function add_customer_address(Request $request){
+            $validate = Validator::make($request->all(), [
+            'governorate_id' => 'nullable|exists:governorates,id',
+            'area_id' => 'nullable|exists:areas,id',
+            'neighborhood_id' => 'nullable|exists:neighborhoods,id',
+            'address_description' => 'nullable|string',
+            'latitude' => 'nullable|string',
+            'longitude' => 'nullable|string',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+        $address=$this->customerService->add_customer_address($request);
+        return response()->json(['message' => 'customer address added successfully','address'=>$address]);
+        }
     public function show_company_offers($company_id)
     {
         $validate = Validator::make(['company_id' => $company_id], [
@@ -555,6 +569,10 @@ class CustomerController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
+           'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
             'with_delivery' => 'sometimes|boolean',
 
         ]);
@@ -567,7 +585,9 @@ class CustomerController extends Controller
             return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'product order created successfully', 'order' => $result], 201);
+        return response()->json(['message' => 'product order created successfully','purchase_request_order' => $result[0],
+            'order_items' => $result[1],
+            'transaction' => $result[2],], 201);
     }
 
     public function filter_company_products(Request $request, $company_id)

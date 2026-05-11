@@ -13,6 +13,7 @@ use App\Models\Purchase_invoice;
 use App\Models\Report;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
+use App\Models\Solar_company_manager;
 use App\Models\Subscribe_offer;
 use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
@@ -25,15 +26,18 @@ class CustomerService
     protected $customerRepositoryInterface;
     protected $tokenRepositoryInterface;
     protected $osrmService;
+    protected $apiSyriaService;
 
     public function __construct(
         CustomerRepositoryInterface $customerRepositoryInterface,
         TokenRepositoryInterface $tokenRepositoryInterface,
-        OsrmService $osrmService
+        OsrmService $osrmService,
+        ApiSyriaService $apiSyriaService
     ) {
         $this->customerRepositoryInterface = $customerRepositoryInterface;
         $this->tokenRepositoryInterface = $tokenRepositoryInterface;
         $this->osrmService = $osrmService;
+        $this->apiSyriaService = $apiSyriaService;
     }
 
     public function register($request, $data)
@@ -90,6 +94,12 @@ class CustomerService
         $customer = $this->customerRepositoryInterface->updateCustomer($customer, $data);
 
         return [$customer, $imageUrl];
+    }
+    public function add_customer_address($request){
+        $customer=Auth::guard('customer')->user();
+        $customer=Customer::findorFail($customer->id);
+        $address=$this->customerRepositoryInterface->add_customer_address($request,$customer);
+        return $address;
     }
 
     public function show_company_offers($company_id)
@@ -889,6 +899,16 @@ class CustomerService
     public function request_products_order($request, $company_id)
     {
         $customer = $this->currentCustomer();
+        $company = Solar_company::find($company_id);
+        if (!$company) {
+            return ['error' => 'company not found'];
+        }
+
+        $companyManager = Solar_company_manager::find($company->solar_company_manager_id);
+        if (!$companyManager) {
+            return ['error' => 'company beneficiary manager is not configured'];
+        }
+
         $products = collect($request->input('products', []));
 
         if ($products->isEmpty()) {
@@ -902,60 +922,126 @@ class CustomerService
             return ['error' => 'products not found'];
         }
 
-        $orderList = $this->customerRepositoryInterface->create_customer_order_list([
-            'request_entity_type' => Customer::class,
-            'request_entity_id' => $customer->id,
-            'orderable_entity_type' => Solar_company::class,
-            'orderable_entity_id' => $company_id,
-            'customer_first_name' => $customer->first_name,
-            'customer_last_name' => $customer->last_name,
-            'status' => 'pending',
-            'with_delivery' => $request->boolean('with_delivery', false),
-            'request_datetime' => now(),
-        ]);
-
+        $amount = 0;
         foreach ($products as $item) {
             $product = $productsMap->get($item['id']);
             if (!$product) {
                 continue;
             }
 
-            $quantity = (int) ($item['quantity'] ?? 1);
-            $unitPrice = (float) ($product->price ?? 0);
-            if (($product->currency ?? 'SY') === 'USD') {
+            $unitPrice = (float) $product->price;
+            if ($product->currency === 'USD') {
                 $unitPrice *= 1.35;
             } else {
                 $unitPrice /= 100;
             }
 
-            $lineSubtotal = $unitPrice * $quantity;
-            $discountType = $product->disscount_type ?? null;
-            $discountValue = (float) ($product->disscount_value ?? 0);
-            $lineDiscount = $discountType === 'percentage'
-                ? ($discountValue / 100) * $lineSubtotal
-                : $discountValue * $quantity;
+            $quantity = (int) $item['quantity'];
+            $lineSubTotal = $unitPrice * $quantity;
 
-            $this->customerRepositoryInterface->add_order_list_item($orderList, [
-                'product_id' => $product->id,
-                'quantity' => $quantity,
-                'item_name_snapshot' => $product->product_name ?? null,
-                'unit_price' => $unitPrice,
-                'total_price' => max($lineSubtotal - $lineDiscount, 0),
-                'unit_discount_amount' => $discountValue,
-                'total_discount_amount' => $lineDiscount,
-                'discount_type' => $discountType,
-                'currency' => $product->currency ?? 'SY',
-            ]);
+            if ($product->disscount_type === 'percentage') {
+                $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+            } else {
+                $discount = (float) $product->disscount_value * $quantity;
+            }
+
+            $amount += max($lineSubTotal - $discount, 0);
         }
 
-        $subTotal = $orderList->Items()->get()->sum(function ($item) {
-            return (float) $item->unit_price * (int) $item->quantity;
-        });
-        $discount = $orderList->Items()->get()->sum('total_discount_amount');
-        $total = max($subTotal - $discount, 0);
-        $this->customerRepositoryInterface->update_order_list_totals($orderList, $subTotal, $discount, $total);
+        if ($amount <= 0) {
+            return ['error' => 'Invalid amount for payment'];
+        }
 
-        return $this->customerRepositoryInterface->refresh_order_list($orderList);
+        $deliveryPricing = null;
+        if ($request->boolean('with_delivery')) {
+            $deliveryPricing = $this->osrmService->calculateDeliveryFeeForCompanyToCustomer($company, $customer, $products, $productsMap);
+
+            if (isset($deliveryPricing['error'])) {
+                // return ['error' => $deliveryPricing['error']];
+                $deliveryAmount = $this->customerRepositoryInterface->calculateDeliveryCost(
+                $customer->id,
+                $company_id
+            );
+            }else{
+                    $deliveryAmount = (float) ($deliveryPricing['delivery_fee'] ?? 0);
+            }
+
+            $amount += $deliveryAmount;
+        }
+
+        if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        if ($request->payment_method === 'syriatel_cash') {
+            $toGsm = $companyManager->syriatel_cash_phone;
+            if (!$toGsm) {
+                return ['error' => 'Syriatel beneficiary phone is not configured on target account'];
+            }
+
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $toGsm,
+                $amount,
+                $request->pin_code
+            );
+        } elseif ($request->payment_method === 'shamcash') {
+            $toAccountAddress = $companyManager->account_number;
+            if (!$toAccountAddress) {
+                return ['error' => 'ShamCash beneficiary account address is not configured on target account'];
+            }
+
+            if (!$request->account_address) {
+                return ['error' => 'Your ShamCash account address is required for payment verification'];
+            }
+
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $toAccountAddress,
+                $amount,
+                $request->account_address
+            );
+
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+        } elseif($request->payment_method === 'cash') {
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'Cash payment selected, please confirm with the company that the payment has been made',
+                'data' => null,
+            ];
+        }else{
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
+        }
+
+        $result = $this->customerRepositoryInterface->request_purchase_invoice_company(
+            $customer,
+            $request,
+            $company,
+            $paymentResponse,
+            $request->payment_method,
+            $amount
+        );
+
+        if ($deliveryPricing && is_array($result) && isset($result[0])) {
+            $result[0]->setAttribute('calculated_delivery_fee', $deliveryPricing['delivery_fee'] ?? $deliveryAmount);
+            $result[0]->setAttribute('delivery_distance_km', $deliveryPricing['distance_km']??null);
+            $result[0]->setAttribute('delivery_duration_minutes', $deliveryPricing['duration_minutes']??null);
+            $result[0]->setAttribute('delivery_weight_kg', $deliveryPricing['weight_kg']??null);
+            $result[0]->setAttribute('delivery_rule_id', $deliveryPricing['rule_id']??null);
+        }
+
+        return $result;
     }
 
     public function show_requested_products_orders()
@@ -978,7 +1064,7 @@ class CustomerService
                 $productData['technical_details'] = $product->batteries;
             } elseif ($product->product_type === 'inverter') {
                 $productData['technical_details'] = $product->inverters;
-            } elseif ($product->product_type === 'solar_panel' ) {
+            } elseif ($product->product_type === 'solar_panel') {
                 $productData['technical_details'] = $product->solarPanals;
             }
 

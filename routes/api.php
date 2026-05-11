@@ -144,6 +144,7 @@ Route::middleware('check_employee')->group(function () {
 Route::middleware('check_customer')->group(function () {
     Route::get('customer_profile', [CustomerController::class, 'customer_profile']);
     Route::post('customer/update_profile', [CustomerController::class, 'update_profile']);
+    Route::post('add_customer_address', [CustomerController::class, 'add_customer_address']);   
     Route::get('company_offers/{company_id}', [CustomerController::class, 'show_company_offers']);
     Route::get('customer_specific_offers', [CustomerController::class, 'show_my_specific_offers']);
     Route::post('subscribe_offer/{offer_id}', [CustomerController::class, 'subscribe_offer']);
@@ -159,6 +160,7 @@ Route::middleware('check_customer')->group(function () {
     Route::post('cancel_solar_system_request/{request_id}', [CustomerController::class, 'cancel_solar_system_request']);
     Route::post('filter_company_products/{company_id}', [CustomerController::class, 'filter_company_products']);
     // Route::post('update_solar_system_request/{request_id}', [CustomerController::class, 'update_solar_system_request']);
+    Route::post('request_products_order/{company_id}', [CustomerController::class, 'request_products_order']);
     Route::get('invoices_details', [CustomerController::class, 'show_invoices_details']);
     Route::post('approve_pay_invoice/{invoice_id}', [CustomerController::class, 'approve_pay_invoice']);
     Route::post('recieve_invoice/{invoice_id}', [CustomerController::class, 'recieve_invoice']);
@@ -169,7 +171,6 @@ Route::middleware('check_customer')->group(function () {
     Route::post('company_feedsback/{company_id}', [CustomerController::class, 'company_feedsback']);
     Route::post('company_rating/{company_id}', [CustomerController::class, 'company_rating']);
     Route::get('company_gallary/{company_id}', [CustomerController::class, 'show_company_gallary']);
-    Route::post('request_products_order/{company_id}', [CustomerController::class, 'request_products_order']);
     Route::get('requested_products_orders', [CustomerController::class, 'show_requested_products_orders']);
     Route::post('request_maintenance_service', [CustomerController::class, 'request_maintenance_service']);
     Route::get('my_maintenance_requests', [CustomerController::class, 'show_my_maintenance_requests']);

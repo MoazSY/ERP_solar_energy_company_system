@@ -35,6 +35,10 @@ class Customer extends Authenticatable
     {
         return $this->morphMany(Refresh_token::class, 'user_table');
     }
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'entity_type');
+    }
 
     public function componentWarranties(): HasMany
     {

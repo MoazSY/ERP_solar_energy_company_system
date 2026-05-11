@@ -9,6 +9,7 @@ use App\Models\Metainence_request;
 use App\Models\Offers;
 use App\Models\Order_list;
 use App\Models\Payment;
+use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Project_task;
 use App\Models\Project_warranties;
@@ -19,6 +20,8 @@ use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
 use App\Models\System_admin;
 use App\Models\Technical_inspection_request;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class CustomerRepository implements CustomerRepositoryInterface
@@ -57,6 +60,17 @@ class CustomerRepository implements CustomerRepositoryInterface
         $customer->refresh();
 
         return $customer;
+    }
+    public function add_customer_address($request,$customer){
+        $address=$customer->addresses()->create([
+                        'governorate_id' => $request->governorate_id,
+            'area_id' => $request->area_id,
+            'neighborhood_id' => $request->neighborhood_id,
+            'address_description' => $request->address_description,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+        ]);
+        return $address;
     }
 
     public function show_company_offers($company_id, $customer_id)
@@ -245,6 +259,88 @@ class CustomerRepository implements CustomerRepositoryInterface
     public function refresh_order_list($orderList)
     {
         return $orderList->fresh(['Items.product', 'orderable_entity']);
+    }
+
+    public function request_purchase_invoice_company($customer, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null)
+    {
+        return DB::transaction(function () use ($customer, $request, $company, $paymentData, $paymentMethod, $paidAmount) {
+            $products = $request->products;
+            $quantities = collect($products)->pluck('quantity', 'id')->toArray();
+            $productIds = collect($products)->pluck('id')->toArray();
+
+            $orderList = Order_list::create([
+                'request_entity_type' => Customer::class,
+                'request_entity_id' => $customer->id,
+                'orderable_entity_type' => Solar_company::class,
+                'orderable_entity_id' => $company->id,
+                'customer_first_name' => $customer->first_name,
+                'customer_last_name' => $customer->last_name,
+                'status' => 'pending',
+                'with_delivery' => $request->with_delivery ?? false,
+                'request_datetime' => now(),
+            ]);
+
+            foreach ($productIds as $productId) {
+                $product = Products::find($productId);
+                if (!$product) {
+                    continue;
+                }
+
+                $orderList->Items()->create([
+                    'product_id' => $productId,
+                    'quantity' => $quantities[$productId],
+                    'item_name_snapshot' => $product->product_name ?? null,
+                    'unit_price' => $product->price ?? null,
+                    'unit_discount_amount' => $product->disscount_value ?? null,
+                    'discount_type' => $product->disscount_type ?? null,
+                    'currency' => $product->currency ?? null,
+                    'discount_type' => $product->disscount_type ?? null,
+                ]);
+            }
+
+            $orderList->sub_total_amount = $orderList->Items->sum(function ($item) {
+                return $item->unit_price * $item->quantity;
+            });
+
+            $orderList->total_discount_amount = $orderList->Items->sum(function ($item) {
+                if ($item->discount_type === 'percentage') {
+                    return ($item->unit_discount_amount / 100) * $item->unit_price * $item->quantity;
+                }
+
+                return $item->unit_discount_amount * $item->quantity;
+            });
+
+            $orderList->total_amount = max($orderList->sub_total_amount - $orderList->total_discount_amount, 0);
+            $orderList->save();
+
+            $transaction = null;
+
+            if ($paymentData ) {
+                $payment = $customer->paymentsMade()->create([
+                    'amount' => $paidAmount ?? $orderList->total_amount,
+                    'currency' => 'SY',
+                    'payment_object_type_name' => 'invoice',
+                    'target_table_type' => 'App\Models\Solar_company',
+                    'target_table_id' => $company->id,
+                    'payment_object_table_type' => 'App\Models\Order_list',
+                    'payment_object_table_id' => $orderList->id,
+                    'paid_at' => Carbon::now(),
+                    'status' => $paymentData ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
+
+                ]);
+
+                $transaction = Payment_transactions::create([
+                    'payment_id' => $payment->id,
+                    'gateway' => $paymentMethod,
+                    'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+                    'payment_url' => $paymentData['data']['payment_url'] ?? null,
+                    'status' => $payment->status,
+                    'response' => $paymentData,
+                ]);
+            }
+
+            return [$orderList, $orderList->Items, $transaction];
+        });
     }
 
     public function show_invoices_details($customer_id)
