@@ -8,6 +8,7 @@ use App\Models\Deliveries;
 // use App\Models\Offers;
 use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
@@ -849,6 +850,41 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->show_company_offers($company);
+    }
+
+    private function requestHasInvoice(string $entityType, int $entityId): bool
+    {
+        return \App\Models\Purchase_invoice::where('object_entity_type', $entityType)
+            ->where('object_entity_id', $entityId)
+            ->exists();
+    }
+
+    public function show_customer_requests()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $requests = $this->solarCompanyManagerRepositoryInterface->show_customer_requests($company);
+
+        $requests['solar_system_requests'] = $requests['solar_system_requests']->map(function (Request_solar_system $requestSolarSystem) {
+            return [
+                'request' => $requestSolarSystem,
+                'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
+            ];
+        });
+
+        $requests['product_orders'] = $requests['product_orders']->map(function (Order_list $orderList) {
+            return [
+                'order' => $orderList,
+                'invoice_created' => $orderList->purchaseInvoices !== null,
+            ];
+        });
+
+        return $requests;
     }
 
     public function show_subscribers_in_offer($offer_id)

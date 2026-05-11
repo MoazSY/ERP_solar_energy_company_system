@@ -29,4 +29,5 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_subscribers_in_offer($offer_id, $company);
     public function update_company_offer($offer_id, $company, $data);
     public function delete_company_offer($offer_id, $company);
+    public function show_customer_requests($company);
 }

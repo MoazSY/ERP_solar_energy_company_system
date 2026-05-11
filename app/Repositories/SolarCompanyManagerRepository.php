@@ -3,11 +3,14 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Company_agency_employee;
+use App\Models\Customer;
 // use App\Models\Deliveries;
 use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
+// use App\Models\Purchase_invoice;
+use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_polices;
@@ -803,5 +806,27 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
             return true;
         });
+    }
+
+    public function show_customer_requests($company)
+    {
+        $solarSystemRequests = Request_solar_system::query()
+            ->where('company_id', $company->id)
+            ->with(['customer', 'electricalDeviceCharacteristics'])
+            ->latest('id')
+            ->get();
+
+        $productOrders = Order_list::query()
+            ->where('request_entity_type', Customer::class)
+            ->where('orderable_entity_type', Solar_company::class)
+            ->where('orderable_entity_id', $company->id)
+            ->with(['Items.product', 'purchaseInvoices', 'request_entity', 'orderable_entity'])
+            ->latest('id')
+            ->get();
+
+        return [
+            'solar_system_requests' => $solarSystemRequests,
+            'product_orders' => $productOrders,
+        ];
     }
 }

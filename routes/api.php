@@ -76,6 +76,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_subscribers_in_offer/{offer_id}', [SolarCompanyManager::class, 'show_subscribers_in_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('update_company_offer/{offer_id}', [SolarCompanyManager::class, 'update_company_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('delete_company_offer/{offer_id}', [SolarCompanyManager::class, 'delete_company_offer'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_customer_requests', [SolarCompanyManager::class, 'show_customer_requests'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

@@ -734,7 +734,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
-        $request=$validate->validated();
+        $request = $validate->validated();
         $result = $this->solarCompanyManagerService->update_company_offer($request, $offer_id);
 
         if (isset($result['error'])) {
@@ -775,10 +775,16 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function show_customer_requests()
     {
-        // رؤية طلبات العملاء في جدول request system  اي طلبات المنظومات
+        $requests = $this->solarCompanyManagerService->show_customer_requests();
 
-        // كما ويستقبل طلبات الشراء للمنتجات المنفردة مع توصيل او بدون
-        // ليقوم لاحقا بتوليد فاتورة مع اضافة المرفقات عند الحاجة
+        if (isset($requests['error'])) {
+            return response()->json(['message' => $requests['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Customer requests retrieved successfully',
+            'requests' => $requests,
+        ]);
     }
 
     public function filter_customer_requests()
