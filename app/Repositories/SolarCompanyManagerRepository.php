@@ -690,8 +690,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                             ] : null,
                         ];
                     })->toArray(),
-                    'subscribers_count' => $offer->subscribeOffers->count(),
-                    'total_subscribers_amount' => $offer->subscribeOffers->sum('final_amount'),
+                    'subscribers_count' => $offer->subscribeOffers->where('subscription_status', 'accepted')->count(),
+                    'total_subscribers_amount' => $offer->subscribeOffers->where('subscription_status', 'accepted')->sum('final_amount'),
                 ];
             });
 
