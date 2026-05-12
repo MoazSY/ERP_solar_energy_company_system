@@ -847,4 +847,13 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->latest('id')
             ->get();
     }
+
+    public function show_public_customer_requests()
+    {
+        return Request_solar_system::query()
+            ->whereNull('company_id')
+            ->with(['customer'])
+            ->latest('id')
+            ->get();
+    }
 }

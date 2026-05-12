@@ -31,4 +31,6 @@ interface SolarCompanyManagerRepositoryInterface
     public function delete_company_offer($offer_id, $company);
     public function show_customer_requests($company);
     public function show_technical_inspection_requests($company);
+    public function show_public_customer_requests();
+
 }

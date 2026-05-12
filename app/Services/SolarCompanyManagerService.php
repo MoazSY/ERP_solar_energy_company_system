@@ -907,6 +907,50 @@ class SolarCompanyManagerService
         });
     }
 
+    public function show_public_customer_requests(float $maxKm = 10.0)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $companyAddress = $company->addresses()->latest('id')->first();
+        if (!$companyAddress || $companyAddress->latitude === null || $companyAddress->longitude === null) {
+            return ['error' => 'Company address coordinates are required'];
+        }
+
+        $publicRequests = $this->solarCompanyManagerRepositoryInterface->show_public_customer_requests();
+        $nearby = $publicRequests->filter(function ( $request) use ($companyAddress, $maxKm) {
+            $customer = $request->customer;
+            if (!$customer)
+                return false;
+            $address = $customer->addresses()->latest('id')->first();
+            if (!$address || $address->latitude === null || $address->longitude === null)
+                return false;
+
+            $distance = $this->osrmService->distanceKmBetween((float) $companyAddress->latitude, (float) $companyAddress->longitude, (float) $address->latitude, (float) $address->longitude);
+            if ($distance === null)
+                return false;
+            return $distance <= $maxKm;
+        });
+        // return $nearby;
+        $nearby_request= $nearby->values()->map(function ( $request) use ($companyAddress) {
+            $customer = $request->customer;
+            $address = $customer->addresses()->latest('id')->first();
+            $distance = $this->osrmService->distanceKmBetween((float) $companyAddress->latitude, (float) $companyAddress->longitude, (float) $address->latitude, (float) $address->longitude);
+
+            return [
+                'request' => $request,
+                'customer' => $customer,
+                'customer_address' => $address,
+                'distance_km' => $distance,
+            ];
+        })->values();
+        return $nearby_request;
+    }
+
     public function show_subscribers_in_offer($offer_id)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;

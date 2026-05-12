@@ -787,6 +787,21 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ]);
     }
 
+    public function show_public_customer_requests(Request $request)
+    {
+        $maxKm = $request->input('max_km', 10);
+        $requests = $this->solarCompanyManagerService->show_public_customer_requests((float) $maxKm);
+
+        if (isset($requests['error'])) {
+            return response()->json(['message' => $requests['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Nearby public customer requests retrieved successfully',
+            'requests' => $requests,
+        ], 200);
+    }
+
     public function filter_customer_requests()
     {
         // تتم الفلترة بناء على بيانات معينة مثلا حسب طلبات المنظومات او المنتجات المنفردة اي طلبية order عادي او بجدول  request system

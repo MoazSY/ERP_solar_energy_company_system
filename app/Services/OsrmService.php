@@ -50,6 +50,19 @@ class OsrmService
         ];
     }
 
+    /**
+     * Return only the distance in kilometers between two points using OSRM.
+     */
+    public function distanceKmBetween(float $originLat, float $originLng, float $destinationLat, float $destinationLng): ?float
+    {
+        try {
+            $data = $this->getDrivingDistance($originLat, $originLng, $destinationLat, $destinationLng);
+            return isset($data['distance_km']) ? (float) $data['distance_km'] : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function calculate_delivery_fee_for_order_list($agency, $orderList): array
     {
         $company = $orderList->request_entity;
