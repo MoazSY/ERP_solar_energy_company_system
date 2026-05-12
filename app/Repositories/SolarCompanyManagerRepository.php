@@ -655,6 +655,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->latest('id')
             ->get()
             ->map(function ($offer) {
+                $panarImages = is_array($offer->panar_image) ? $offer->panar_image : ($offer->panar_image ? json_decode($offer->panar_image, true) ?? [] : []);
+                $panarImagesUrl = array_map(function ($path) {
+                    return asset('storage/' . $path);
+                }, $panarImages ?: []);
+
+                $videoUrl = $offer->video ? asset('storage/' . $offer->video) : null;
                 return [
                     'id' => $offer->id,
                     'offer_name' => $offer->offer_name,
@@ -694,6 +700,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                             ] : null,
                         ];
                     })->toArray(),
+                    'panar_image_urls' => $panarImagesUrl,
+                    'video_url' => $videoUrl,
                     'subscribers_count' => $offer->subscribeOffers->where('subscription_status', 'accepted')->count(),
                     'total_subscribers_amount' => $offer->subscribeOffers->where('subscription_status', 'accepted')->sum('final_amount'),
                 ];

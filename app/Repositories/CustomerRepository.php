@@ -156,6 +156,7 @@ class CustomerRepository implements CustomerRepositoryInterface
     public function update_customer_electrical_device_characteristic($characteristic, array $data)
     {
         $characteristic->update($data);
+        $characteristic->save();
 
         return $characteristic->refresh();
     }

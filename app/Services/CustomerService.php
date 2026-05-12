@@ -400,7 +400,7 @@ class CustomerService
     }
 
     public function request_solar_system($request)
-    {
+     {
         /*
          * اذا تم ارسال معرف الشركة يتم البحث عن الطلبية بمعرف الشركة وتعديلها
          *          اذا لم يتم ايجادها فيتم انشاء واحدة جديدة
@@ -409,8 +409,8 @@ class CustomerService
          * اذا وجدت يتم تحديثها بالبيانات الجديدة و ربطها بالشركة المختارة
          * اذا لا يوجد شركة null  يتم اضافة طلب جديد
          */
-        $customer = $this->currentCustomer();
-        $payload = $request->only([
+         $customer = $this->currentCustomer();
+         $payload = $request->only([
             'company_id',
             'requested_capacity_kw',
             'dayly_consumption_kwh',
@@ -447,30 +447,45 @@ class CustomerService
             $payload['additional_details'] = $request->input('additional_details');
         }
         if ($request->has('company_id')) {
-            $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
-            if ($requestSolarSystem) {
-                $payload['company_id'] = $request->input('company_id');
-                $requestSolarSystem->update($payload);
-                $requestSolarSystem->save();
-                $requestSolarSystem->refresh();
-            } else
-                $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
-        } else {
-            $requestSolarSystem = $customer
+
+                $requestSolarSystem = $customer
                 ->requestSolarSystems()
                 ->whereNull('company_id')
                 ->has('electricalDeviceCharacteristics')
                 ->latest()
                 ->first();
+             if ($requestSolarSystem) {
+                $payload['company_id'] = $request->input('company_id');
+                $requestSolarSystem->update($payload);
+                $requestSolarSystem->save();
+                $requestSolarSystem->refresh();
+             } else {
+                $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
             if ($requestSolarSystem) {
                 $payload['company_id'] = $request->input('company_id');
                 $requestSolarSystem->update($payload);
                 $requestSolarSystem->save();
                 $requestSolarSystem->refresh();
-            } else {
-                return ['error' => 'no existing request found, and company_id is required to create a new request'];
+            }else{
+              return ['error' => 'solar system request not found for the provided company_id, and no unassigned request with electrical devices found'];  
             }
-        }
+             }
+            } 
+            else {
+                $requestSolarSystem = $customer
+                ->requestSolarSystems()
+                ->whereNull('company_id')
+                ->has('electricalDeviceCharacteristics')
+                ->latest()
+                ->first();
+                    if ($requestSolarSystem) {
+                        $requestSolarSystem->update($payload);
+                        $requestSolarSystem->save();
+                        $requestSolarSystem->refresh();
+                    } else {    
+                $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
+                    }
+            }
         return $this->requestSolarSystemToArray($requestSolarSystem);
     }
 
@@ -484,15 +499,19 @@ class CustomerService
          */
         $customer = $this->currentCustomer();
         $requestId = $request->input('request_id');
-        if ($requestId) {
+        if ($request->has('request_id')) {
             $requestSolarSystem = $this->customerRepositoryInterface->find_request_solar_system($customer->id, $requestId);
-        } else {
-            $requestSolarSystem = $this
-                ->customerRepositoryInterface
-                ->show_customer_solar_system_requests($customer->id)
-                ->first();
-        }
-        if (!$requestSolarSystem) {
+            if (!$requestSolarSystem) {
+                return ['error' => 'solar system request not found with the provided request_id'];
+            }
+        } 
+        // else {
+        //     $requestSolarSystem = $this
+        //         ->customerRepositoryInterface
+        //         ->show_customer_solar_system_requests($customer->id)
+        //         ->first();
+        // }
+        else {
             // return ['error' => 'solar system request not found'];
             $requestSolarSystem = Request_solar_system::create([
                 'customer_id' => $customer->id,
