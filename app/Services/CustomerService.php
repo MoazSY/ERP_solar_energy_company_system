@@ -467,7 +467,9 @@ class CustomerService
                 $requestSolarSystem->save();
                 $requestSolarSystem->refresh();
             }else{
-              return ['error' => 'solar system request not found for the provided company_id, and no unassigned request with electrical devices found'];  
+                $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
+
+            //   return ['error' => 'solar system request not found for the provided company_id, and no unassigned request with electrical devices found'];  
             }
              }
             } 
@@ -505,12 +507,7 @@ class CustomerService
                 return ['error' => 'solar system request not found with the provided request_id'];
             }
         } 
-        // else {
-        //     $requestSolarSystem = $this
-        //         ->customerRepositoryInterface
-        //         ->show_customer_solar_system_requests($customer->id)
-        //         ->first();
-        // }
+
         else {
             // return ['error' => 'solar system request not found'];
             $requestSolarSystem = Request_solar_system::create([
