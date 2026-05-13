@@ -823,17 +823,49 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'inspections' => $inspections,
         ]);
     }
+    public function proccess_technical_inspection_request(Request $request){
 
-    public function create_invoice(Request $request, $order_id)
+    }
+
+    public function show_mantainance_requests()
     {
         /*
-         * توليد فاتورة لطلبية معينة سواء كانت طلبية منظومة او طلبية منتجات منفردة
-         * او حتى صيانة او كشف فني
-         * تتم تعيين الطلبية والمنتجات المتوافقة مع طلبات العملاء من قبل مدير الشركة وتعيين المرفقات ان كان حاجة
-         * وتوليد الفاتورة
-         * ليتم لاحقا الموافقة عليها والدفع من قبل العميل  ليتم لاحقا اسناد المهام والمباشرة بالتنفيذ
-         * لكن طلبات الشراء المنفردة تتم توليد فاتورة لها تلقائيا حال الدفع لكن ممكن تعديل الفاتورة من قبل المدير مثلا تاريخ التسليم
+         * عرض طلبات الصيانة مع كافة التفاصيل المتعلقة بها والكفالة
          */
+    }
+    public function proccess_mantainance_request(Request $request){
+
+    }
+
+    public function create_invoice(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'order_id' => 'sometimes|integer|min:1',
+            'request_type' => 'required|string|in:subscribe_offer,product_order,technical_inspection,maintenance',
+            'object_id' => 'sometimes|integer|min:1',
+            'due_date' => 'sometimes|date',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
+            'payment_method' => 'sometimes|string|in:bank_transfer,cash',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $invoice = $this->solarCompanyManagerService->create_invoice(
+            $validate->validated()
+            
+        );
+
+        if (isset($invoice['error'])) {
+            return response()->json(['message' => $invoice['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Invoice created successfully',
+            'invoice' => $invoice,
+        ], 201);
     }
 
     public function show_invoices()
@@ -1018,13 +1050,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     {
         /*
          * تقيمم وكالة لكن يجب ان يكون قد اتم استلام اي فاتورة منها
-         */
-    }
-
-    public function show_mantainance_requests()
-    {
-        /*
-         * عرض طلبات الصيانة مع كافة التفاصيل المتعلقة بها والكفالة
          */
     }
 

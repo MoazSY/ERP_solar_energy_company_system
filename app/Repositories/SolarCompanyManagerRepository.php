@@ -9,7 +9,7 @@ use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
-// use App\Models\Purchase_invoice;
+use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
@@ -297,6 +297,20 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             }
 
             return [$order_list, $order_list->Items, $transaction];
+        });
+    }
+
+    public function create_invoice(array $invoiceData)
+    {
+        return DB::transaction(function () use ($invoiceData) {
+            $invoice = Purchase_invoice::create($invoiceData);
+
+            return $invoice->fresh([
+                // 'orderList.Items.product',
+                'seller_entity',
+                'buyer_entity',
+                'object_entity',
+            ]);
         });
     }
 

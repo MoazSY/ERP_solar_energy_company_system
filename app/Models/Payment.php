@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
 {
@@ -30,7 +31,10 @@ class Payment extends Model
     {
         return $this->morphTo();
     }
-
+    public function transaction():HasOne
+    {
+        return $this->hasOne(Payment_transactions::class, 'payment_id');
+    }
     public function targetTable(): MorphTo
     {
         return $this->morphTo(null, 'target_table_type', 'target_table_id');

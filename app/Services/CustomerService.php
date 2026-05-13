@@ -95,10 +95,12 @@ class CustomerService
 
         return [$customer, $imageUrl];
     }
-    public function add_customer_address($request){
-        $customer=Auth::guard('customer')->user();
-        $customer=Customer::findorFail($customer->id);
-        $address=$this->customerRepositoryInterface->add_customer_address($request,$customer);
+
+    public function add_customer_address($request)
+    {
+        $customer = Auth::guard('customer')->user();
+        $customer = Customer::findorFail($customer->id);
+        $address = $this->customerRepositoryInterface->add_customer_address($request, $customer);
         return $address;
     }
 
@@ -366,6 +368,7 @@ class CustomerService
             'total_amount' => $baseAmount,
             'additional_cost_amount' => $additionalCostAmount,
             'additional_entitlement_amount' => $additionalEntitlementAmount,
+            'delivery_fee' => $deliveryAmount,
             'final_amount' => $finalAmount,
         ]);
 
@@ -400,7 +403,7 @@ class CustomerService
     }
 
     public function request_solar_system($request)
-     {
+    {
         /*
          * اذا تم ارسال معرف الشركة يتم البحث عن الطلبية بمعرف الشركة وتعديلها
          *          اذا لم يتم ايجادها فيتم انشاء واحدة جديدة
@@ -409,8 +412,8 @@ class CustomerService
          * اذا وجدت يتم تحديثها بالبيانات الجديدة و ربطها بالشركة المختارة
          * اذا لا يوجد شركة null  يتم اضافة طلب جديد
          */
-         $customer = $this->currentCustomer();
-         $payload = $request->only([
+        $customer = $this->currentCustomer();
+        $payload = $request->only([
             'company_id',
             'requested_capacity_kw',
             'dayly_consumption_kwh',
@@ -447,47 +450,45 @@ class CustomerService
             $payload['additional_details'] = $request->input('additional_details');
         }
         if ($request->has('company_id')) {
-
-                $requestSolarSystem = $customer
+            $requestSolarSystem = $customer
                 ->requestSolarSystems()
                 ->whereNull('company_id')
                 ->has('electricalDeviceCharacteristics')
                 ->latest()
                 ->first();
-             if ($requestSolarSystem) {
-                $payload['company_id'] = $request->input('company_id');
-                $requestSolarSystem->update($payload);
-                $requestSolarSystem->save();
-                $requestSolarSystem->refresh();
-             } else {
-                $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
             if ($requestSolarSystem) {
                 $payload['company_id'] = $request->input('company_id');
                 $requestSolarSystem->update($payload);
                 $requestSolarSystem->save();
                 $requestSolarSystem->refresh();
-            }else{
-                $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
+            } else {
+                $requestSolarSystem = $customer->requestSolarSystems()->where('company_id', $request->company_id)->first();
+                if ($requestSolarSystem) {
+                    $payload['company_id'] = $request->input('company_id');
+                    $requestSolarSystem->update($payload);
+                    $requestSolarSystem->save();
+                    $requestSolarSystem->refresh();
+                } else {
+                    $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
 
-            //   return ['error' => 'solar system request not found for the provided company_id, and no unassigned request with electrical devices found'];  
+                    //   return ['error' => 'solar system request not found for the provided company_id, and no unassigned request with electrical devices found'];
+                }
             }
-             }
-            } 
-            else {
-                $requestSolarSystem = $customer
+        } else {
+            $requestSolarSystem = $customer
                 ->requestSolarSystems()
                 ->whereNull('company_id')
                 ->has('electricalDeviceCharacteristics')
                 ->latest()
                 ->first();
-                    if ($requestSolarSystem) {
-                        $requestSolarSystem->update($payload);
-                        $requestSolarSystem->save();
-                        $requestSolarSystem->refresh();
-                    } else {    
+            if ($requestSolarSystem) {
+                $requestSolarSystem->update($payload);
+                $requestSolarSystem->save();
+                $requestSolarSystem->refresh();
+            } else {
                 $requestSolarSystem = $this->customerRepositoryInterface->create_request_solar_system($payload);
-                    }
             }
+        }
         return $this->requestSolarSystemToArray($requestSolarSystem);
     }
 
@@ -506,9 +507,7 @@ class CustomerService
             if (!$requestSolarSystem) {
                 return ['error' => 'solar system request not found with the provided request_id'];
             }
-        } 
-
-        else {
+        } else {
             // return ['error' => 'solar system request not found'];
             $requestSolarSystem = Request_solar_system::create([
                 'customer_id' => $customer->id,
@@ -968,6 +967,7 @@ class CustomerService
             return ['error' => 'Invalid amount for payment'];
         }
 
+        $deliveryAmount = 0;
         $deliveryPricing = null;
         if ($request->boolean('with_delivery')) {
             $deliveryPricing = $this->osrmService->calculateDeliveryFeeForCompanyToCustomer($company, $customer, $products, $productsMap);
@@ -975,15 +975,17 @@ class CustomerService
             if (isset($deliveryPricing['error'])) {
                 // return ['error' => $deliveryPricing['error']];
                 $deliveryAmount = $this->customerRepositoryInterface->calculateDeliveryCost(
-                $customer->id,
-                $company_id
-            );
-            }else{
-                    $deliveryAmount = (float) ($deliveryPricing['delivery_fee'] ?? 0);
+                    $customer->id,
+                    $company_id
+                );
+            } else {
+                $deliveryAmount = (float) ($deliveryPricing['delivery_fee'] ?? 0);
             }
 
             $amount += $deliveryAmount;
         }
+
+        $request->merge(['calculated_delivery_fee' => $deliveryAmount]);
 
         if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
             return ['error' => 'Unsupported payment method'];
@@ -1026,13 +1028,13 @@ class CustomerService
                 'message' => 'ShamCash payment verified from logs',
                 'data' => $verificationResult['matched_log'] ?? null,
             ];
-        } elseif($request->payment_method === 'cash') {
+        } elseif ($request->payment_method === 'cash') {
             $paymentResponse = [
                 'success' => true,
                 'message' => 'Cash payment selected, please confirm with the company that the payment has been made',
                 'data' => null,
             ];
-        }else{
+        } else {
             return ['error' => 'Unsupported payment method'];
         }
 
@@ -1051,10 +1053,10 @@ class CustomerService
 
         if ($deliveryPricing && is_array($result) && isset($result[0])) {
             $result[0]->setAttribute('calculated_delivery_fee', $deliveryPricing['delivery_fee'] ?? $deliveryAmount);
-            $result[0]->setAttribute('delivery_distance_km', $deliveryPricing['distance_km']??null);
-            $result[0]->setAttribute('delivery_duration_minutes', $deliveryPricing['duration_minutes']??null);
-            $result[0]->setAttribute('delivery_weight_kg', $deliveryPricing['weight_kg']??null);
-            $result[0]->setAttribute('delivery_rule_id', $deliveryPricing['rule_id']??null);
+            $result[0]->setAttribute('delivery_distance_km', $deliveryPricing['distance_km'] ?? null);
+            $result[0]->setAttribute('delivery_duration_minutes', $deliveryPricing['duration_minutes'] ?? null);
+            $result[0]->setAttribute('delivery_weight_kg', $deliveryPricing['weight_kg'] ?? null);
+            $result[0]->setAttribute('delivery_rule_id', $deliveryPricing['rule_id'] ?? null);
         }
 
         return $result;

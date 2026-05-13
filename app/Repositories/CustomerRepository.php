@@ -61,9 +61,11 @@ class CustomerRepository implements CustomerRepositoryInterface
 
         return $customer;
     }
-    public function add_customer_address($request,$customer){
-        $address=$customer->addresses()->create([
-                        'governorate_id' => $request->governorate_id,
+
+    public function add_customer_address($request, $customer)
+    {
+        $address = $customer->addresses()->create([
+            'governorate_id' => $request->governorate_id,
             'area_id' => $request->area_id,
             'neighborhood_id' => $request->neighborhood_id,
             'address_description' => $request->address_description,
@@ -278,6 +280,7 @@ class CustomerRepository implements CustomerRepositoryInterface
                 'customer_last_name' => $customer->last_name,
                 'status' => 'pending',
                 'with_delivery' => $request->with_delivery ?? false,
+                'calculated_delivery_fee' => (float) ($request->calculated_delivery_fee ?? 0),
                 'request_datetime' => now(),
             ]);
 
@@ -295,7 +298,6 @@ class CustomerRepository implements CustomerRepositoryInterface
                     'unit_discount_amount' => $product->disscount_value ?? null,
                     'discount_type' => $product->disscount_type ?? null,
                     'currency' => $product->currency ?? null,
-                    'discount_type' => $product->disscount_type ?? null,
                 ]);
             }
 
@@ -316,7 +318,7 @@ class CustomerRepository implements CustomerRepositoryInterface
 
             $transaction = null;
 
-            if ($paymentData ) {
+            if ($paymentData) {
                 $payment = $customer->paymentsMade()->create([
                     'amount' => $paidAmount ?? $orderList->total_amount,
                     'currency' => 'SY',
@@ -327,7 +329,6 @@ class CustomerRepository implements CustomerRepositoryInterface
                     'payment_object_table_id' => $orderList->id,
                     'paid_at' => Carbon::now(),
                     'status' => $paymentData ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
-
                 ]);
 
                 $transaction = Payment_transactions::create([

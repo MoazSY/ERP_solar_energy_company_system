@@ -4,13 +4,16 @@ namespace App\Services;
 // use App\Models\Agency;
 
 use App\Models\Agency_manager;
+use App\Models\Customer;
 use App\Models\Deliveries;
 // use App\Models\Offers;
+use App\Models\Metainence_request;
 use App\Models\Order_list;
 use App\Models\Products;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
 use App\Models\Technical_inspection_request;
@@ -860,6 +863,186 @@ class SolarCompanyManagerService
             ->exists();
     }
 
+    public function create_invoice(array $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $requestType = strtolower((string) ($data['request_type'] ?? ''));
+        $targetId = (int) ($data['object_id'] );
+
+        $invoiceNumber = 'SCI-' . strtoupper(substr($requestType, 0, 3)) . '-' . now()->format('YmdHis') . '-' . $company->id;
+        $invoiceDate = now()->toDateString();
+        $dueDate = $data['due_date'] ?? now()->addDays(7)->toDateTimeString();
+        $currency = $data['currency'] ?? 'SY';
+        $paymentStatus = $data['payment_status'] ?? 'pending';
+        $paymentMethod = $data['payment_method'] ?? null;
+
+        $invoicePayload = [
+            'seller_entity_type' => Solar_company::class,
+            'seller_entity_id' => $company->id,
+            'invoice_number' => $invoiceNumber,
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
+            'currency' => $currency,
+            'payment_status' => $paymentStatus,
+            'payment_method' => $paymentMethod,
+            'delivery_fee' => 0,
+            'installation_fee' => 0,
+            'consumables_id' => null,
+            'consumables_amount' => 0,
+            'payment_conumables_method' => null,
+            'net_profit' => 0,
+        ];
+
+        switch ($requestType) {
+            case 'offer':
+            case 'subscription':
+            case 'subscribe_offer':
+                $subscription = Subscribe_offer::with(['customer', 'offer'])->find($targetId);
+                if (!$subscription) {
+                    return ['error' => 'offer subscription not found'];
+                }
+                if (!$subscription->offer || (int) $subscription->offer->company_id !== (int) $company->id) {
+                    return ['error' => 'offer subscription does not belong to the current company'];
+                }
+                if ($this->requestHasInvoice(Subscribe_offer::class, $subscription->id)) {
+                    return ['error' => 'invoice already created for this offer subscription'];
+                }
+
+                $customer = $subscription->customer;
+                $invoicePayload['buyer_entity_type'] = Customer::class;
+                $invoicePayload['buyer_entity_id'] = $customer?->id ?? $subscription->customer_id;
+                $invoicePayload['buyer_name'] = $subscription->customer_name
+                    ?? trim(($customer?->first_name ?? '') . ' ' . ($customer?->last_name ?? ''));
+                $invoicePayload['buyer_phone'] = $subscription->customer_phone
+                    ?? $customer?->phoneNumber;
+                $invoicePayload['object_entity_type'] = Subscribe_offer::class;
+                $invoicePayload['object_entity_id'] = $subscription->id;
+                $invoicePayload['subtotal'] = (float) $subscription->offer?->subtotal_amount + $subscription->offer?->average_delivery_cost ?? 0 + $subscription->offer?->average_installation_cost ?? 0;
+                $invoicePayload['total_discount'] = $subscription->offer?->discount_type === 'percentage' ? $subscription->offer->discount_amount * $subscription->offer?->subtotal_amount / 100 : $subscription->offer->discount_amount;
+                $invoicePayload['total_amount'] = (float) $subscription->final_amount;
+                $invoicePayload['order_list_id'] = null;
+                $invoicePayload['delivery_fee'] = (float) ($subscription->delivery_fee ?? $subscription->offer?->average_delivery_cost ?? 0);
+                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost ?? 0);
+                break;
+
+            case 'order':
+            case 'product_order':
+                $orderList = Order_list::with(['request_entity', 'orderable_entity', 'Items.product'])->find($targetId);
+                if (!$orderList) {
+                    return ['error' => 'order not found'];
+                }
+                if ($orderList->orderable_entity_type !== Solar_company::class || (int) $orderList->orderable_entity_id !== (int) $company->id) {
+                    return ['error' => 'this order does not belong to the current company'];
+                }
+                if ($orderList->request_entity_type !== Customer::class) {
+                    return ['error' => 'this order is not a customer order'];
+                }
+                if ($orderList->purchaseInvoices) {
+                    return ['error' => 'invoice already created for this order'];
+                }
+
+                $customer = $orderList->request_entity;
+                $firstItem = $orderList->Items->first();
+                $subtotal = (float) ($orderList->sub_total_amount ?? $orderList->Items->sum(function ($item) {
+                    return (float) ($item->unit_price ?? 0) * (int) ($item->quantity ?? 0);
+                }));
+                $totalDiscount = (float) ($orderList->total_discount_amount ?? 0);
+                $totalAmount = (float) ($orderList->total_amount ?? max($subtotal - $totalDiscount, 0));
+
+                $invoicePayload['buyer_entity_type'] = Customer::class;
+                $invoicePayload['buyer_entity_id'] = $customer?->id ?? $orderList->request_entity_id;
+                $invoicePayload['buyer_name'] = trim(($customer?->first_name ?? $orderList->customer_first_name ?? '') . ' ' . ($customer?->last_name ?? $orderList->customer_last_name ?? ''));
+                $invoicePayload['buyer_phone'] = $customer?->phoneNumber ?? null;
+                $invoicePayload['order_list_id'] = $orderList->id;
+                $invoicePayload['object_entity_type'] = Order_list::class;
+                $invoicePayload['object_entity_id'] = $orderList->id;
+                $invoicePayload['invoice_date'] = $orderList->created_at?->toDateString() ?? $invoiceDate;
+                $invoicePayload['currency'] = $data['currency'] ?? ($firstItem?->currency ?? 'SY');
+                $invoicePayload['subtotal'] = $subtotal;
+                $invoicePayload['total_discount'] = $totalDiscount;
+                $invoicePayload['total_amount'] = $totalAmount;
+                $invoicePayload['delivery_fee'] = $orderList->with_delivery? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
+                $invoicePayload['payment_method'] = $orderList->Payment->transaction->gateway ?? null;
+                $invoicePayload['payment_status'] = $orderList->Payment->payment_status ?? 'pending';
+                break;
+
+            case 'technical_inspection':
+            case 'inspection':
+                $inspection = Technical_inspection_request::with('customer')->find($targetId);
+                if (!$inspection) {
+                    return ['error' => 'technical inspection request not found'];
+                }
+                if ((int) $inspection->company_id !== (int) $company->id) {
+                    return ['error' => 'technical inspection request does not belong to the current company'];
+                }
+                if ($this->requestHasInvoice(Technical_inspection_request::class, $inspection->id)) {
+                    return ['error' => 'invoice already created for this technical inspection request'];
+                }
+
+                $customer = $inspection->customer;
+                $amount = (float) ($inspection->inspection_price ?? 50000);  // default price if not set
+                $invoicePayload['buyer_entity_type'] = Customer::class;
+                $invoicePayload['buyer_entity_id'] = $customer?->id ?? $inspection->customer_id;
+                $invoicePayload['buyer_name'] = $inspection->customer_name
+                    ?? trim(($customer?->first_name ?? '') . ' ' . ($customer?->last_name ?? ''));
+                $invoicePayload['buyer_phone'] = $inspection->customer_phone
+                    ?? $customer?->phoneNumber;
+                $invoicePayload['object_entity_type'] = Technical_inspection_request::class;
+                $invoicePayload['object_entity_id'] = $inspection->id;
+                $invoicePayload['subtotal'] = $amount;
+                $invoicePayload['total_discount'] = 0;
+                $invoicePayload['total_amount'] = $amount;
+                $invoicePayload['currency'] = $data['currency'] ?? $inspection->currency ?? 'SY';
+                $invoicePayload['payment_method'] = $inspection->Payment?->transaction->gateway ?? 'cash';
+                $invoicePayload['payment_status'] = $inspection->Payment?->payment_status ?? 'pending';
+                break;
+
+            case 'maintenance':
+            case 'metainence':
+                $maintenance = Metainence_request::with('customer')->find($targetId);
+                if (!$maintenance) {
+                    return ['error' => 'maintenance request not found'];
+                }
+                if ((int) $maintenance->company_id !== (int) $company->id) {
+                    return ['error' => 'maintenance request does not belong to the current company'];
+                }
+                if ($this->requestHasInvoice(Metainence_request::class, $maintenance->id)) {
+                    return ['error' => 'invoice already created for this maintenance request'];
+                }
+
+                $customer = $maintenance->customer;
+                $amount = (float) ($maintenance->estimated_cost ?? 0);
+                $invoicePayload['buyer_entity_type'] = Customer::class;
+                $invoicePayload['buyer_entity_id'] = $customer?->id ?? $maintenance->customer_id;
+                $invoicePayload['buyer_name'] = $maintenance->customer_name
+                    ?? trim(($customer?->first_name ?? '') . ' ' . ($customer?->last_name ?? ''));
+                $invoicePayload['buyer_phone'] = $maintenance->customer_phone
+                    ?? $customer?->phoneNumber;
+                $invoicePayload['object_entity_type'] = Metainence_request::class;
+                $invoicePayload['object_entity_id'] = $maintenance->id;
+                $invoicePayload['subtotal'] = $amount;
+                $invoicePayload['total_discount'] = 0;
+                $invoicePayload['total_amount'] = $amount;
+                $invoicePayload['currency'] = $data['currency'] ?? $maintenance->currency ?? 'SY';
+                break;
+
+            default:
+                return ['error' => 'unsupported invoice type'];
+        }
+
+        if (empty($invoicePayload['buyer_entity_type']) || empty($invoicePayload['buyer_entity_id'])) {
+            return ['error' => 'buyer information is required to create the invoice'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->create_invoice($invoicePayload);
+    }
+
     public function show_customer_requests()
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
@@ -922,7 +1105,7 @@ class SolarCompanyManagerService
         }
 
         $publicRequests = $this->solarCompanyManagerRepositoryInterface->show_public_customer_requests();
-        $nearby = $publicRequests->filter(function ( $request) use ($companyAddress, $maxKm) {
+        $nearby = $publicRequests->filter(function ($request) use ($companyAddress, $maxKm) {
             $customer = $request->customer;
             if (!$customer)
                 return false;
@@ -936,7 +1119,7 @@ class SolarCompanyManagerService
             return $distance <= $maxKm;
         });
         // return $nearby;
-        $nearby_request= $nearby->values()->map(function ( $request) use ($companyAddress) {
+        $nearby_request = $nearby->values()->map(function ($request) use ($companyAddress) {
             $customer = $request->customer;
             $address = $customer->addresses()->latest('id')->first();
             $distance = $this->osrmService->distanceKmBetween((float) $companyAddress->latitude, (float) $companyAddress->longitude, (float) $address->latitude, (float) $address->longitude);

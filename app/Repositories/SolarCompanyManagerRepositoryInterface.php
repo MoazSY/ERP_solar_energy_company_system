@@ -14,6 +14,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_agency_products($agency_id);
     public function show_company_products($company);
     public function request_purchase_invoice_agency($agency_id, $request, $company, $paymentData = null, $paymentMethod = null, $paidAmount = null);
+    public function create_invoice(array $invoiceData);
     public function get_purchase_requests_from_agencies($company);
     public function delivery_rules($request, $company);
     public function show_delivery_rules($company);
@@ -32,5 +33,4 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_customer_requests($company);
     public function show_technical_inspection_requests($company);
     public function show_public_customer_requests();
-
 }

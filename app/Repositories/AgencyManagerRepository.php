@@ -860,6 +860,8 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         } else {
             $delivery_fee = 0;
         }
+        $orderList->calculated_delivery_fee = $delivery_fee;
+        $orderList->save();
         $purchaseInvoice = $agency->Invoice_purchase()->create([
             'buyer_entity_type' => get_class($buyer),
             'buyer_entity_id' => $buyer->id,

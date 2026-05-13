@@ -22,6 +22,8 @@ class Subscribe_offer extends Model
         'additional_cost_amount',
         'additional_entitlement_amount',
         'final_amount',
+        'delivery_fee',
+
     ];
 
     public function offer(): BelongsTo
