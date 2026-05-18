@@ -41,4 +41,6 @@ interface SolarCompanyManagerRepositoryInterface
     public function update_invoice($company, $invoice_id, array $data);
     public function delete_invoice($company, $invoice_id);
     public function proccess_mantainance_request($request, $mantainance_request, $company);
+    public function delete_assign_task($company, $task_id);
+    public function filter_installation_tasks($company, array $filters);
 }

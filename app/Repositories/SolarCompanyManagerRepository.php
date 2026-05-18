@@ -663,6 +663,74 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         });
     }
 
+    public function delete_assign_task($company, $task_id)
+    {
+        $task = $company->projectTasks()->whereKey($task_id)->first();
+        if (!$task) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($task) {
+            // remove related small resources
+            $task->consumables()->delete();
+            $task->productTechicians()->delete();
+            $task->taskAssistants()->delete();
+            $task->customerRateFeedbacks()->delete();
+            $task->companyProtofolios()->delete();
+
+            $task->delete();
+            return true;
+        });
+    }
+
+    public function filter_installation_tasks($company, array $filters)
+    {
+        $query = $company->projectTasks()->with(['employee', 'taskable']);
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('sheduled_at', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('sheduled_at', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['task_type'])) {
+            $query->where('task_type', $filters['task_type']);
+        }
+
+        if (!empty($filters['employee_id'])) {
+            $query->where('employee_id', $filters['employee_id']);
+        }
+
+        if (array_key_exists('is_completed', $filters)) {
+            if ((bool) $filters['is_completed']) {
+                $query->whereNotNull('completed_at');
+            } else {
+                $query->whereNull('completed_at');
+            }
+        }
+
+        if (array_key_exists('manager_payed', $filters)) {
+            $query->where('manager_payed', (bool) $filters['manager_payed']);
+        }
+
+        if (!empty($filters['min_fee'])) {
+            $query->where('task_fee', '>=', $filters['min_fee']);
+        }
+        if (!empty($filters['max_fee'])) {
+            $query->where('task_fee', '<=', $filters['max_fee']);
+        }
+
+        return $query->latest('id')->get()->map(function ($t) {
+            return [
+                'task' => $t->getAttributes(),
+                'employee' => $t->employee?->toArray(),
+                'taskable' => $t->taskable?->toArray(),
+                'is_completed' => !is_null($t->completed_at),
+            ];
+        });
+    }
+
     public function recieve_orderList($request, $orderList, $company)
     {
         $inventory_manager = Employee::findOrFail(company_agency_employee::findOrFail($request->inventory_manager_id)->employee_id);
@@ -1243,8 +1311,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return DB::transaction(function () use ($invoice, $data) {
             if (isset($data['due_date'])) {
                 $invoice->update(['due_date' => $data['due_date']]);
+                // تحديث المهام المرتبطة غير المكتملة فقط
+                if ($invoice->projectTask()->whereNull('completed_at')->exists()) {
+                    $invoice->projectTask()->whereNull('completed_at')->update(['sheduled_at' => $data['due_date']]);
+                }
             }
-
             return $invoice->fresh([
                 'seller_entity',
                 'buyer_entity',
@@ -1269,7 +1340,11 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             return ['error' => 'Cannot delete a fully paid invoice'];
         }
 
-        return DB::transaction(function () use ($invoice) {
+        return DB::transaction(function () use ($invoice, $company) {
+            // حذف المهام المرتبطة بهذه الفاتورة
+            if ($invoice->projectTask()->exists()) {
+                $invoice->projectTask()->delete();
+            }
             $invoice->delete();
             return ['success' => true];
         });

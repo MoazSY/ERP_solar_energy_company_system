@@ -606,8 +606,7 @@ class SolarCompanyManagerService
         $invoiceTaskType = $this->resolveInvoiceTaskType($invoice);
         $requestedTaskType = $request->input('task_type') ?: $invoiceTaskType;
 
-
-        $taskFee =$invoice->installation_fee ?? 0;
+        $taskFee = $invoice->installation_fee ?? 0;
         if ($taskFee <= 0) {
             return ['error' => 'this invoice does not include a valid task fee'];
         }
@@ -653,6 +652,36 @@ class SolarCompanyManagerService
         );
     }
 
+    public function delete_assign_task($task_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $result = $this->solarCompanyManagerRepositoryInterface->delete_assign_task($company, $task_id);
+
+        if (!$result) {
+            return ['error' => 'task not found or could not be deleted'];
+        }
+
+        return ['success' => true];
+    }
+
+    public function filter_installation_tasks($filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->filter_installation_tasks($company, $filters);
+    }
+
     private function resolveInvoiceTaskType(Purchase_invoice $invoice): string
     {
         return match ($invoice->object_entity_type) {
@@ -662,8 +691,6 @@ class SolarCompanyManagerService
             default => 'installation',
         };
     }
-
-
 
     public function assign_delivery_task_customer_request($request)
     {
@@ -1068,7 +1095,7 @@ class SolarCompanyManagerService
                 $invoicePayload['total_amount'] = (float) $subscription->final_amount;
                 $invoicePayload['order_list_id'] = null;
                 $invoicePayload['delivery_fee'] = (float) ($subscription->delivery_fee ?? $subscription->offer?->average_delivery_cost ?? 0);
-                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost+$subscription->offer?->average_metal_installation_cost ?? 0);
+                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost + $subscription->offer?->average_metal_installation_cost ?? 0);
                 $invoicePayload['payment_method'] = $subscription->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $subscription->Payment?->payment_status ?? 'pending';
                 break;
@@ -1144,7 +1171,7 @@ class SolarCompanyManagerService
                 $invoicePayload['currency'] = $data['currency'] ?? $inspection->currency ?? 'SY';
                 $invoicePayload['payment_method'] = $inspection->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $inspection->Payment?->payment_status ?? 'pending';
-                $invoicePayload['installation_fee']=$inspection->inspection_price??0;
+                $invoicePayload['installation_fee'] = $inspection->inspection_price ?? 0;
                 break;
 
             case 'maintenance':
@@ -1176,7 +1203,7 @@ class SolarCompanyManagerService
                 $invoicePayload['currency'] = $data['currency'] ?? $maintenance->currency ?? 'SY';
                 $invoicePayload['payment_method'] = $maintenance->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $maintenance->Payment?->payment_status ?? 'pending';
-                $invoicePayload['installation_fee']=$maintenance->estimated_cost??0;
+                $invoicePayload['installation_fee'] = $maintenance->estimated_cost ?? 0;
                 break;
 
             default:

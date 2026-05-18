@@ -73,4 +73,8 @@ class Purchase_invoice extends Model
     {
         return $this->morphMany(Payment::class, 'payment_object_table');
     }
+    public function projectTask():MorphMany
+    {
+        return $this->morphMany(Project_task::class,'taskable');
+    }
 }

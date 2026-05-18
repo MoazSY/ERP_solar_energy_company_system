@@ -1056,22 +1056,56 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 201);
     }
 
-    public function delete_assign_task($request) {}
+    public function delete_assign_task(Request $request, $task_id)
+    {
+        $validate = Validator::make(['task_id' => $task_id], [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+        ]);
 
-    // public function show_installation_tasks()
-    // {
-    //     /*
-    //      * رؤية مهام التركيب المعينة مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة والفنيين المعينين وتاريخ المهمة وحالتها هل تم الانجاز ام لا
-    //      * وهل تم دفع المستحقات للفنيين ام لا
-    //      */
-    // }
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->delete_assign_task($task_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json(['message' => 'Assigned task deleted successfully']);
+    }
+
+
 
     public function filter_installation_tasks(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ المهمة او حالة المهمة تم الانجاز ام لا او تم الدفع للفنيين ام لا او حسب نوع المنظومة او حسب الفني المعين للمهمة
-         * وحسب المهمة ان كانت توصيل او تركيب
-         */
+        $validate = Validator::make($request->all(), [
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'task_type' => 'sometimes|string|in:installation,metal_base,blacksmith_workshop,technical_inspection,maintenance',
+            'employee_id' => 'sometimes|integer|exists:employees,id',
+            'is_completed' => 'sometimes|boolean',
+            'manager_payed' => 'sometimes|boolean',
+            'min_fee' => 'sometimes|numeric|min:0',
+            'max_fee' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $tasks = $this->solarCompanyManagerService->filter_installation_tasks($filters);
+
+        if (isset($tasks['error'])) {
+            return response()->json(['message' => $tasks['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation tasks filtered successfully',
+            'count' => count($tasks),
+            'tasks' => $tasks,
+        ]);
     }
 
     public function extract_orderlist_request(Request $request)
