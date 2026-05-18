@@ -802,13 +802,13 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 200);
     }
 
-    public function filter_customer_requests()
-    {
-        // تتم الفلترة بناء على بيانات معينة مثلا حسب طلبات المنظومات او المنتجات المنفردة اي طلبية order عادي او بجدول  request system
-        // اختر بيانات مهمة للفلترة مثل التاريخ الخ
-        // او تم توليد فاتورة لهذه الطلبية ام لا منجزة او لا
-        // او تم تعيين مرفقات للمنظومة اذا كانت  request system   ام لا
-    }
+    // public function filter_customer_requests()
+    // {
+    //     // تتم الفلترة بناء على بيانات معينة مثلا حسب طلبات المنظومات او المنتجات المنفردة اي طلبية order عادي او بجدول  request system
+    //     // اختر بيانات مهمة للفلترة مثل التاريخ الخ
+    //     // او تم توليد فاتورة لهذه الطلبية ام لا منجزة او لا
+    //     // او تم تعيين مرفقات للمنظومة اذا كانت  request system   ام لا
+    // }
 
     public function show_technical_inspection_request()
     {

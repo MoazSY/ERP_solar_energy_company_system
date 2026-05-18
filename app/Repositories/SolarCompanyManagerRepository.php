@@ -639,11 +639,27 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'completed_at' => null,
             ]);
 
-            return $task->load([
+            $task->load([
                 'company',
                 'employee',
                 'taskable',
             ]);
+
+            $related = null;
+            $taskType = $task->task_type;
+
+            if ($taskType === 'installation') {
+                $related = $invoice->object_entity->offer->Items->load('product.inverters', 'product.batteries', 'product.solarPanals') ?? null;
+            } elseif ($taskType === 'maintenance') {
+                $related = $invoice->object_entity ?? null;
+            } elseif ($taskType === 'technical_inspection') {
+                $related = $invoice->object_entity ?? null;
+            }
+
+            return [
+                'task' => $task,
+                'related' => $related,
+            ];
         });
     }
 

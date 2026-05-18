@@ -41,7 +41,10 @@ class Project_task extends Model
         'started_at',
         'completed_at',
     ];
+    protected $casts=[
+'assistant_names'=>'array',
 
+    ];
     public function company(): BelongsTo
     {
         return $this->belongsTo(Solar_company::class, 'company_id');

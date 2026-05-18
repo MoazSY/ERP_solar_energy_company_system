@@ -663,17 +663,7 @@ class SolarCompanyManagerService
         };
     }
 
-    // private function normalizeProjectTaskType(?string $taskType): ?string
-    // {
-    //     return match ($taskType) {
-    //         'installation' => 'installation',
-    //         'metal_base' => 'metal_base',
-    //         'blacksmith_workshop' => 'blacksmith_workshop',
-    //         'technical_inspection', 'inspection' => 'maintenance',
-    //         'maintenance', 'metainence' => 'maintenance',
-    //         default => null,
-    //     };
-    // }
+
 
     public function assign_delivery_task_customer_request($request)
     {
