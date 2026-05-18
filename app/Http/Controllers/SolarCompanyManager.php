@@ -823,18 +823,69 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'inspections' => $inspections,
         ]);
     }
-    public function proccess_technical_inspection_request(Request $request){
 
+    public function proccess_technical_inspection_request(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'request_id' => 'required|integer|exists:technical_inspection_requests,id',
+            'inspection_status' => 'required|string|in:pending,rejected,accepted,completed',
+            'inspection_price' => 'sometimes|numeric|min:0',
+            'expected_date' => 'sometimes|date|after_or_equal:today',
+            'currency' => 'sometimes|string|in:USD,SY',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->proccess_technical_inspection_request($request);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Technical inspection request processed successfully',
+            'result' => $result,
+        ]);
     }
 
     public function show_mantainance_requests()
     {
-        /*
-         * عرض طلبات الصيانة مع كافة التفاصيل المتعلقة بها والكفالة
-         */
-    }
-    public function proccess_mantainance_request(Request $request){
+        $requests = $this->solarCompanyManagerService->show_mantainance_requests();
 
+        if (isset($requests['error'])) {
+            return response()->json(['message' => $requests['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Maintenance requests retrieved successfully',
+            'requests' => $requests,
+        ]);
+    }
+
+    public function proccess_mantainance_request(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'request_id' => 'required|integer|exists:maintenance_requests,id',
+            'maintenance_status' => 'required|string|in:pending,in_progress,completed,cancelled',
+            'estimated_cost' => 'sometimes|numeric|min:0',
+            'expected_date' => 'sometimes|date|after_or_equal:today',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'manager_approval' => 'sometimes|boolean',
+            'manager_notes' => 'sometimes|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->proccess_mantainance_request($request);
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+        return response()->json([
+            'message' => 'Maintenance request processed successfully',
+            'result' => $result,
+        ]);
     }
 
     public function create_invoice(Request $request)
@@ -855,7 +906,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
         $invoice = $this->solarCompanyManagerService->create_invoice(
             $validate->validated()
-            
         );
 
         if (isset($invoice['error'])) {
@@ -868,88 +918,166 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 201);
     }
 
-    public function show_invoices()
-    {
-        /*
-         * رؤية الفواتير التي تم توليدها  مع كافة التفاصيل والمعلومات المتعلقة بها
-         */
-    }
-
     public function filter_invoices(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ الفاتورة او حالة الفاتورة تم الدفع ام لا او تم الموافقة عليها ام لا او حسب العميل او حسب نوع الطلبية منظومة او منتجات منفردة او صيانة او كشف فني
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_number' => 'sometimes|string',
+            'invoice_date_from' => 'sometimes|date',
+            'invoice_date_to' => 'sometimes|date|after_or_equal:invoice_date_from',
+            'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
+            'buyer_name' => 'sometimes|string',
+            'buyer_phone' => 'sometimes|string',
+            'request_type' => 'sometimes|string|in:subscribe_offer,product_order,solar_system,technical_inspection,maintenance',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'min_amount' => 'sometimes|numeric|min:0',
+            'max_amount' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $invoices = $this->solarCompanyManagerService->filter_invoices($filters);
+
+        if (isset($invoices['error'])) {
+            return response()->json(['message' => $invoices['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Invoices filtered successfully',
+            'count' => count($invoices),
+            'invoices' => $invoices,
+        ]);
     }
 
     public function update_invoice(Request $request, $invoice_id)
     {
-        /*
-         * تعديل الفاتورة من قبل المدير مثلا تغيير تاريخ التسليم او اضافة مرفقات او تعديل المنتجات او حتى تعديل السعر في حال كان هناك خصم معين
-         */
+        $validate = Validator::make(array_merge($request->all(), ['invoice_id' => $invoice_id]), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'due_date' => 'required|date|after_or_equal:today',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+        unset($data['invoice_id']);
+
+        $result = $this->solarCompanyManagerService->update_invoice($invoice_id, $data);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Invoice due date updated successfully',
+            'invoice' => $result,
+        ]);
+    }
+
+    public function delete_invoice(Request $request, $invoice_id)
+    {
+        $validate = Validator::make(['invoice_id' => $invoice_id], [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->delete_invoice($invoice_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Invoice deleted successfully',
+        ]);
     }
 
     //  public function defining_system_contents(Request $request){}
     public function assign_installation_task(Request $request)
     {
-        /*
-         * تعيين مهمة تركيب لطلبية منظومة معينة بعد توليد الفاتورة والموافقة عليها من قبل العميل
-         * يتم تعيين الفني المناسب حسب نوع المنظومة والاحمال المطلوبة
-         * ويمكن تعيين اكثر من فني في حال كانت المنظومة كبيرة او معقدة
-         * تشمل مهمات الصيانة والكشف
-         * التركيب يشمل تركيب المنظومة ذاتها وهناك تركيب القواعد المعدنية للمنظومة اذا كانت مطلوبة حسب نوع المنظومة والاحمال المطلوبة
-         * تتم اسناد كافة التفاصيل مع المهمة مع سعر التركيب بناء على الحساب المسبق للتركيب حسب نوع المنظومة والاحمال المطلوبة
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'employee_id' => 'required|integer|exists:company_agency_employees,id',
+            'num_assistants' => 'sometimes|integer|min:0',
+            'assistant_names' => 'sometimes|array',
+            'assistant_names.*' => 'sometimes|string|max:255',
+            'task_type' => 'sometimes|string|in:installation,metal_base,blacksmith_workshop,technical_inspection,maintenance',
+            // 'sheduled_at' => 'sometimes|date',
+            'manager_notes' => 'sometimes|string',
+            // 'employee_notes' => 'sometimes|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->assign_installation_task($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation task assigned successfully',
+            'task' => $result,
+        ], 201);
     }
 
-    public function show_installation_tasks()
+    public function assign_delivery_task_customer_request(Request $request)
     {
-        /*
-         * رؤية مهام التركيب المعينة مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة والفنيين المعينين وتاريخ المهمة وحالتها هل تم الانجاز ام لا
-         * وهل تم دفع المستحقات للفنيين ام لا
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'driver_id' => 'sometimes|integer|exists:company_agency_employees,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->assign_delivery_task_customer_request($request);
+
+        if (!$result) {
+            return response()->json(['message' => 'Failed to assign delivery task'], 500);
+        }
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Delivery task assigned successfully',
+            'task' => $result,
+        ], 201);
     }
+
+    public function delete_assign_task($request) {}
+
+    // public function show_installation_tasks()
+    // {
+    //     /*
+    //      * رؤية مهام التركيب المعينة مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة والفنيين المعينين وتاريخ المهمة وحالتها هل تم الانجاز ام لا
+    //      * وهل تم دفع المستحقات للفنيين ام لا
+    //      */
+    // }
 
     public function filter_installation_tasks(Request $request)
     {
         /*
          * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ المهمة او حالة المهمة تم الانجاز ام لا او تم الدفع للفنيين ام لا او حسب نوع المنظومة او حسب الفني المعين للمهمة
+         * وحسب المهمة ان كانت توصيل او تركيب
          */
     }
 
-    public function installation_rules(Request $request)
+    public function extract_orderlist_request(Request $request)
     {
         /*
-         * انشاء قواعد التركيب التي يتم بناء عليها حساب سعر التركيب لطلبية المنظومة
-         * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة
-         */
-    }
-
-    public function show_installation_rules()
-    {
-        /*
-         * رؤية قواعد التركيب التي تم انشائها مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة وسعر التركيب بناء على هذه القواعد
-         */
-    }
-
-    public function update_installation_rule(Request $request, $rule_id) {}
-    public function delete_installation_rule($rule_id) {}
-
-    public function metal_installation_rules(Request $request)
-    {
-        /*
-         * انشاء قواعد تركيب القواعد المعدنية للمنظومة التي يتم بناء عليها حساب سعر تركيب القواعد المعدنية لطلبية المنظومة
-         * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة اذا كانت مطلوبة حسب نوع المنظومة والاحمال المطلوبة
-         */
-    }
-
-    public function show_metal_installation_rules() {}
-    public function update_metal_installation_rule(Request $request, $rule_id) {}
-    public function delete_metal_installation_rule($rule_id) {}
-
-    public function extract_orderlist_request()
-    {
-        /*
+         * عن طريق تمرير معرف الفاتورة
          * طلب استخراج طلبية التركيب موجه لمدير المستودع من طلبات العملاء بعد توليد الفاتورة وتعيين مهمة التركيب لها من قبل المدير
          * يتم استخراج طلبية التركيب من الطلبات التي تم توليد فاتورة لها وتم تعيين مهمة تركيب لها من قبل المدير
          * تحتوي طلبية التركيب على كافة التفاصيل المتعلقة بالمنظومة المطلوبة والاحمال المطلوبة والفنيين المعينين وتاريخ المهمة وحالتها
@@ -1053,13 +1181,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
          */
     }
 
-    public function check_mantainance_warranty(Request $request)
-    {
-        /*
-         * التحقق من حالة الكفالة لطلب الصيانة هل هي ما زالت سارية ام لا بناء على تاريخ الكفالة وحالة الكفالة منتهية ام لا
-         */
-    }
-
     public function show_company_profits(Request $request)
     {
         /*
@@ -1102,4 +1223,40 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
          * رؤية الخصومات على المنتجات التي عملتها الوكالة للشركة
          */
     }
+
+    // public function installation_rules(Request $request)
+    // {
+    //     /*
+    //      * انشاء قواعد التركيب التي يتم بناء عليها حساب سعر التركيب لطلبية المنظومة
+    //      * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة
+    //      */
+    // }
+
+    // public function show_installation_rules()
+    // {
+    //     /*
+    //      * رؤية قواعد التركيب التي تم انشائها مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة وسعر التركيب بناء على هذه القواعد
+    //      */
+    // }
+
+    // public function update_installation_rule(Request $request, $rule_id) {}
+    // public function delete_installation_rule($rule_id) {}
+
+    // public function metal_installation_rules(Request $request)
+    // {
+    //     /*
+    //      * انشاء قواعد تركيب القواعد المعدنية للمنظومة التي يتم بناء عليها حساب سعر تركيب القواعد المعدنية لطلبية المنظومة
+    //      * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة اذا كانت مطلوبة حسب نوع المنظومة والاحمال المطلوبة
+    //      */
+    // }
+
+    // public function show_metal_installation_rules() {}
+    // public function update_metal_installation_rule(Request $request, $rule_id) {}
+    // public function delete_metal_installation_rule($rule_id) {}
+    //     public function check_mantainance_warranty(Request $request)
+    // {
+    //     /*
+    //      * التحقق من حالة الكفالة لطلب الصيانة هل هي ما زالت سارية ام لا بناء على تاريخ الكفالة وحالة الكفالة منتهية ام لا
+    //      */
+    // }
 }

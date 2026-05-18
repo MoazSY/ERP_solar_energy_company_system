@@ -4,12 +4,14 @@ namespace App\Services;
 // use App\Models\Agency;
 
 use App\Models\Agency_manager;
+use App\Models\Company_agency_employee;
 use App\Models\Customer;
 use App\Models\Deliveries;
 // use App\Models\Offers;
 use App\Models\Metainence_request;
 use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
@@ -574,6 +576,154 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->assign_delivery_task($request, $company, $orderList);
     }
 
+    public function assign_installation_task($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $invoice = Purchase_invoice::query()
+            ->where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->with(['object_entity'])
+            ->find($request->invoice_id);
+
+        if (!$invoice) {
+            return ['error' => 'invoice not found or does not belong to the current company'];
+        }
+
+        if (!in_array($invoice->object_entity_type, [Subscribe_offer::class], true)) {
+            return ['error' => 'this invoice is not linked to an installation request'];
+        }
+
+        if ($invoice->payment_status !== 'paid') {
+            return ['error' => 'invoice must be paid before assigning the installation task'];
+        }
+
+        $invoiceTaskType = $this->resolveInvoiceTaskType($invoice);
+        $requestedTaskType = $request->input('task_type') ?: $invoiceTaskType;
+
+
+        $taskFee =$invoice->installation_fee ?? 0;
+        if ($taskFee <= 0) {
+            return ['error' => 'this invoice does not include a valid task fee'];
+        }
+
+        $request->merge([
+            'task_type' => $request->input('task_type') ?: $invoiceTaskType,
+            'task_fee' => $taskFee,
+        ]);
+
+        $allowedPrimaryRoles = in_array($request->input('task_type'), ['metal_base', 'blacksmith_workshop'], true)
+            ? ['metal_base_technician']
+            : ['install_technician', 'metal_base_technician'];
+
+        $primaryTechnician = Company_agency_employee::query()
+            ->with('employee')
+            ->whereKey($request->employee_id)
+            ->where('entity_type_type', Solar_company::class)
+            ->where('entity_type_id', $company->id)
+            ->first();
+
+        if (!$primaryTechnician || !$primaryTechnician->employee) {
+            return ['error' => 'the assigned technician does not belong to the current company'];
+        }
+
+        if (!in_array($primaryTechnician->employee->employee_type, $allowedPrimaryRoles, true)) {
+            return ['error' => 'the assigned technician does not match the required installation role'];
+        }
+
+        // assistants are not registered entities in the system; accept assistant names as plain strings
+        $assistantNames = collect($request->input('assistant_names', []))
+            ->filter()
+            ->map(fn($n) => trim((string) $n))
+            ->unique()
+            ->values()
+            ->all();
+
+        return $this->solarCompanyManagerRepositoryInterface->assign_installation_task(
+            $request,
+            $company,
+            $invoice,
+            $primaryTechnician->employee,
+            $assistantNames
+        );
+    }
+
+    private function resolveInvoiceTaskType(Purchase_invoice $invoice): string
+    {
+        return match ($invoice->object_entity_type) {
+            Subscribe_offer::class => 'installation',
+            Technical_inspection_request::class => 'technical_inspection',
+            Metainence_request::class => 'maintenance',
+            default => 'installation',
+        };
+    }
+
+    // private function normalizeProjectTaskType(?string $taskType): ?string
+    // {
+    //     return match ($taskType) {
+    //         'installation' => 'installation',
+    //         'metal_base' => 'metal_base',
+    //         'blacksmith_workshop' => 'blacksmith_workshop',
+    //         'technical_inspection', 'inspection' => 'maintenance',
+    //         'maintenance', 'metainence' => 'maintenance',
+    //         default => null,
+    //     };
+    // }
+
+    public function assign_delivery_task_customer_request($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $invoice = Purchase_invoice::query()
+            ->where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->with(['buyer_entity', 'orderList', 'object_entity', 'payments.transaction', 'deliveries'])
+            ->find($request->invoice_id);
+
+        if (!$invoice) {
+            return ['error' => 'invoice not found or does not belong to the current company'];
+        }
+
+        if (!in_array($invoice->object_entity_type, [Subscribe_offer::class, Order_list::class], true)) {
+            return ['error' => 'this invoice is not linked to a delivery-eligible customer request'];
+        }
+
+        $latestPaymentGateway = $invoice->payments->sortByDesc('id')->first()?->transaction?->gateway;
+
+        if ($invoice->payment_status !== 'paid' && $latestPaymentGateway !== 'cash') {
+            return ['error' => 'invoice must be paid before assigning delivery'];
+        }
+
+        if ($invoice->deliveries()->where('delivery_status', '!=', 'delivered')->exists()) {
+            return ['error' => 'A pending delivery task already exists for this invoice'];
+        }
+
+        if ($invoice->object_entity_type === Order_list::class) {
+            $orderList = $invoice->orderList;
+            if (!$orderList || $orderList->request_entity_type !== Customer::class) {
+                return ['error' => 'this invoice is not linked to a customer order'];
+            }
+        }
+
+        if ($invoice->object_entity_type === Subscribe_offer::class) {
+            $subscription = $invoice->object_entity;
+            if (!$subscription || !$subscription->offer || (int) $subscription->offer->company_id !== (int) $company->id) {
+                return ['error' => 'this subscription does not belong to the current company'];
+            }
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->assign_delivery_task_for_invoice($request, $company, $invoice);
+    }
+
     public function show_delivery_task()
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
@@ -873,7 +1023,7 @@ class SolarCompanyManagerService
         }
 
         $requestType = strtolower((string) ($data['request_type'] ?? ''));
-        $targetId = (int) ($data['object_id'] );
+        $targetId = (int) ($data['object_id']);
 
         $invoiceNumber = 'SCI-' . strtoupper(substr($requestType, 0, 3)) . '-' . now()->format('YmdHis') . '-' . $company->id;
         $invoiceDate = now()->toDateString();
@@ -903,7 +1053,7 @@ class SolarCompanyManagerService
             case 'offer':
             case 'subscription':
             case 'subscribe_offer':
-                $subscription = Subscribe_offer::with(['customer', 'offer'])->find($targetId);
+                $subscription = Subscribe_offer::with(['customer', 'offer'])->where('subscription_status', 'accepted')->find($targetId);
                 if (!$subscription) {
                     return ['error' => 'offer subscription not found'];
                 }
@@ -928,7 +1078,9 @@ class SolarCompanyManagerService
                 $invoicePayload['total_amount'] = (float) $subscription->final_amount;
                 $invoicePayload['order_list_id'] = null;
                 $invoicePayload['delivery_fee'] = (float) ($subscription->delivery_fee ?? $subscription->offer?->average_delivery_cost ?? 0);
-                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost ?? 0);
+                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost+$subscription->offer?->average_metal_installation_cost ?? 0);
+                $invoicePayload['payment_method'] = $subscription->Payment?->transaction->gateway ?? null;
+                $invoicePayload['payment_status'] = $subscription->Payment?->payment_status ?? 'pending';
                 break;
 
             case 'order':
@@ -946,7 +1098,8 @@ class SolarCompanyManagerService
                 if ($orderList->purchaseInvoices) {
                     return ['error' => 'invoice already created for this order'];
                 }
-
+                $orderList->status = 'in_progress';
+                $orderList->save();
                 $customer = $orderList->request_entity;
                 $firstItem = $orderList->Items->first();
                 $subtotal = (float) ($orderList->sub_total_amount ?? $orderList->Items->sum(function ($item) {
@@ -967,7 +1120,7 @@ class SolarCompanyManagerService
                 $invoicePayload['subtotal'] = $subtotal;
                 $invoicePayload['total_discount'] = $totalDiscount;
                 $invoicePayload['total_amount'] = $totalAmount;
-                $invoicePayload['delivery_fee'] = $orderList->with_delivery? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
+                $invoicePayload['delivery_fee'] = $orderList->with_delivery ? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
                 $invoicePayload['payment_method'] = $orderList->Payment->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $orderList->Payment->payment_status ?? 'pending';
                 break;
@@ -999,8 +1152,9 @@ class SolarCompanyManagerService
                 $invoicePayload['total_discount'] = 0;
                 $invoicePayload['total_amount'] = $amount;
                 $invoicePayload['currency'] = $data['currency'] ?? $inspection->currency ?? 'SY';
-                $invoicePayload['payment_method'] = $inspection->Payment?->transaction->gateway ?? 'cash';
+                $invoicePayload['payment_method'] = $inspection->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $inspection->Payment?->payment_status ?? 'pending';
+                $invoicePayload['installation_fee']=$inspection->inspection_price??0;
                 break;
 
             case 'maintenance':
@@ -1030,6 +1184,9 @@ class SolarCompanyManagerService
                 $invoicePayload['total_discount'] = 0;
                 $invoicePayload['total_amount'] = $amount;
                 $invoicePayload['currency'] = $data['currency'] ?? $maintenance->currency ?? 'SY';
+                $invoicePayload['payment_method'] = $maintenance->Payment?->transaction->gateway ?? null;
+                $invoicePayload['payment_status'] = $maintenance->Payment?->payment_status ?? 'pending';
+                $invoicePayload['installation_fee']=$maintenance->estimated_cost??0;
                 break;
 
             default:
@@ -1088,6 +1245,52 @@ class SolarCompanyManagerService
                 'invoice_created' => $this->requestHasInvoice(Technical_inspection_request::class, $inspection->id),
             ];
         });
+    }
+
+    public function show_mantainance_requests()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $maintenanceRequests = $this->solarCompanyManagerRepositoryInterface->show_mantainance_requests($company);
+
+        return $maintenanceRequests->map(function (array $row) {
+            $maintenanceRequest = $row['request'];
+
+            return [
+                'request' => $maintenanceRequest,
+                'image_state' => $maintenanceRequest->image_state ? asset('storage/' . $maintenanceRequest->image_state) : null,
+                'warranty' => $row['warranty'],
+                'invoice_created' => $this->requestHasInvoice(Metainence_request::class, $maintenanceRequest->id),
+            ];
+        });
+    }
+
+    public function proccess_mantainance_request($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $maintenanceRequest = Metainence_request::find($request->request_id);
+        if (!$maintenanceRequest) {
+            return ['error' => 'Maintenance request not found'];
+        }
+        if ((int) $maintenanceRequest->company_id !== (int) $company->id) {
+            return ['error' => 'Maintenance request does not belong to the current company'];
+        }
+        if ($maintenanceRequest->maintenance_status === 'completed') {
+            return ['error' => 'This maintenance request has already been completed'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->proccess_mantainance_request($request, $maintenanceRequest, $company);
     }
 
     public function show_public_customer_requests(float $maxKm = 10.0)
@@ -1169,5 +1372,64 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->delete_company_offer($offer_id, $company);
+    }
+
+    public function proccess_technical_inspection_request($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $inspectionRequest = Technical_inspection_request::find($request->request_id);
+        if (!$inspectionRequest) {
+            return ['error' => 'Technical inspection request not found'];
+        }
+        if ((int) $inspectionRequest->company_id !== (int) $company->id) {
+            return ['error' => 'Technical inspection request does not belong to the current company'];
+        }
+        if ($inspectionRequest->inspection_status === 'completed') {
+            return ['error' => 'This technical inspection request has already been completed'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->proccess_technical_inspection_request($request, $inspectionRequest, $company);
+    }
+
+    public function filter_invoices(array $filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->filter_invoices($company, $filters);
+    }
+
+    public function update_invoice($invoice_id, array $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->update_invoice($company, $invoice_id, $data);
+    }
+
+    public function delete_invoice($invoice_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->delete_invoice($company, $invoice_id);
     }
 }

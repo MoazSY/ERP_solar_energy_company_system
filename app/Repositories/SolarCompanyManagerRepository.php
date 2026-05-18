@@ -6,13 +6,16 @@ use App\Models\Company_agency_employee;
 use App\Models\Customer;
 // use App\Models\Deliveries;
 use App\Models\Employee;
+use App\Models\Metainence_request;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
+use App\Models\Project_warranties;
 use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
 use App\Models\Technical_inspection_request;
 use App\Services\OsrmService;
@@ -498,6 +501,152 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         });
     }
 
+    public function assign_delivery_task_for_invoice($request, $company, $invoice)
+    {
+        $customer = $this->resolveInvoiceCustomer($invoice);
+
+        if (!$customer) {
+            return ['error' => 'Customer not found for this invoice'];
+        }
+
+        $address = $customer->addresses()->latest('id')->first();
+        if (!$address) {
+            return ['error' => 'Customer address is missing for delivery assignment'];
+        }
+
+        // validate driver provided
+        try {
+            $companyEmployee = Company_agency_employee::findOrFail($request->driver_id);
+            $driver = Employee::findOrFail($companyEmployee->employee_id);
+        } catch (\Exception $e) {
+            return ['error' => 'Driver not found or invalid'];
+        }
+
+        if ($driver->employee_type != 'driver') {
+            return ['error' => 'The assigned employee is not a driver'];
+        }
+
+        return DB::transaction(function () use ($company, $invoice, $address, $customer, $driver) {
+            $delivery_fee = $invoice->delivery_fee ?? 0;
+            $weightKg = $this->calculateInvoiceWeightKg($invoice);
+            $delivery_task = $company->Assign_delivery_tasks()->create([
+                'deliverable_object_type' => get_class($invoice),
+                'deliverable_object_id' => $invoice->id,
+                'order_list_id' => $invoice->order_list_id ?? null,
+                'delivery_fee' => $delivery_fee,
+                'currency' => $invoice->currency ?? 'SY',
+                'delivery_status' => 'pending',
+                'address_id' => $address->id ?? null,
+                'delivery_address' => $address->address_description ?? null,
+                'governorate_id' => $address->governorate_id ?? null,
+                'area_id' => $address->area_id ?? null,
+                'contact_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) ?: ($invoice->buyer_name ?? null),
+                'contact_phone' => $invoice->buyer_phone ?? $customer->phoneNumber ?? null,
+                'latitude' => $address->latitude ?? null,
+                'longitude' => $address->longitude ?? null,
+                'driver_id' => $driver->id ?? null,
+                'scheduled_delivery_datetime' => $invoice->due_date ?? null,
+                'weight_kg' => $weightKg,
+                'driver_approved_delivery_task' => 'pending',
+            ]);
+
+            return $delivery_task;
+        });
+    }
+
+    private function resolveInvoiceCustomer(Purchase_invoice $invoice): ?Customer
+    {
+        if ($invoice->buyer_entity instanceof Customer) {
+            return $invoice->buyer_entity;
+        }
+
+        if ($invoice->object_entity_type === Subscribe_offer::class) {
+            return $invoice->object_entity?->customer;
+        }
+
+        if ($invoice->object_entity_type === Order_list::class) {
+            $orderList = $invoice->object_entity;
+
+            return $orderList?->request_entity instanceof Customer
+                ? $orderList->request_entity
+                : null;
+        }
+
+        return null;
+    }
+
+    private function calculateInvoiceWeightKg(Purchase_invoice $invoice): float
+    {
+        if ($invoice->object_entity_type === Order_list::class) {
+            $orderList = $invoice->object_entity ?? $invoice->orderList;
+
+            return $this->calculateItemsWeightKg($orderList?->Items?->load('product.inverters', 'product.batteries', 'product.solarPanals') ?? collect());
+        }
+
+        if ($invoice->object_entity_type === Subscribe_offer::class) {
+            $subscription = $invoice->object_entity;
+            $offer = $subscription?->offer;
+
+            return $this->calculateItemsWeightKg($offer?->Items?->load('product.inverters', 'product.batteries', 'product.solarPanals') ?? collect());
+        }
+
+        return 0.0;
+    }
+
+    private function calculateItemsWeightKg($items): float
+    {
+        return (float) collect($items)->sum(function ($item) {
+            $unitWeight = $item->product?->inverters?->weight_kg
+                ?? $item->product?->batteries?->weight_kg
+                ?? $item->product?->solarPanals?->weight_kg
+                ?? 0;
+
+            return (float) $unitWeight * (int) ($item->quantity ?? 1);
+        });
+    }
+
+    public function assign_installation_task($request, $company, $invoice, $primaryTechnician, $assistantNames = [])
+    {
+        return DB::transaction(function () use ($request, $company, $invoice, $primaryTechnician, $assistantNames) {
+            $assistantNamesCollection = collect($assistantNames)
+                ->filter()
+                ->map(fn($n) => trim((string) $n))
+                ->unique()
+                ->values();
+
+            $task = $company->projectTasks()->create([
+                'employee_id' => $primaryTechnician->id,
+                'taskable_type' => get_class($invoice),
+                'taskable_id' => $invoice->id,
+                'task_accepted' => false,
+                'task_type' => $request->input('task_type', 'installation'),
+                'task_fee' => $invoice->installation_fee,
+                'manager_payed' => false,
+                'task_status' => 'pending',
+                'task_images' => null,
+                'client_recieve_task' => false,
+                'employee_notes' => $request->input('employee_notes'),
+                'manager_notes' => $request->input('manager_notes'),
+                'num_assistants' => $request->num_assistants ?? $assistantNamesCollection->count(),
+                'assistant_names' => $assistantNamesCollection->isNotEmpty() ? $assistantNamesCollection->all() : null,
+                'client_additional_cost_amount' => 0,
+                'client_additional_entitlement_amount' => 0,
+                'payment_status' => 'client_paid',
+                'payment_method' => $invoice->payment_method ?: 'bank_transfer',
+                'payment_received' => false,
+                'sheduled_at' => $request->input('sheduled_at', $invoice->due_date),
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+            return $task->load([
+                'company',
+                'employee',
+                'taskable',
+            ]);
+        });
+    }
+
     public function recieve_orderList($request, $orderList, $company)
     {
         $inventory_manager = Employee::findOrFail(company_agency_employee::findOrFail($request->inventory_manager_id)->employee_id);
@@ -862,6 +1011,78 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->get();
     }
 
+    public function show_mantainance_requests($company)
+    {
+        return Metainence_request::query()
+            ->where('company_id', $company->id)
+            ->with(['customer', 'company'])
+            ->latest('id')
+            ->get()
+            ->map(function (Metainence_request $request) use ($company) {
+                $warrantyQuery = Project_warranties::query()
+                    ->where('company_id', $company->id)
+                    ->with(['componentWarranties.item.product', 'customer', 'company', 'invoice']);
+
+                if (!empty($request->warranty_number)) {
+                    $warrantyQuery->where('warranty_number', $request->warranty_number);
+                } elseif (!empty($request->system_sn)) {
+                    $warrantyQuery->where('project_serial_number', $request->system_sn);
+                } elseif (!empty($request->customer_id)) {
+                    $warrantyQuery->where('customer_id', $request->customer_id);
+                } else {
+                    $warrantyQuery->whereRaw('1 = 0');
+                }
+
+                $projectWarranty = $warrantyQuery->latest('id')->first();
+
+                if (!$projectWarranty) {
+                    return [
+                        'request' => $request,
+                        'warranty' => null,
+                    ];
+                }
+
+                $projectWarrantyStatus = strtolower((string) $projectWarranty->warranty_status);
+                $projectWarrantyByStatus = !in_array($projectWarrantyStatus, ['expired', 'inactive', 'cancelled', 'void'], true);
+                $projectWarrantyByDate = !$projectWarranty->end_date || Carbon::parse($projectWarranty->end_date)->endOfDay()->isFuture();
+                $isProjectWarrantyActive = $projectWarrantyByStatus && $projectWarrantyByDate;
+
+                return [
+                    'request' => $request,
+                    'warranty' => [
+                        'project_warranty' => $projectWarranty,
+                        'is_active' => $isProjectWarrantyActive,
+                        'component_warranties' => $projectWarranty->componentWarranties->map(function ($componentWarranty) {
+                            $componentStatus = strtolower((string) $componentWarranty->warranty_status);
+                            $componentByStatus = !in_array($componentStatus, ['expired', 'inactive', 'cancelled', 'void'], true);
+                            $componentByDate = !$componentWarranty->end_date || Carbon::parse($componentWarranty->end_date)->endOfDay()->isFuture();
+
+                            return [
+                                'component_warranty' => $componentWarranty,
+                                'is_active' => $componentByStatus && $componentByDate,
+                                'item' => $componentWarranty->item,
+                                'product' => $componentWarranty->item?->product,
+                            ];
+                        })->values(),
+                    ],
+                ];
+            })
+            ->values();
+    }
+
+    public function proccess_mantainance_request($request, $mantainance_request, $company)
+    {
+        $mantainance_request->metainence_status = $request->metainence_status;
+        $mantainance_request->manager_approval = $request->manager_approval ?? $mantainance_request->manager_approval;
+        $mantainance_request->manager_notes = $request->manager_notes ?? $mantainance_request->manager_notes;
+        $mantainance_request->estimated_cost = $request->estimated_cost ?? $mantainance_request->estimated_cost;
+        $mantainance_request->expected_date = $request->expected_date ?? $mantainance_request->expected_date;
+        $mantainance_request->currency = $request->currency ?? $mantainance_request->currency;
+
+        $mantainance_request->save();
+        return $mantainance_request;
+    }
+
     public function show_public_customer_requests()
     {
         return Request_solar_system::query()
@@ -869,5 +1090,172 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->with(['customer'])
             ->latest('id')
             ->get();
+    }
+
+    public function proccess_technical_inspection_request($request, $inspection_request, $company)
+    {
+        $inspection_request->inspection_status = $request->inspection_status;
+        $inspection_request->inspection_price = $request->inspection_price ?? $inspection_request->inspection_price;
+        $inspection_request->expected_date = $request->expected_date ?? $inspection_request->expected_date;
+        $inspection_request->currency = $request->currency ?? $inspection_request->currency;
+        $inspection_request->save();
+        return $inspection_request;
+    }
+
+    public function filter_invoices($company, array $filters)
+    {
+        $query = Purchase_invoice::query()
+            ->where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->with(['seller_entity', 'buyer_entity', 'object_entity', 'payments']);
+
+        // فلترة رقم الفاتورة
+        if (!empty($filters['invoice_number'])) {
+            $query->where('invoice_number', 'like', '%' . $filters['invoice_number'] . '%');
+        }
+
+        // فلترة تاريخ الفاتورة (من)
+        if (!empty($filters['invoice_date_from'])) {
+            $query->whereDate('invoice_date', '>=', $filters['invoice_date_from']);
+        }
+
+        // فلترة تاريخ الفاتورة (إلى)
+        if (!empty($filters['invoice_date_to'])) {
+            $query->whereDate('invoice_date', '<=', $filters['invoice_date_to']);
+        }
+
+        // فلترة حالة الدفع
+        if (!empty($filters['payment_status'])) {
+            $query->where('payment_status', $filters['payment_status']);
+        }
+
+        // فلترة اسم العميل
+        if (!empty($filters['buyer_name'])) {
+            $query->where('buyer_name', 'like', '%' . $filters['buyer_name'] . '%');
+        }
+
+        // فلترة رقم هاتف العميل
+        if (!empty($filters['buyer_phone'])) {
+            $query->where('buyer_phone', 'like', '%' . $filters['buyer_phone'] . '%');
+        }
+
+        // فلترة نوع الطلبية
+        if (!empty($filters['request_type'])) {
+            $requestType = strtolower((string) $filters['request_type']);
+            $typeMapping = [
+                'subscribe_offer' => 'App\Models\Subscribe_offer',
+                'product_order' => 'App\Models\Order_list',
+                'solar_system' => 'App\Models\Request_solar_system',
+                'technical_inspection' => 'App\Models\Technical_inspection_request',
+                'maintenance' => 'App\Models\Metainence_request',
+            ];
+            if (isset($typeMapping[$requestType])) {
+                $query->where('object_entity_type', $typeMapping[$requestType]);
+            }
+        }
+
+        // فلترة العملة
+        if (!empty($filters['currency'])) {
+            $query->where('currency', $filters['currency']);
+        }
+
+        // فلترة الحد الأدنى للمبلغ
+        if (!empty($filters['min_amount'])) {
+            $query->where('total_amount', '>=', $filters['min_amount']);
+        }
+
+        // فلترة الحد الأقصى للمبلغ
+        if (!empty($filters['max_amount'])) {
+            $query->where('total_amount', '<=', $filters['max_amount']);
+        }
+
+        return $query->latest('id')->get()->map(function (Purchase_invoice $invoice) {
+            $requestTypeName = $this->getRequestTypeName($invoice->object_entity_type);
+
+            return [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_date' => $invoice->invoice_date,
+                'due_date' => $invoice->due_date,
+                'buyer_name' => $invoice->buyer_name,
+                'buyer_phone' => $invoice->buyer_phone,
+                'buyer_entity' => $invoice->buyer_entity ? $invoice->buyer_entity->getAttributes() : null,
+                'seller_entity' => $invoice->seller_entity ? $invoice->seller_entity->getAttributes() : null,
+                'request_type' => $requestTypeName,
+                'object_entity_type' => $invoice->object_entity_type,
+                'object_entity' => $invoice->object_entity ? $invoice->object_entity->getAttributes() : null,
+                'subtotal' => $invoice->subtotal,
+                'total_discount' => $invoice->total_discount,
+                'delivery_fee' => $invoice->delivery_fee,
+                'installation_fee' => $invoice->installation_fee,
+                'total_amount' => $invoice->total_amount,
+                'currency' => $invoice->currency,
+                'payment_status' => $invoice->payment_status,
+                'payment_method' => $invoice->payment_method,
+                'consumables_amount' => $invoice->consumables_amount,
+                'net_profit' => $invoice->net_profit,
+                'payments_count' => $invoice->payments->count(),
+                'total_paid' => $invoice->payments->where('status', 'paid')->sum('amount'),
+                'created_at' => $invoice->created_at,
+                'updated_at' => $invoice->updated_at,
+            ];
+        })->values();
+    }
+
+    private function getRequestTypeName(string $type): string
+    {
+        $typeNames = [
+            'App\Models\Subscribe_offer' => 'subscription_offer',
+            'App\Models\Order_list' => 'product_order',
+            'App\Models\Request_solar_system' => 'solar_system_request',
+            'App\Models\Technical_inspection_request' => 'technical_inspection',
+            'App\Models\Metainence_request' => 'maintenance',
+        ];
+        return $typeNames[$type] ?? 'unknown';
+    }
+
+    public function update_invoice($company, $invoice_id, array $data)
+    {
+        $invoice = Purchase_invoice::where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->find($invoice_id);
+
+        if (!$invoice) {
+            return ['error' => 'Invoice not found or does not belong to your company'];
+        }
+
+        return DB::transaction(function () use ($invoice, $data) {
+            if (isset($data['due_date'])) {
+                $invoice->update(['due_date' => $data['due_date']]);
+            }
+
+            return $invoice->fresh([
+                'seller_entity',
+                'buyer_entity',
+                'object_entity',
+                'payments',
+            ])->toArray();
+        });
+    }
+
+    public function delete_invoice($company, $invoice_id)
+    {
+        $invoice = Purchase_invoice::where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->find($invoice_id);
+
+        if (!$invoice) {
+            return ['error' => 'Invoice not found or does not belong to your company'];
+        }
+
+        // منع حذف الفاتورة المدفوعة
+        if ($invoice->payment_status === 'paid') {
+            return ['error' => 'Cannot delete a fully paid invoice'];
+        }
+
+        return DB::transaction(function () use ($invoice) {
+            $invoice->delete();
+            return ['success' => true];
+        });
     }
 }

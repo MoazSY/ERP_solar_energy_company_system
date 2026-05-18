@@ -22,6 +22,8 @@ interface SolarCompanyManagerRepositoryInterface
     public function delete_delivery_rule($company, $rule_id);
     public function recieve_orderList($request, $orderList, $company);
     public function assign_delivery_task($request, $company, $orderList);
+    public function assign_delivery_task_for_invoice($request, $company, $invoice);
+    public function assign_installation_task($request, $company, $invoice, $primaryTechnician, $assistantNames = []);
     public function show_delivery_task($company);
     public function show_delivery_tasks($company);
     public function filter_delivery_tasks($company, $filters);
@@ -32,5 +34,11 @@ interface SolarCompanyManagerRepositoryInterface
     public function delete_company_offer($offer_id, $company);
     public function show_customer_requests($company);
     public function show_technical_inspection_requests($company);
+    public function show_mantainance_requests($company);
     public function show_public_customer_requests();
+    public function proccess_technical_inspection_request($request, $inspection_request, $company);
+    public function filter_invoices($company, array $filters);
+    public function update_invoice($company, $invoice_id, array $data);
+    public function delete_invoice($company, $invoice_id);
+    public function proccess_mantainance_request($request, $mantainance_request, $company);
 }
