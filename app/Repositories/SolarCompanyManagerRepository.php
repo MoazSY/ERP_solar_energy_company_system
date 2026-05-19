@@ -760,6 +760,26 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $result;
     }
 
+    public function extract_orderlist_request($request, $company, $invoice)
+    {
+        $inventory_manager = Employee::findOrFail(company_agency_employee::findOrFail($request->inventory_manager_id)->employee_id);
+        if ($inventory_manager->employee_type != 'inventory_manager') {
+            return ['error' => 'The assigned employee is not an inventory manager'];
+        }
+
+        // create output request for invoice
+        $company->input_output_requests()->create([
+            'request_type' => 'output',
+            'inventory_manager_id' => $inventory_manager->id,
+            'order_id' => $invoice->order_list_id ?? null,
+            'invoice_id' => $invoice->id,
+            'notes' => $request->notes ?? null,
+        ]);
+
+        $result = $company->input_output_requests()->latest('id')->first();
+        return $result;
+    }
+
     public function show_delivery_task($company)
     {
         return $company

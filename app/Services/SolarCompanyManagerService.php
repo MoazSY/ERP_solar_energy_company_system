@@ -778,6 +778,48 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->recieve_orderList($request, $orderList, $company);
     }
 
+    public function extract_orderlist_request($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $invoice = Purchase_invoice::query()
+            ->where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->with(['buyer_entity', 'orderList', 'object_entity', 'payments.transaction', 'projectTask'])
+            ->find($request->invoice_id);
+
+        if (!$invoice) {
+            return ['error' => 'invoice not found or does not belong to the current company'];
+        }
+
+        $latestPaymentGateway = $invoice->payments->sortByDesc('id')->first()?->transaction?->gateway;
+
+        if ($invoice->payment_status !== 'paid' && $latestPaymentGateway !== 'cash') {
+            return ['error' => 'invoice must be paid before requesting extraction'];
+        }
+
+        // If invoice is linked to project tasks or installation-like entities, require technician approval
+        if ($invoice->projectTask()->exists()) {
+            $task = $invoice->projectTask()->latest('id')->first();
+            if (!$task->task_accepted) {
+                return ['error' => 'Technician approval required for the related task before extraction'];
+            }
+        }
+        if ($invoice->delivery_tasks()->exists()) {
+            $delivery_task = $invoice->delivery_tasks()->latest('id')->first();
+            if (!$delivery_task->driver_approved_delivery_task) {
+                return ['error' => 'driver approval required for the related delivery task before extraction'];
+            }
+        }   
+
+        return $this->solarCompanyManagerRepositoryInterface->extract_orderlist_request($request, $company, $invoice);
+    }
+
     public function paid_to_employee($request, $task_id)
     {
         $amount = 0;

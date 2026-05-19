@@ -14,6 +14,7 @@ class Input_output_request extends Model
         'request_type',
         'inventory_manager_id',
         'order_id',
+        'invoice_id',
         'status',
         'request_datetime',
         'ready_datetime',
@@ -31,5 +32,9 @@ class Input_output_request extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order_list::class, 'order_id');
+    }
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Purchase_invoice::class, 'invoice_id');
     }
 }

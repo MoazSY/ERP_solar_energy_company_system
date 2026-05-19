@@ -43,7 +43,11 @@ class Purchase_invoice extends Model
     {
         return $this->belongsTo(Order_list::class, 'order_list_id');
     }
-
+    public function input_output_requests(): HasMany
+    {
+        return $this->hasMany(Input_output_request::class, 'invoice_id');
+    }
+    
     public function consumables(): BelongsTo
     {
         return $this->belongsTo(Consumables::class, 'consumables_id');
@@ -76,5 +80,9 @@ class Purchase_invoice extends Model
     public function projectTask():MorphMany
     {
         return $this->morphMany(Project_task::class,'taskable');
+    }
+    public function delivery_tasks(): MorphMany
+    {
+        return $this->morphMany(Deliveries::class, 'deliverable_object');
     }
 }

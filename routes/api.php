@@ -91,6 +91,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('assign_installation_task',[SolarCompanyManager::class,'assign_installation_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('delete_assign_task/{task_id}', [SolarCompanyManager::class, 'delete_assign_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('filter_installation_tasks', [SolarCompanyManager::class, 'filter_installation_tasks'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('extract_orderlist_request', [SolarCompanyManager::class, 'extract_orderlist_request'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

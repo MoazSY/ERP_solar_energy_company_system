@@ -1075,8 +1075,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         return response()->json(['message' => 'Assigned task deleted successfully']);
     }
 
-
-
     public function filter_installation_tasks(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -1110,12 +1108,26 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function extract_orderlist_request(Request $request)
     {
-        /*
-         * عن طريق تمرير معرف الفاتورة
-         * طلب استخراج طلبية التركيب موجه لمدير المستودع من طلبات العملاء بعد توليد الفاتورة وتعيين مهمة التركيب لها من قبل المدير
-         * يتم استخراج طلبية التركيب من الطلبات التي تم توليد فاتورة لها وتم تعيين مهمة تركيب لها من قبل المدير
-         * تحتوي طلبية التركيب على كافة التفاصيل المتعلقة بالمنظومة المطلوبة والاحمال المطلوبة والفنيين المعينين وتاريخ المهمة وحالتها
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'inventory_manager_id' => 'required|integer|exists:company_agency_employees,id',
+            'notes' => 'sometimes|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->extract_orderlist_request($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Extraction request created successfully',
+            'request' => $result,
+        ], 201);
     }
 
     public function show_conflict_agency_invoice()
@@ -1257,40 +1269,4 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
          * رؤية الخصومات على المنتجات التي عملتها الوكالة للشركة
          */
     }
-
-    // public function installation_rules(Request $request)
-    // {
-    //     /*
-    //      * انشاء قواعد التركيب التي يتم بناء عليها حساب سعر التركيب لطلبية المنظومة
-    //      * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة
-    //      */
-    // }
-
-    // public function show_installation_rules()
-    // {
-    //     /*
-    //      * رؤية قواعد التركيب التي تم انشائها مع كافة التفاصيل المتعلقة بها من نوع المنظومة والاحمال المطلوبة وسعر التركيب بناء على هذه القواعد
-    //      */
-    // }
-
-    // public function update_installation_rule(Request $request, $rule_id) {}
-    // public function delete_installation_rule($rule_id) {}
-
-    // public function metal_installation_rules(Request $request)
-    // {
-    //     /*
-    //      * انشاء قواعد تركيب القواعد المعدنية للمنظومة التي يتم بناء عليها حساب سعر تركيب القواعد المعدنية لطلبية المنظومة
-    //      * تتم القواعد بناء على نوع المنظومة والاحمال المطلوبة اذا كانت مطلوبة حسب نوع المنظومة والاحمال المطلوبة
-    //      */
-    // }
-
-    // public function show_metal_installation_rules() {}
-    // public function update_metal_installation_rule(Request $request, $rule_id) {}
-    // public function delete_metal_installation_rule($rule_id) {}
-    //     public function check_mantainance_warranty(Request $request)
-    // {
-    //     /*
-    //      * التحقق من حالة الكفالة لطلب الصيانة هل هي ما زالت سارية ام لا بناء على تاريخ الكفالة وحالة الكفالة منتهية ام لا
-    //      */
-    // }
 }

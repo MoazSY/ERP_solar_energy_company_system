@@ -21,6 +21,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function update_delivery_rule($company, $rule_id, $data);
     public function delete_delivery_rule($company, $rule_id);
     public function recieve_orderList($request, $orderList, $company);
+    public function extract_orderlist_request($request, $company, $invoice);
     public function assign_delivery_task($request, $company, $orderList);
     public function assign_delivery_task_for_invoice($request, $company, $invoice);
     public function assign_installation_task($request, $company, $invoice, $primaryTechnician, $assistantNames = []);
