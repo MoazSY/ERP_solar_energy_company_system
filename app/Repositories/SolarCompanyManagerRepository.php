@@ -1127,7 +1127,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->map(function (Metainence_request $request) use ($company) {
                 $warrantyQuery = Project_warranties::query()
                     ->where('company_id', $company->id)
-                    ->with([ 'invoice']);
+                    ->with(['invoice']);
 
                 if (!empty($request->warranty_number)) {
                     $warrantyQuery->where('warranty_number', $request->warranty_number);
@@ -1200,21 +1200,34 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function show_conflict_agency_invoice($company)
     {
-        return $company->conflictInvoices()
-
+        return $company
+            ->conflictInvoices()
             ->latest('id')
             ->get()
             ->map(function (Conflict_invoice $conflictInvoice) {
-
-
                 return [
                     'conflict_invoice' => $conflictInvoice->load(
                         'agency',
                         'invoice.orderList.Items.product'
                     ),
-
                 ];
-            })->values();
+            })
+            ->values();
+    }
+
+    public function show_all_subscriptions($company)
+    {
+        return Subscribe_offer::query()
+            ->whereHas('offer', function ($q) use ($company) {
+                $q->where('company_id', $company->id);
+            })
+            ->with(['offer'])
+            ->latest('id')
+            ->get()
+            ->map(function (\App\Models\Subscribe_offer $subscription) {
+                return $subscription->load('offer');
+            })
+            ->values();
     }
 
     public function proccess_technical_inspection_request($request, $inspection_request, $company)
@@ -1386,10 +1399,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             if ($invoice->projectTask()->exists()) {
                 $invoice->projectTask()->delete();
             }
-            if($invoice->delivery_tasks()->exists()){
+            if ($invoice->delivery_tasks()->exists()) {
                 $invoice->delivery_tasks()->delete();
             }
-            if($invoice->input_output_request()->exists()){
+            if ($invoice->input_output_request()->exists()) {
                 $invoice->input_output_request()->delete();
             }
             $invoice->delete();

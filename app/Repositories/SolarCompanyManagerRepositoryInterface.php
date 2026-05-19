@@ -31,6 +31,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function paid_to_employee($request, $task, $company, $amount, $paymentResponse = null);
     public function show_company_offers($company);
     public function show_subscribers_in_offer($offer_id, $company);
+    public function show_all_subscriptions($company);
     public function update_company_offer($offer_id, $company, $data);
     public function delete_company_offer($offer_id, $company);
     public function show_customer_requests($company);

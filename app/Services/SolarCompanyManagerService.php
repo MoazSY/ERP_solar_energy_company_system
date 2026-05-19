@@ -1420,6 +1420,30 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->show_subscribers_in_offer($offer_id, $company);
     }
 
+    public function show_all_subscriptions()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $subscriptions = $this->solarCompanyManagerRepositoryInterface->show_all_subscriptions($company);
+
+        return $subscriptions->map(function ($subscription) {
+            $sub = $subscription;
+            $customer = $sub->customer;
+            $addresses = $customer ? $customer->addresses()->latest('id')->first() : null;
+            return [
+                'subscription' => $sub,
+                'customer' => $customer,
+                'addresses' => $addresses,
+                'invoice_created' => $this->requestHasInvoice(\App\Models\Subscribe_offer::class, $sub->id),
+            ];
+        })->values();
+    }
+
     public function update_company_offer($request, $offer_id)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;

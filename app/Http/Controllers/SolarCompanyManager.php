@@ -714,6 +714,20 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ]);
     }
 
+    public function show_all_subscriptions()
+    {
+        $subscriptions = $this->solarCompanyManagerService->show_all_subscriptions();
+
+        if (isset($subscriptions['error'])) {
+            return response()->json(['message' => $subscriptions['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Subscriptions retrieved successfully',
+            'subscriptions' => $subscriptions,
+        ], 200);
+    }
+
     public function update_company_offer(Request $request, $offer_id)
     {
         // يمكنه تعديل العرض وتفاصيله
@@ -1129,7 +1143,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'request' => $result,
         ], 201);
     }
-
 
     public function show_conflict_agency_invoice()
     {
