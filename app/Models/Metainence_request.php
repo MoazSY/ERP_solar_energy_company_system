@@ -26,6 +26,7 @@ class Metainence_request extends Model
         'warranty_number',
         'image_state',
         'estimated_cost',
+        'final_cost',
         'problem_name',
         'problem_cause',
         'is_paid',

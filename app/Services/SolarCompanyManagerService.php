@@ -817,9 +817,9 @@ class SolarCompanyManagerService
 
         // If invoice is linked to project tasks or installation-like entities, require technician approval
         if ($invoice->projectTask()->exists()) {
-            $task = $invoice->projectTask()->latest('id')->first();
-            if (!$task->task_accepted) {
-                return ['error' => 'Technician approval required for the related task before extraction'];
+            $notAcceptedExists = $invoice->projectTask()->where('task_accepted', '!=', true)->exists();
+            if ($notAcceptedExists) {
+                return ['error' => 'All related project tasks must be approved by technicians before extraction'];
             }
         }
         if ($invoice->delivery_tasks()->exists()) {

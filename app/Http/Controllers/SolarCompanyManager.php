@@ -865,10 +865,10 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     public function proccess_mantainance_request(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'request_id' => 'required|integer|exists:maintenance_requests,id',
-            'maintenance_status' => 'required|string|in:pending,in_progress,completed,cancelled',
+            'request_id' => 'required|integer|exists:metainence_requests,id',
+            'metainence_status' => 'required|string|in:pending,in_progress,completed,cancelled',
             'estimated_cost' => 'sometimes|numeric|min:0',
-            'expected_date' => 'sometimes|date|after_or_equal:today',
+            'metainence_scheduled_at' => 'sometimes|date|after_or_equal:today',
             'currency' => 'sometimes|string|in:USD,SY',
             'manager_approval' => 'sometimes|boolean',
             'manager_notes' => 'sometimes|string',
@@ -1129,7 +1129,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'request' => $result,
         ], 201);
     }
-    
+
 
     public function show_conflict_agency_invoice()
     {

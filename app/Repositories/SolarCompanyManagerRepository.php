@@ -9,7 +9,7 @@ use App\Models\Conflict_invoice;
 use App\Models\Employee;
 use App\Models\Metainence_request;
 use App\Models\Order_list;
-use App\Models\Items;
+// use App\Models\Items;
 use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Project_warranties;
@@ -1127,7 +1127,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->map(function (Metainence_request $request) use ($company) {
                 $warrantyQuery = Project_warranties::query()
                     ->where('company_id', $company->id)
-                    ->with(['componentWarranties.item.product', 'customer', 'company', 'invoice']);
+                    ->with([ 'invoice']);
 
                 if (!empty($request->warranty_number)) {
                     $warrantyQuery->where('warranty_number', $request->warranty_number);
@@ -1182,7 +1182,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         $mantainance_request->manager_approval = $request->manager_approval ?? $mantainance_request->manager_approval;
         $mantainance_request->manager_notes = $request->manager_notes ?? $mantainance_request->manager_notes;
         $mantainance_request->estimated_cost = $request->estimated_cost ?? $mantainance_request->estimated_cost;
-        $mantainance_request->expected_date = $request->expected_date ?? $mantainance_request->expected_date;
+        $mantainance_request->metainence_scheduled_at = $request->metainence_scheduled_at ?? $mantainance_request->metainence_scheduled_at;
         $mantainance_request->currency = $request->currency ?? $mantainance_request->currency;
 
         $mantainance_request->save();

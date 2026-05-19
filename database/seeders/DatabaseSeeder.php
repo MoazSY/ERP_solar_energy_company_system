@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             CoreProjectSeeder::class,
             ElectricalDeviceSeeder::class,
             ConflictAgencyInvoiceSeeder::class,
+            MaintenanceRequestsSeeder::class,
         ]);
     }
 }
