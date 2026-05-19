@@ -1129,12 +1129,20 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'request' => $result,
         ], 201);
     }
+    
 
     public function show_conflict_agency_invoice()
     {
-        /*
-         * رؤية التضارب في الفاتورة المستلمة من الوكالة التي حددها مدير المستودع
-         */
+        $conflictInvoices = $this->solarCompanyManagerService->show_conflict_agency_invoice();
+
+        if (isset($conflictInvoices['error'])) {
+            return response()->json(['message' => $conflictInvoices['error']], 404);
+        }
+
+        return response()->json([
+            'message' => 'Conflict agency invoices retrieved successfully',
+            'conflict_invoices' => $conflictInvoices,
+        ]);
     }
 
     public function show_product_nearing_out_of_stock()

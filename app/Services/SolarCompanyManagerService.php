@@ -96,6 +96,18 @@ class SolarCompanyManagerService
         return ['company_manager' => $profile[0], 'imageUrl' => $imageUrl, 'identification_imageUrl' => $identification_imageUrl, 'solar_company' => $company];
     }
 
+    public function show_conflict_agency_invoice()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_conflict_agency_invoice($company);
+    }
+
     public function update_profile($request, $data)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
@@ -815,7 +827,7 @@ class SolarCompanyManagerService
             if (!$delivery_task->driver_approved_delivery_task) {
                 return ['error' => 'driver approval required for the related delivery task before extraction'];
             }
-        }   
+        }
 
         return $this->solarCompanyManagerRepositoryInterface->extract_orderlist_request($request, $company, $invoice);
     }

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CoreProjectSeeder::class,
             ElectricalDeviceSeeder::class,
+            ConflictAgencyInvoiceSeeder::class,
         ]);
     }
 }

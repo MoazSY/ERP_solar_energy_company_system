@@ -37,6 +37,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_technical_inspection_requests($company);
     public function show_mantainance_requests($company);
     public function show_public_customer_requests();
+    public function show_conflict_agency_invoice($company);
     public function proccess_technical_inspection_request($request, $inspection_request, $company);
     public function filter_invoices($company, array $filters);
     public function update_invoice($company, $invoice_id, array $data);

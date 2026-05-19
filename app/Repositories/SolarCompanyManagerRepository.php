@@ -5,9 +5,11 @@ use App\Models\Agency;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
 // use App\Models\Deliveries;
+use App\Models\Conflict_invoice;
 use App\Models\Employee;
 use App\Models\Metainence_request;
 use App\Models\Order_list;
+use App\Models\Items;
 use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Project_warranties;
@@ -1196,6 +1198,25 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->get();
     }
 
+    public function show_conflict_agency_invoice($company)
+    {
+        return $company->conflictInvoices()
+
+            ->latest('id')
+            ->get()
+            ->map(function (Conflict_invoice $conflictInvoice) {
+
+
+                return [
+                    'conflict_invoice' => $conflictInvoice->load(
+                        'agency',
+                        'invoice.orderList.Items.product'
+                    ),
+
+                ];
+            })->values();
+    }
+
     public function proccess_technical_inspection_request($request, $inspection_request, $company)
     {
         $inspection_request->inspection_status = $request->inspection_status;
@@ -1364,6 +1385,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             // حذف المهام المرتبطة بهذه الفاتورة
             if ($invoice->projectTask()->exists()) {
                 $invoice->projectTask()->delete();
+            }
+            if($invoice->delivery_tasks()->exists()){
+                $invoice->delivery_tasks()->delete();
+            }
+            if($invoice->input_output_request()->exists()){
+                $invoice->input_output_request()->delete();
             }
             $invoice->delete();
             return ['success' => true];
