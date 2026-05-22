@@ -716,7 +716,7 @@ class SolarCompanyManagerService
         $invoice = Purchase_invoice::query()
             ->where('seller_entity_type', Solar_company::class)
             ->where('seller_entity_id', $company->id)
-            ->with(['buyer_entity', 'orderList', 'object_entity', 'payments.transaction', 'deliveries'])
+            ->with(['buyer_entity', 'orderList', 'object_entity', 'payments.transaction', 'delivery_tasks'])
             ->find($request->invoice_id);
 
         if (!$invoice) {
@@ -733,7 +733,7 @@ class SolarCompanyManagerService
             return ['error' => 'invoice must be paid before assigning delivery'];
         }
 
-        if ($invoice->deliveries()->where('delivery_status', '!=', 'delivered')->exists()) {
+        if ($invoice->delivery_tasks()->where('delivery_status', '!=', 'delivered')->exists()) {
             return ['error' => 'A pending delivery task already exists for this invoice'];
         }
 
