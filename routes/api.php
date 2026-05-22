@@ -94,6 +94,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('filter_installation_tasks', [SolarCompanyManager::class, 'filter_installation_tasks'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('extract_orderlist_request', [SolarCompanyManager::class, 'extract_orderlist_request'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::get('show_conflict_agency_invoice',[SolarCompanyManager::class,'show_conflict_agency_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('register_inner_sales',[SolarCompanyManager::class,'register_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);  
 });
 
 Route::middleware('auth:sanctum')->group(function () {

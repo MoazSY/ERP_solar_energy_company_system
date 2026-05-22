@@ -7,8 +7,8 @@ use App\Models\Agency_manager;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
 use App\Models\Deliveries;
-// use App\Models\Offers;
 use App\Models\Metainence_request;
+use App\Models\Offers;
 use App\Models\Order_list;
 use App\Models\Products;
 use App\Models\Purchase_invoice;
@@ -19,6 +19,7 @@ use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
 use App\Models\Technical_inspection_request;
+use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use App\Services\ApiSyriaService;
@@ -832,6 +833,235 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->extract_orderlist_request($request, $company, $invoice);
     }
 
+    public function register_inner_sales($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+
+                $paymentResponse = [
+                'success' => true,
+                'message' =>  sprintf('%s selected for payment (simulated response)', $request->payment_method),
+                'data' => null,
+            ];
+
+        try {
+            return DB::transaction(function () use ( $request, $company, $paymentResponse) {
+
+        $customer = $this->resolveInnerSaleCustomer($request);
+        if (isset($customer['error'])) {
+            return $customer;
+        }
+
+        $customerRepository = app(CustomerRepositoryInterface::class);
+        $requestType = strtolower((string) $request->input('request_type', ''));
+        
+
+                if (in_array($requestType, ['order', 'product_order'], true)) {
+
+                    $result = $customerRepository->request_purchase_invoice_company($customer, $request, $company,$paymentResponse,$request->payment_method);
+
+                    if (!$result || !is_array($result) || !isset($result[0])) {
+                        throw new \RuntimeException('Failed to create order list');
+                    }
+
+                    $orderList = $result[0];
+                    $items = $result[1] ?? null;
+                    $transaction = $result[2] ?? null;
+
+                    $invoiceResult = $this->create_invoice([
+                        'request_type' => 'product_order',
+                        'object_id' => $orderList->id,
+                        'currency' => $request->input('currency', 'SY'),
+                        'due_date' => $request->input('due_date'),
+                        'payment_status' => $request->input('payment_status', 'paid'),
+                        'payment_method' => $request->input('payment_method'),
+                    ]);
+
+                    if (is_array($invoiceResult) && isset($invoiceResult['error'])) {
+                        throw new \RuntimeException($invoiceResult['error']);
+                    }
+
+                    $invoice = $invoiceResult;
+
+                    return [
+                        'request_type' => 'product_order',
+                        'order' => $orderList,
+                        'items' => $items,
+                        'invoice' => $invoice,
+                        'transaction' => $transaction,
+                    ];
+                }
+
+                if (in_array($requestType, ['offer', 'subscribe_offer', 'subscription'], true)) {
+                    $offer = Offers::where('company_id', $company->id)->find($request->offer_id);
+                    if (!$offer) {
+                        throw new \RuntimeException('offer not found or does not belong to the current company');
+                    }
+
+                    $baseAmount = (float) ($offer->average_total_amount ?: max((float) $offer->subtotal_amount - (float) $offer->discount_amount, 0));
+                    $deliveryFee = (float) ($request->calculated_delivery_fee ?? $offer->average_delivery_cost ?? 0);
+                    $installationFee = $request->boolean('with_installation', true)
+                        ? (float) ($offer->average_installation_cost ?? 0) + (float) ($offer->average_metal_installation_cost ?? 0)
+                        : 0;
+                    $additionalCostAmount = (float) $request->input('additional_cost_amount', 0);
+                    $additionalEntitlementAmount = (float) $request->input('additional_entitlement_amount', 0);
+                    $finalAmount = max($baseAmount + $deliveryFee + $installationFee + $additionalCostAmount - $additionalEntitlementAmount, 0);
+
+                    $subscription = $customerRepository->upsert_offer_subscription($offer->id, $customer->id, [
+                        'customer_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
+                        'customer_phone' => $request->customer_phone ?? $customer->phoneNumber,
+                        'system_sn' => $request->input('system_sn') ?: null,
+                        'with_installation' => $request->boolean('with_installation', true),
+                        'subscription_status' => 'accepted',
+                        'subscription_date' => now(),
+                        'total_amount' => $baseAmount,
+                        'additional_cost_amount' => $additionalCostAmount,
+                        'additional_entitlement_amount' => $additionalEntitlementAmount,
+                        'delivery_fee' => $deliveryFee,
+                        'final_amount' => $finalAmount,
+                    ]);
+
+                    $invoiceResult = $this->create_invoice([
+                        'request_type' => 'subscribe_offer',
+                        'object_id' => $subscription->id,
+                        'currency' => $request->input('currency', $offer->currency ?? 'SY'),
+                        'due_date' => $request->input('due_date'),
+                        'payment_status' => $request->input('payment_status', 'pending'),
+                        'payment_method' => $request->input('payment_method'),
+                    ]);
+
+                    if (is_array($invoiceResult) && isset($invoiceResult['error'])) {
+                        throw new \RuntimeException($invoiceResult['error']);
+                    }
+
+                    return [
+                        'request_type' => 'subscribe_offer',
+                        'offer' => $offer,
+                        'subscription' => $subscription,
+                        'invoice' => $invoiceResult,
+                    ];
+                }
+
+                if ($requestType === 'technical_inspection') {
+                    $inspection = $customerRepository->create_technical_inspection_request([
+                        'company_id' => $company->id,
+                        'customer_id' => $customer->id,
+                        'customer_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
+                        'customer_phone' => $request->customer_phone ?? $customer->phoneNumber,
+                        'customer_address' => $request->customer_address ?? null,
+                        'inspection_status' => 'pending',
+                        'priority' => $request->input('priority', 'medium'),
+                        'issue_description' => $request->issue_description ?? null,
+                        'image_state' => null,
+                        'inspection_price' => (float) $request->input('inspection_price', 0),
+                        'expected_date' => $request->input('expected_date'),
+                        'payment_method' => $request->input('payment_method'),
+                        'currency' => $request->input('currency', 'SY'),
+                    ]);
+
+                    $invoiceResult = $this->create_invoice([
+                        'request_type' => 'technical_inspection',
+                        'object_id' => $inspection->id,
+                        'currency' => $request->input('currency', $inspection->currency ?? 'SY'),
+                        'due_date' => $request->input('due_date'),
+                        'payment_status' => $request->input('payment_status', 'pending'),
+                        'payment_method' => $request->input('payment_method'),
+                    ]);
+
+                    if (is_array($invoiceResult) && isset($invoiceResult['error'])) {
+                        throw new \RuntimeException($invoiceResult['error']);
+                    }
+
+                    return [
+                        'request_type' => 'technical_inspection',
+                        'inspection' => $inspection,
+                        'invoice' => $invoiceResult,
+                    ];
+                }
+
+                if ($requestType === 'maintenance') {
+                    $maintenance = $customerRepository->create_maintenance_request([
+                        'company_id' => $company->id,
+                        'customer_id' => $customer->id,
+                        'customer_name' => trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')),
+                        'customer_phone' => $request->customer_phone ?? $customer->phoneNumber,
+                        'metainence_type' => $request->input('metainence_type', 'preventive'),
+                        'issue_category' => $request->input('issue_category', 'other'),
+                        'priority' => $request->input('priority', 'medium'),
+                        'issue_description' => $request->issue_description ?? null,
+                        'manager_approval' => $request->boolean('manager_approval', false),
+                        'manager_notes' => $request->manager_notes ?? null,
+                        'metainence_status' => 'pending',
+                        'metainence_scheduled_at' => $request->input('metainence_scheduled_at'),
+                        'system_sn' => $request->input('system_sn'),
+                        'warranty_number' => $request->input('warranty_number'),
+                        'image_state' => null,
+                        'estimated_cost' => (float) $request->input('estimated_cost', 0),
+                        'final_cost' => (float) $request->input('estimated_cost', 0),
+                        'problem_name' => $request->input('problem_name'),
+                        'problem_cause' => $request->input('problem_cause'),
+                        'is_paid' => false,
+                        'payment_method' => $request->input('payment_method'),
+                        'currency' => $request->input('currency', 'SY'),
+                    ]);
+
+                    $invoiceResult = $this->create_invoice([
+                        'request_type' => 'maintenance',
+                        'object_id' => $maintenance->id,
+                        'currency' => $request->input('currency', $maintenance->currency ?? 'SY'),
+                        'due_date' => $request->input('due_date'),
+                        'payment_status' => $request->input('payment_status', 'pending'),
+                        'payment_method' => $request->input('payment_method'),
+                    ]);
+
+                    if (is_array($invoiceResult) && isset($invoiceResult['error'])) {
+                        throw new \RuntimeException($invoiceResult['error']);
+                    }
+
+                    return [
+                        'request_type' => 'maintenance',
+                        'maintenance' => $maintenance,
+                        'invoice' => $invoiceResult,
+                    ];
+                }
+
+                throw new \RuntimeException('unsupported inner sale type');
+            });
+        } catch (\Throwable $e) {
+            return ['error' => 'register_inner_sales failed: ' . $e->getMessage()];
+        }
+    }
+
+    private function resolveInnerSaleCustomer($request)
+    {
+        if ($request->filled('customer_id')) {
+            $customer = Customer::find($request->customer_id);
+
+            return $customer ?: ['error' => 'customer not found'];
+        }
+
+        $firstName = trim((string) $request->input('customer_first_name', ''));
+        $lastName = trim((string) $request->input('customer_last_name', ''));
+        $phoneNumber = trim((string) $request->input('customer_phone', ''));
+
+        if ($firstName === '' || $lastName === '' || $phoneNumber === '') {
+            return ['error' => 'customer_first_name, customer_last_name, and customer_phone are required when customer_id is not provided'];
+        }
+
+        return Customer::create([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'phoneNumber' => $phoneNumber,
+            'email' => 'internal-' . now()->timestamp . '-' . uniqid() . '@internal.local',
+            'password' => null,
+        ]);
+    }
+
     public function paid_to_employee($request, $task_id)
     {
         $amount = 0;
@@ -1144,12 +1374,17 @@ class SolarCompanyManagerService
                     ?? $customer?->phoneNumber;
                 $invoicePayload['object_entity_type'] = Subscribe_offer::class;
                 $invoicePayload['object_entity_id'] = $subscription->id;
-                $invoicePayload['subtotal'] = (float) $subscription->offer?->subtotal_amount + $subscription->offer?->average_delivery_cost ?? 0 + $subscription->offer?->average_installation_cost ?? 0;
+                $baseAmount = (float) ($subscription->offer?->average_total_amount ?: max((float) $subscription->offer?->subtotal_amount - (float) $subscription->offer?->discount_amount, 0));
+                $deliveryFee = (float) ($subscription->delivery_fee ?? $subscription->offer?->average_delivery_cost ?? 0);
+                $installationFee = $subscription->with_installation
+                    ? (float) ($subscription->offer?->average_installation_cost ?? 0) + (float) ($subscription->offer?->average_metal_installation_cost ?? 0)
+                    : 0;
+                $invoicePayload['subtotal'] = $baseAmount + $deliveryFee + $installationFee;
                 $invoicePayload['total_discount'] = $subscription->offer?->discount_type === 'percentage' ? $subscription->offer->discount_amount * $subscription->offer?->subtotal_amount / 100 : $subscription->offer->discount_amount;
                 $invoicePayload['total_amount'] = (float) $subscription->final_amount;
                 $invoicePayload['order_list_id'] = null;
-                $invoicePayload['delivery_fee'] = (float) ($subscription->delivery_fee ?? $subscription->offer?->average_delivery_cost ?? 0);
-                $invoicePayload['installation_fee'] = (float) ($subscription->offer?->average_installation_cost + $subscription->offer?->average_metal_installation_cost ?? 0);
+                $invoicePayload['delivery_fee'] = $deliveryFee;
+                $invoicePayload['installation_fee'] = $installationFee;
                 $invoicePayload['payment_method'] = $subscription->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $subscription->Payment?->payment_status ?? 'pending';
                 break;
@@ -1190,10 +1425,10 @@ class SolarCompanyManagerService
                 $invoicePayload['currency'] = $data['currency'] ?? ($firstItem?->currency ?? 'SY');
                 $invoicePayload['subtotal'] = $subtotal;
                 $invoicePayload['total_discount'] = $totalDiscount;
-                $invoicePayload['total_amount'] = $totalAmount;
+                $invoicePayload['total_amount'] = $totalAmount+(float) ($orderList->calculated_delivery_fee ?? 0);
                 $invoicePayload['delivery_fee'] = $orderList->with_delivery ? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
-                $invoicePayload['payment_method'] = $orderList->Payment->transaction->gateway ?? null;
-                $invoicePayload['payment_status'] = $orderList->Payment->payment_status ?? 'pending';
+                $invoicePayload['payment_method'] = $orderList->Payment?->transaction?->gateway ?? null;
+                $invoicePayload['payment_status'] = $orderList->Payment?->payment_status ?? 'pending';
                 break;
 
             case 'technical_inspection':

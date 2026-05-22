@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Model;
 
 class Project_task extends Model
 {
@@ -41,42 +41,56 @@ class Project_task extends Model
         'started_at',
         'completed_at',
     ];
-    protected $casts=[
-'assistant_names'=>'array',
 
+    protected $casts = [
+        'assistant_names' => 'array',
     ];
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Solar_company::class, 'company_id');
     }
+
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id');
     }
+
     public function delivery(): BelongsTo
     {
         return $this->belongsTo(Deliveries::class, 'delivery_id');
     }
+
+    public function orderList(): BelongsTo
+    {
+        return $this->belongsTo(Order_list::class, 'order_list_id');
+    }
+
     public function taskable(): MorphTo
     {
         return $this->morphTo(null, 'taskable_type', 'taskable_id');
     }
+
     public function consumables(): HasMany
     {
         return $this->hasMany(Consumables::class, 'task_id');
     }
+
     public function companyProtofolios(): HasMany
     {
         return $this->hasMany(Company_protofolio::class, 'project_task_id');
     }
+
     public function customerRateFeedbacks(): HasMany
     {
         return $this->hasMany(Customer_rate_feedback::class, 'task_id');
     }
+
     public function productTechicians(): HasMany
     {
         return $this->hasMany(Product_techicians::class, 'task_id');
     }
+
     public function taskAssistants(): HasMany
     {
         return $this->hasMany(Task_assistants::class, 'task_id');

@@ -110,7 +110,7 @@ $this->tokenRepositoryInterface=$tokenRepositoryInterface;
         if($refresh_token==null){
             response()->json(['message' => 'Invalid or expired refresh token'], 401);
         }
-        $user=$refresh_token["user"];
+        $user=$refresh_token['user'];
         $plainTextToken = $user->createToken('authToken')->plainTextToken;
         $this->tokenRepositoryInterface->Add_expierd_token($plainTextToken);
         return response()->json(['message'=>$refresh_token["message"],"token"=>$plainTextToken,"refresh_token"=>$request->refresh_token]);

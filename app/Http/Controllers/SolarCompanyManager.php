@@ -1071,7 +1071,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     }
 
     public function delete_assign_task(Request $request, $task_id)
-    {
+     {
         $validate = Validator::make(['task_id' => $task_id], [
             'task_id' => 'required|integer|exists:project_tasks,id',
         ]);
@@ -1087,7 +1087,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         }
 
         return response()->json(['message' => 'Assigned task deleted successfully']);
-    }
+     }
 
     public function filter_installation_tasks(Request $request)
     {
@@ -1158,22 +1158,74 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ]);
     }
 
-    public function show_product_nearing_out_of_stock()
-    {
-        /*
-         * رؤية المنتجات التي اوشكت على النفاد مع كمياتها
-         */
-    }
-
     public function register_inner_sales(Request $request)
     {
-        /*
-         * تسجيل المبيعات الداخلية التي تحصل عنده في الشركة
-         * اي الطلبية مع توليد الفاتورة
-         * بحال كان الزبون يطلب منظومة فانه ينشا له منظومة اي طلبية وفاتورة
-         * وتعيين المعلومات اللازمة
-         */
+        $validate = Validator::make($request->all(), [
+            // order and offer request
+            'request_type' => 'required|string|in:product_order,subscribe_offer,technical_inspection,maintenance',
+            'customer_id' => 'sometimes|integer|exists:customers,id',
+            'customer_first_name' => 'required_without:customer_id|string|max:255',
+            'customer_last_name' => 'required_without:customer_id|string|max:255',
+            'customer_phone' => 'required_without:customer_id|unique:customers,phoneNumber|string|max:255',            
+            'customer_address'=>'sometimes|string|max:255',
+            'products' => 'required_if:request_type,product_order,order|array',
+            'products.*.id' => 'required_if:request_type,product_order,order|integer|exists:products,id',
+            'products.*.quantity' => 'required_if:request_type,product_order,order|integer|min:1',
+            'offer_id' => 'required_if:request_type,subscribe_offer|integer|exists:offers,id',
+            'with_delivery' => 'required_if:request_type,product_order|boolean',
+            'calculated_delivery_fee'=>'required_if:request_type,product_order|numeric|min:0',
+            'payment_method'=>'sometimes|string|in:bank_transfer,cash',
+            'with_installation'=>'required_if:request_type,subscribe_offer|boolean',
+
+            // metainence request
+
+            'metainence_type'=> 'sometimes|string|in:preventive,corrective,warranty,upgrade',
+            'issue_category'=>'sometimes|string|in:inverter,solar_panel,battery,fullsystem,other',
+            'priority'=> 'sometimes|string|in:low,medium,high',
+            'issue_description'=>'sometimes|string|max:255',
+            'manager_notes'=>'sometimes|string',
+            'metainence_scheduled_at'=> 'sometimes|date|after_or_equal:today',
+            'system_sn'=>'sometimes|string|max:255',
+            'warranty_number'=>'sometimes|string|max:255',
+            'estimated_cost'=>'sometimes|numeric|min:0',
+            'final_cost'=>'sometimes|numeric|min:0',
+            // 'problem_name'=>'sometimes|string|max:255',
+            // 'problem_cause'=>'sometimes|string|max:255',
+            'is_paid'=>'sometimes|boolean',
+
+            // inscpection request
+
+            'issue_description'=>'sometimes|string|max:255',
+            'inspection_price'=>'sometimes|numeric|min:0',
+            'expected_date'=>'sometimes|date',
+
+            // invoice
+
+            'due_date' => 'sometimes|date',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->register_inner_sales($request);
+
+        if (!$result) {
+            return response()->json(['message' => 'Failed to register inner sale'], 500);
+        }
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Inner sale registered successfully',
+
+            'result' => $result,
+        ], 201);
     }
+
 
     public function show_inner_sales()
     {
