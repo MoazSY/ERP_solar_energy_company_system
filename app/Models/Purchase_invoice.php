@@ -85,4 +85,5 @@ class Purchase_invoice extends Model
     {
         return $this->morphMany(Deliveries::class, 'deliverable_object');
     }
+
 }

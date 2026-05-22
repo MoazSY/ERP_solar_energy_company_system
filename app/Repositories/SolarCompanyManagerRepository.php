@@ -1402,8 +1402,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             if ($invoice->delivery_tasks()->exists()) {
                 $invoice->delivery_tasks()->delete();
             }
-            if ($invoice->input_output_request()->exists()) {
-                $invoice->input_output_request()->delete();
+            if ($invoice->input_output_requests()->exists()) {
+                $invoice->input_output_requests()->delete();
             }
             $invoice->delete();
             return ['success' => true];

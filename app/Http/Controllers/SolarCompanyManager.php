@@ -1227,13 +1227,6 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     }
 
 
-    public function show_inner_sales()
-    {
-        /*
-         * رؤية المبيعات الداخلية التي قام مدير الشركة بتسجيلها
-         */
-    }
-
     public function filter_inner_sales(Request $request)
     {
         /*
