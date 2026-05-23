@@ -842,28 +842,24 @@ class SolarCompanyManagerService
             return ['error' => 'company not found for the current manager'];
         }
 
-
-                $paymentResponse = [
-                'success' => true,
-                'message' =>  sprintf('%s selected for payment (simulated response)', $request->payment_method),
-                'data' => null,
-            ];
+        $paymentResponse = [
+            'success' => true,
+            'message' => sprintf('%s selected for payment (simulated response)', $request->payment_method),
+            'data' => null,
+        ];
 
         try {
-            return DB::transaction(function () use ( $request, $company, $paymentResponse) {
+            return DB::transaction(function () use ($request, $company, $paymentResponse) {
+                $customer = $this->resolveInnerSaleCustomer($request);
+                if (isset($customer['error'])) {
+                    return $customer;
+                }
 
-        $customer = $this->resolveInnerSaleCustomer($request);
-        if (isset($customer['error'])) {
-            return $customer;
-        }
-
-        $customerRepository = app(CustomerRepositoryInterface::class);
-        $requestType = strtolower((string) $request->input('request_type', ''));
-        
+                $customerRepository = app(CustomerRepositoryInterface::class);
+                $requestType = strtolower((string) $request->input('request_type', ''));
 
                 if (in_array($requestType, ['order', 'product_order'], true)) {
-
-                    $result = $customerRepository->request_purchase_invoice_company($customer, $request, $company,$paymentResponse,$request->payment_method);
+                    $result = $customerRepository->request_purchase_invoice_company($customer, $request, $company, $paymentResponse, $request->payment_method);
 
                     if (!$result || !is_array($result) || !isset($result[0])) {
                         throw new \RuntimeException('Failed to create order list');
@@ -1425,7 +1421,7 @@ class SolarCompanyManagerService
                 $invoicePayload['currency'] = $data['currency'] ?? ($firstItem?->currency ?? 'SY');
                 $invoicePayload['subtotal'] = $subtotal;
                 $invoicePayload['total_discount'] = $totalDiscount;
-                $invoicePayload['total_amount'] = $totalAmount+(float) ($orderList->calculated_delivery_fee ?? 0);
+                $invoicePayload['total_amount'] = $totalAmount + (float) ($orderList->calculated_delivery_fee ?? 0);
                 $invoicePayload['delivery_fee'] = $orderList->with_delivery ? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
                 $invoicePayload['payment_method'] = $orderList->Payment?->transaction?->gateway ?? null;
                 $invoicePayload['payment_status'] = $orderList->Payment?->payment_status ?? 'pending';
@@ -1737,6 +1733,42 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->filter_invoices($company, $filters);
+    }
+
+    public function filter_inner_sales(array $filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->filter_inner_sales($company, $filters);
+    }
+
+    public function create_warranty(array $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->create_warranty($company, $data);
+    }
+
+    public function filter_warranty(array $filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->filter_warranty($company, $filters);
     }
 
     public function update_invoice($invoice_id, array $data)

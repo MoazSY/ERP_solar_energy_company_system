@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\FilterAgencyRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Order_list;
+use App\Models\Products;
 use App\Models\Solar_company;
 use App\Services\SolarCompanyManagerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SolarCompanyManager extends \App\Http\Controllers\Controller
 {
@@ -1071,7 +1073,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     }
 
     public function delete_assign_task(Request $request, $task_id)
-     {
+    {
         $validate = Validator::make(['task_id' => $task_id], [
             'task_id' => 'required|integer|exists:project_tasks,id',
         ]);
@@ -1087,7 +1089,7 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         }
 
         return response()->json(['message' => 'Assigned task deleted successfully']);
-     }
+    }
 
     public function filter_installation_tasks(Request $request)
     {
@@ -1166,41 +1168,35 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
             'customer_id' => 'sometimes|integer|exists:customers,id',
             'customer_first_name' => 'required_without:customer_id|string|max:255',
             'customer_last_name' => 'required_without:customer_id|string|max:255',
-            'customer_phone' => 'required_without:customer_id|unique:customers,phoneNumber|string|max:255',            
-            'customer_address'=>'sometimes|string|max:255',
+            'customer_phone' => 'required_without:customer_id|unique:customers,phoneNumber|string|max:255',
+            'customer_address' => 'sometimes|string|max:255',
             'products' => 'required_if:request_type,product_order,order|array',
             'products.*.id' => 'required_if:request_type,product_order,order|integer|exists:products,id',
             'products.*.quantity' => 'required_if:request_type,product_order,order|integer|min:1',
             'offer_id' => 'required_if:request_type,subscribe_offer|integer|exists:offers,id',
             'with_delivery' => 'required_if:request_type,product_order|boolean',
-            'calculated_delivery_fee'=>'required_if:request_type,product_order|numeric|min:0',
-            'payment_method'=>'sometimes|string|in:bank_transfer,cash',
-            'with_installation'=>'required_if:request_type,subscribe_offer|boolean',
-
+            'calculated_delivery_fee' => 'required_if:request_type,product_order|numeric|min:0',
+            'payment_method' => 'sometimes|string|in:bank_transfer,cash',
+            'with_installation' => 'required_if:request_type,subscribe_offer|boolean',
             // metainence request
-
-            'metainence_type'=> 'sometimes|string|in:preventive,corrective,warranty,upgrade',
-            'issue_category'=>'sometimes|string|in:inverter,solar_panel,battery,fullsystem,other',
-            'priority'=> 'sometimes|string|in:low,medium,high',
-            'issue_description'=>'sometimes|string|max:255',
-            'manager_notes'=>'sometimes|string',
-            'metainence_scheduled_at'=> 'sometimes|date|after_or_equal:today',
-            'system_sn'=>'sometimes|string|max:255',
-            'warranty_number'=>'sometimes|string|max:255',
-            'estimated_cost'=>'sometimes|numeric|min:0',
-            'final_cost'=>'sometimes|numeric|min:0',
+            'metainence_type' => 'sometimes|string|in:preventive,corrective,warranty,upgrade',
+            'issue_category' => 'sometimes|string|in:inverter,solar_panel,battery,fullsystem,other',
+            'priority' => 'sometimes|string|in:low,medium,high',
+            'issue_description' => 'sometimes|string|max:255',
+            'manager_notes' => 'sometimes|string',
+            'metainence_scheduled_at' => 'sometimes|date|after_or_equal:today',
+            'system_sn' => 'sometimes|string|max:255',
+            'warranty_number' => 'sometimes|string|max:255',
+            'estimated_cost' => 'sometimes|numeric|min:0',
+            'final_cost' => 'sometimes|numeric|min:0',
             // 'problem_name'=>'sometimes|string|max:255',
             // 'problem_cause'=>'sometimes|string|max:255',
-            'is_paid'=>'sometimes|boolean',
-
+            'is_paid' => 'sometimes|boolean',
             // inscpection request
-
-            'issue_description'=>'sometimes|string|max:255',
-            'inspection_price'=>'sometimes|numeric|min:0',
-            'expected_date'=>'sometimes|date',
-
+            'issue_description' => 'sometimes|string|max:255',
+            'inspection_price' => 'sometimes|numeric|min:0',
+            'expected_date' => 'sometimes|date',
             // invoice
-
             'due_date' => 'sometimes|date',
             'currency' => 'sometimes|string|in:USD,SY',
             'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
@@ -1221,31 +1217,113 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
         return response()->json([
             'message' => 'Inner sale registered successfully',
-
             'result' => $result,
         ], 201);
     }
 
-
     public function filter_inner_sales(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ البيع او حسب نوع الطلبية منظومة او منتجات منفردة
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_number' => 'sometimes|string',
+            'request_type' => 'sometimes|string|in:product_order,subscribe_offer,technical_inspection,maintenance',
+            'invoice_date_from' => 'sometimes|date',
+            'invoice_date_to' => 'sometimes|date|after_or_equal:invoice_date_from',
+            'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
+            'payment_method' => 'sometimes|string|in:bank_transfer,cash',
+            'buyer_name' => 'sometimes|string',
+            'buyer_phone' => 'sometimes|string',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'min_amount' => 'sometimes|numeric|min:0',
+            'max_amount' => 'sometimes|numeric|min:0|gte:min_amount',
+            'due_date_from' => 'sometimes|date',
+            'due_date_to' => 'sometimes|date|after_or_equal:due_date_from',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $sales = $this->solarCompanyManagerService->filter_inner_sales($filters);
+
+        if (isset($sales['error'])) {
+            return response()->json(['message' => $sales['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Inner sales filtered successfully',
+            'count' => count($sales),
+            'sales' => $sales,
+        ], 200);
     }
 
     public function create_warranty(Request $request)
     {
-        /*
-         * انشاء كفالة مرتبطة بالفاتورة مع تسجيل البيانات اللازمة لكل منتج مثل بطارية الواح انفرتر ان احتاجو وللمنظومة ككل
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'provider_name' => 'sometimes|string|max:255',
+            // 'project_serial_number' => 'sometimes|string|max:255',
+            'installation_warranty_years' => 'sometimes|numeric|min:0|max:99.9',
+            'project_warranty_terms' => 'sometimes|string',
+            'component_warranty_terms' => 'sometimes|string',
+            'warranty_source' => 'sometimes|string|in:manufacturer,installer,both',
+            'start_date' => 'sometimes|date',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->create_warranty($validate->validated());
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Warranty created successfully',
+            'warranty' => $result,
+        ], 201);
     }
 
     public function filter_warranty(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ الكفالة او حالة الكفالة منتهية ام لا او حسب نوع الطلبية منظومة او منتجات منفردة او حسب العميل
-         */
+        $validate = Validator::make($request->all(), [
+            'warranty_number' => 'sometimes|string',
+            'project_serial_number' => 'sometimes|string',
+            'invoice_id' => 'sometimes|integer|exists:purchase_invoices,id',
+            'invoice_number' => 'sometimes|string',
+            'customer_id' => 'sometimes|integer|exists:customers,id',
+            'customer_name' => 'sometimes|string',
+            'customer_phone' => 'sometimes|string',
+            'warranty_status' => 'sometimes|string|in:active,expired,void',
+            'warranty_source' => 'sometimes|string|in:manufacturer,installer,both',
+            'component_type' => ['sometimes', Rule::in(Products::TYPES)],
+            'product_name' => 'sometimes|string',
+            'product_serial_number' => 'sometimes|string',
+            'request_type' => 'sometimes|string|in:product_order,subscribe_offer,technical_inspection,maintenance',
+            'start_date_from' => 'sometimes|date',
+            'start_date_to' => 'sometimes|date|after_or_equal:start_date_from',
+            'end_date_from' => 'sometimes|date',
+            'end_date_to' => 'sometimes|date|after_or_equal:end_date_from',
+            'is_expired' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $warranties = $this->solarCompanyManagerService->filter_warranty($validate->validated());
+
+        if (isset($warranties['error'])) {
+            return response()->json(['message' => $warranties['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Warranties filtered successfully',
+            'count' => count($warranties),
+            'warranties' => $warranties,
+        ], 200);
     }
 
     public function add_project_to_company_protofolio(Request $request)

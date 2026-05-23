@@ -83,18 +83,21 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('show_public_customer_requests', [SolarCompanyManager::class, 'show_public_customer_requests'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('create_invoice', [SolarCompanyManager::class, 'create_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('proccess_technical_inspection_request', [SolarCompanyManager::class, 'proccess_technical_inspection_request'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::get('show_mantainance_requests',[SolarCompanyManager::class,'show_mantainance_requests'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_mantainance_requests', [SolarCompanyManager::class, 'show_mantainance_requests'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('proccess_mantainance_request', [SolarCompanyManager::class, 'proccess_mantainance_request'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::post('assign_delivery_task_customer_request',[SolarCompanyManager::class,'assign_delivery_task_customer_request'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('assign_delivery_task_customer_request', [SolarCompanyManager::class, 'assign_delivery_task_customer_request'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('filter_invoices', [SolarCompanyManager::class, 'filter_invoices'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('update_invoice/{invoice_id}', [SolarCompanyManager::class, 'update_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('delete_invoice/{invoice_id}', [SolarCompanyManager::class, 'delete_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::post('assign_installation_task',[SolarCompanyManager::class,'assign_installation_task'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('assign_installation_task', [SolarCompanyManager::class, 'assign_installation_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('delete_assign_task/{task_id}', [SolarCompanyManager::class, 'delete_assign_task'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('filter_installation_tasks', [SolarCompanyManager::class, 'filter_installation_tasks'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('extract_orderlist_request', [SolarCompanyManager::class, 'extract_orderlist_request'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::get('show_conflict_agency_invoice',[SolarCompanyManager::class,'show_conflict_agency_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
-    Route::post('register_inner_sales',[SolarCompanyManager::class,'register_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);  
+    Route::get('show_conflict_agency_invoice', [SolarCompanyManager::class, 'show_conflict_agency_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('register_inner_sales', [SolarCompanyManager::class, 'register_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('filter_inner_sales', [SolarCompanyManager::class, 'filter_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('create_warranty', [SolarCompanyManager::class, 'create_warranty'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('filter_warranty', [SolarCompanyManager::class, 'filter_warranty'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

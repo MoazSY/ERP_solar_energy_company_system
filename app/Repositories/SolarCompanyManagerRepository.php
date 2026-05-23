@@ -1240,6 +1240,124 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $inspection_request;
     }
 
+    public function create_warranty($company, array $data)
+    {
+        return DB::transaction(function () use ($company, $data) {
+            $invoice = Purchase_invoice::query()
+                ->where('seller_entity_type', Solar_company::class)
+                ->where('seller_entity_id', $company->id)
+                ->with(['orderList.Items.product.batteries', 'orderList.Items.product.inverters', 'orderList.Items.product.solarPanals', 'object_entity'])
+                ->find($data['invoice_id']);
+
+            if (!$invoice) {
+                return ['error' => 'Invoice not found or does not belong to your company'];
+            }
+
+            if (Project_warranties::where('invoice_id', $invoice->id)->exists()) {
+                return ['error' => 'Warranty already created for this invoice'];
+            }
+
+            $outputRequest = $invoice
+                ->input_output_requests()
+                ->where('request_type', 'output')
+                ->where('status', 'ready')
+                ->latest('id')
+                ->first();
+
+            if (!$outputRequest) {
+                return ['error' => 'Cannot create warranty before warehouse output request is created'];
+            }
+
+            if ($outputRequest->status === 'problem') {
+                return ['error' => 'Cannot create warranty because warehouse output request has problem status'];
+            }
+
+            $items = collect();
+            $projectSerialNumber = $this->generateProjectSerialNumber();
+            $installationWarrantyYears = (float) ($data['installation_warranty_years'] ?? 0);
+            $subscription = null;
+
+            if ($invoice->object_entity_type === Order_list::class) {
+                $orderList = $invoice->orderList ?: $invoice->object_entity;
+
+                if (!$orderList) {
+                    return ['error' => 'Order list not found for this invoice'];
+                }
+
+                $orderList->loadMissing(['Items.product.batteries', 'Items.product.inverters', 'Items.product.solarPanals']);
+                $items = $orderList->Items ?? collect();
+            } elseif ($invoice->object_entity_type === Subscribe_offer::class) {
+                $subscription = $invoice->object_entity;
+
+                if (!$subscription) {
+                    return ['error' => 'Offer subscription not found for this invoice'];
+                }
+
+                $subscription->loadMissing(['offer.Items.product.batteries', 'offer.Items.product.inverters', 'offer.Items.product.solarPanals', 'customer']);
+                $items = $subscription->offer?->Items ?? collect();
+
+                if (empty($projectSerialNumber)) {
+                    $projectSerialNumber = $subscription->system_sn;
+                }
+
+                if (!array_key_exists('installation_warranty_years', $data) && $subscription->with_installation) {
+                    $installationWarrantyYears = 1.0;
+                }
+            } else {
+                return ['error' => 'Warranty creation is supported only for product orders and offer subscriptions'];
+            }
+
+            if ($items->isEmpty()) {
+                return ['error' => 'No items found to create component warranties'];
+            }
+
+            $startDate = !empty($data['start_date'])
+                ? Carbon::parse($data['start_date'])->startOfDay()
+                : now()->startOfDay();
+
+            $projectWarranty = Project_warranties::create([
+                'invoice_id' => $invoice->id,
+                'customer_id' => $invoice->buyer_entity_type === Customer::class
+                    ? $invoice->buyer_entity_id
+                    : ($subscription?->customer_id ?? null),
+                'customer_name' => $invoice->buyer_name ?: $subscription?->customer_name,
+                'company_id' => $company->id,
+                'provider_name' => $data['provider_name'] ?? $company->company_name,
+                'warranty_status' => 'active',
+                'warranty_number' => $this->generateProjectWarrantyNumber(),
+                'project_serial_number' => $projectSerialNumber,
+                'warranty_terms' => $data['project_warranty_terms'] ?? null,
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $this->resolveWarrantyEndDate($startDate, $installationWarrantyYears),
+                'installation_warranty_years' => $installationWarrantyYears,
+            ]);
+
+            foreach ($items as $item) {
+                $years = $this->resolveComponentWarrantyYears($item);
+
+                $projectWarranty->componentWarranties()->create([
+                    'project_warranty_id' => $projectWarranty->id,
+                    'item_id' => $item->id,
+                    'company_id' => $company->id,
+                    'customer_id' => $projectWarranty->customer_id,
+                    'customer_name' => $projectWarranty->customer_name,
+                    'provider_name' => $projectWarranty->provider_name,
+                    'component_type' => $item->product?->product_type,
+                    'warranty_years' => $years,
+                    'warranty_terms' => $data['component_warranty_terms'] ?? null,
+                    'product_name' => $item->item_name_snapshot ?: ($item->product?->product_name ?? 'Unknown product'),
+                    'product_serial_number' => $this->resolveFirstSerialNumber($item->serial_numbers),
+                    'warranty_status' => 'active',
+                    'warranty_source' => $data['warranty_source'] ?? 'manufacturer',
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $this->resolveWarrantyEndDate($startDate, $years),
+                ]);
+            }
+
+            return $projectWarranty->load(['invoice', 'customer', 'company', 'componentWarranties.item.product']);
+        });
+    }
+
     public function filter_invoices($company, array $filters)
     {
         $query = Purchase_invoice::query()
@@ -1247,37 +1365,30 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->where('seller_entity_id', $company->id)
             ->with(['seller_entity', 'buyer_entity', 'object_entity', 'payments']);
 
-        // فلترة رقم الفاتورة
         if (!empty($filters['invoice_number'])) {
             $query->where('invoice_number', 'like', '%' . $filters['invoice_number'] . '%');
         }
 
-        // فلترة تاريخ الفاتورة (من)
         if (!empty($filters['invoice_date_from'])) {
             $query->whereDate('invoice_date', '>=', $filters['invoice_date_from']);
         }
 
-        // فلترة تاريخ الفاتورة (إلى)
         if (!empty($filters['invoice_date_to'])) {
             $query->whereDate('invoice_date', '<=', $filters['invoice_date_to']);
         }
 
-        // فلترة حالة الدفع
         if (!empty($filters['payment_status'])) {
             $query->where('payment_status', $filters['payment_status']);
         }
 
-        // فلترة اسم العميل
         if (!empty($filters['buyer_name'])) {
             $query->where('buyer_name', 'like', '%' . $filters['buyer_name'] . '%');
         }
 
-        // فلترة رقم هاتف العميل
         if (!empty($filters['buyer_phone'])) {
             $query->where('buyer_phone', 'like', '%' . $filters['buyer_phone'] . '%');
         }
 
-        // فلترة نوع الطلبية
         if (!empty($filters['request_type'])) {
             $requestType = strtolower((string) $filters['request_type']);
             $typeMapping = [
@@ -1287,24 +1398,254 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'technical_inspection' => 'App\Models\Technical_inspection_request',
                 'maintenance' => 'App\Models\Metainence_request',
             ];
+
             if (isset($typeMapping[$requestType])) {
                 $query->where('object_entity_type', $typeMapping[$requestType]);
             }
         }
 
-        // فلترة العملة
         if (!empty($filters['currency'])) {
             $query->where('currency', $filters['currency']);
         }
 
-        // فلترة الحد الأدنى للمبلغ
         if (!empty($filters['min_amount'])) {
             $query->where('total_amount', '>=', $filters['min_amount']);
         }
 
-        // فلترة الحد الأقصى للمبلغ
         if (!empty($filters['max_amount'])) {
             $query->where('total_amount', '<=', $filters['max_amount']);
+        }
+
+        return $query->latest('id')->get()->map(function (Purchase_invoice $invoice) {
+            $requestTypeName = $this->getRequestTypeName($invoice->object_entity_type);
+
+            return [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_date' => $invoice->invoice_date,
+                'due_date' => $invoice->due_date,
+                'buyer_name' => $invoice->buyer_name,
+                'buyer_phone' => $invoice->buyer_phone,
+                'buyer_entity' => $invoice->buyer_entity ? $invoice->buyer_entity->getAttributes() : null,
+                'seller_entity' => $invoice->seller_entity ? $invoice->seller_entity->getAttributes() : null,
+                'request_type' => $requestTypeName,
+                'object_entity_type' => $invoice->object_entity_type,
+                'object_entity' => $invoice->object_entity ? $invoice->object_entity->getAttributes() : null,
+                'subtotal' => $invoice->subtotal,
+                'total_discount' => $invoice->total_discount,
+                'delivery_fee' => $invoice->delivery_fee,
+                'installation_fee' => $invoice->installation_fee,
+                'total_amount' => $invoice->total_amount,
+                'currency' => $invoice->currency,
+                'payment_status' => $invoice->payment_status,
+                'payment_method' => $invoice->payment_method,
+                'consumables_amount' => $invoice->consumables_amount,
+                'net_profit' => $invoice->net_profit,
+                'payments_count' => $invoice->payments->count(),
+                'total_paid' => $invoice->payments->where('status', 'paid')->sum('amount'),
+                'created_at' => $invoice->created_at,
+                'updated_at' => $invoice->updated_at,
+            ];
+        })->values();
+    }
+
+    public function filter_warranty($company, array $filters)
+    {
+        $query = Project_warranties::query()
+            ->where('company_id', $company->id)
+            ->with([
+                'invoice',
+                'customer',
+                'company',
+                'componentWarranties.item.product',
+            ]);
+
+        if (!empty($filters['warranty_number'])) {
+            $query->where('warranty_number', 'like', '%' . $filters['warranty_number'] . '%');
+        }
+
+        if (!empty($filters['project_serial_number'])) {
+            $query->where('project_serial_number', 'like', '%' . $filters['project_serial_number'] . '%');
+        }
+
+        if (!empty($filters['invoice_id'])) {
+            $query->where('invoice_id', $filters['invoice_id']);
+        }
+
+        if (!empty($filters['invoice_number'])) {
+            $query->whereHas('invoice', function ($invoiceQuery) use ($filters) {
+                $invoiceQuery->where('invoice_number', 'like', '%' . $filters['invoice_number'] . '%');
+            });
+        }
+
+        if (!empty($filters['customer_id'])) {
+            $query->where('customer_id', $filters['customer_id']);
+        }
+
+        if (!empty($filters['customer_name'])) {
+            $query->where('customer_name', 'like', '%' . $filters['customer_name'] . '%');
+        }
+
+        if (!empty($filters['customer_phone'])) {
+            $query->whereHas('invoice', function ($invoiceQuery) use ($filters) {
+                $invoiceQuery->where('buyer_phone', 'like', '%' . $filters['customer_phone'] . '%');
+            });
+        }
+
+        if (!empty($filters['request_type'])) {
+            $requestTypeMap = [
+                'product_order' => Order_list::class,
+                'subscribe_offer' => Subscribe_offer::class,
+                'technical_inspection' => Technical_inspection_request::class,
+                'maintenance' => Metainence_request::class,
+            ];
+
+            if (isset($requestTypeMap[$filters['request_type']])) {
+                $query->whereHas('invoice', function ($invoiceQuery) use ($requestTypeMap, $filters) {
+                    $invoiceQuery->where('object_entity_type', $requestTypeMap[$filters['request_type']]);
+                });
+            }
+        }
+
+        if (!empty($filters['warranty_status'])) {
+            $query->where('warranty_status', $filters['warranty_status']);
+        }
+
+        if (isset($filters['is_expired'])) {
+            if ($filters['is_expired']) {
+                $query->where(function ($warrantyQuery) {
+                    $warrantyQuery
+                        ->where('warranty_status', 'expired')
+                        ->orWhere(function ($dateQuery) {
+                            $dateQuery
+                                ->whereNotNull('end_date')
+                                ->whereDate('end_date', '<', now()->toDateString());
+                        });
+                });
+            } else {
+                $query->where(function ($warrantyQuery) {
+                    $warrantyQuery
+                        ->where('warranty_status', 'active')
+                        ->where(function ($dateQuery) {
+                            $dateQuery
+                                ->whereNull('end_date')
+                                ->orWhereDate('end_date', '>=', now()->toDateString());
+                        });
+                });
+            }
+        }
+
+        if (!empty($filters['warranty_source'])) {
+            $query->whereHas('componentWarranties', function ($componentQuery) use ($filters) {
+                $componentQuery->where('warranty_source', $filters['warranty_source']);
+            });
+        }
+
+        if (!empty($filters['component_type'])) {
+            $query->whereHas('componentWarranties', function ($componentQuery) use ($filters) {
+                $componentQuery->where('component_type', 'like', '%' . $filters['component_type'] . '%');
+            });
+        }
+
+        if (!empty($filters['product_name'])) {
+            $query->whereHas('componentWarranties', function ($componentQuery) use ($filters) {
+                $componentQuery->where('product_name', 'like', '%' . $filters['product_name'] . '%');
+            });
+        }
+
+        if (!empty($filters['product_serial_number'])) {
+            $query->whereHas('componentWarranties', function ($componentQuery) use ($filters) {
+                $componentQuery->where('product_serial_number', 'like', '%' . $filters['product_serial_number'] . '%');
+            });
+        }
+
+        if (!empty($filters['start_date_from'])) {
+            $query->whereDate('start_date', '>=', $filters['start_date_from']);
+        }
+
+        if (!empty($filters['start_date_to'])) {
+            $query->whereDate('start_date', '<=', $filters['start_date_to']);
+        }
+
+        if (!empty($filters['end_date_from'])) {
+            $query->whereDate('end_date', '>=', $filters['end_date_from']);
+        }
+
+        if (!empty($filters['end_date_to'])) {
+            $query->whereDate('end_date', '<=', $filters['end_date_to']);
+        }
+
+        return $query->latest('id')->get();
+    }
+
+    public function filter_inner_sales($company, array $filters)
+    {
+        $innerSalesTypes = [
+            'subscribe_offer' => 'App\Models\Subscribe_offer',
+            'product_order' => 'App\Models\Order_list',
+            'technical_inspection' => 'App\Models\Technical_inspection_request',
+            'maintenance' => 'App\Models\Metainence_request',
+        ];
+
+        $query = Purchase_invoice::query()
+            ->where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->whereIn('object_entity_type', array_values($innerSalesTypes))
+            ->with(['seller_entity', 'buyer_entity', 'object_entity', 'payments']);
+
+        if (!empty($filters['invoice_number'])) {
+            $query->where('invoice_number', 'like', '%' . $filters['invoice_number'] . '%');
+        }
+
+        if (!empty($filters['invoice_date_from'])) {
+            $query->whereDate('invoice_date', '>=', $filters['invoice_date_from']);
+        }
+
+        if (!empty($filters['invoice_date_to'])) {
+            $query->whereDate('invoice_date', '<=', $filters['invoice_date_to']);
+        }
+
+        if (!empty($filters['due_date_from'])) {
+            $query->whereDate('due_date', '>=', $filters['due_date_from']);
+        }
+
+        if (!empty($filters['due_date_to'])) {
+            $query->whereDate('due_date', '<=', $filters['due_date_to']);
+        }
+
+        if (!empty($filters['payment_status'])) {
+            $query->where('payment_status', $filters['payment_status']);
+        }
+
+        if (!empty($filters['payment_method'])) {
+            $query->where('payment_method', $filters['payment_method']);
+        }
+
+        if (!empty($filters['buyer_name'])) {
+            $query->where('buyer_name', 'like', '%' . $filters['buyer_name'] . '%');
+        }
+
+        if (!empty($filters['buyer_phone'])) {
+            $query->where('buyer_phone', 'like', '%' . $filters['buyer_phone'] . '%');
+        }
+
+        if (!empty($filters['currency'])) {
+            $query->where('currency', $filters['currency']);
+        }
+
+        if (!empty($filters['min_amount'])) {
+            $query->where('total_amount', '>=', $filters['min_amount']);
+        }
+
+        if (!empty($filters['max_amount'])) {
+            $query->where('total_amount', '<=', $filters['max_amount']);
+        }
+
+        if (!empty($filters['request_type'])) {
+            $requestedType = strtolower((string) $filters['request_type']);
+            if (isset($innerSalesTypes[$requestedType])) {
+                $query->where('object_entity_type', $innerSalesTypes[$requestedType]);
+            }
         }
 
         return $query->latest('id')->get()->map(function (Purchase_invoice $invoice) {
@@ -1350,6 +1691,79 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'App\Models\Metainence_request' => 'maintenance',
         ];
         return $typeNames[$type] ?? 'unknown';
+    }
+
+    private function resolveComponentWarrantyYears($item): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0;
+        }
+
+        if ($product->product_type === 'battery') {
+            return (float) ($product->batteries?->warranty_years ?? 0);
+        }
+
+        if ($product->product_type === 'inverter') {
+            return (float) ($product->inverters?->warranty_years ?? 0);
+        }
+
+        if ($product->product_type === 'solar_panel') {
+            return (float) ($product->solarPanals?->warranty_years ?? 0);
+        }
+
+        return 0;
+    }
+
+    private function resolveWarrantyEndDate(Carbon $startDate, float $years): ?string
+    {
+        if ($years <= 0) {
+            return null;
+        }
+
+        $wholeYears = (int) floor($years);
+        $months = (int) round(($years - $wholeYears) * 12);
+
+        return $startDate->copy()->addYears($wholeYears)->addMonths($months)->toDateString();
+    }
+
+    private function resolveFirstSerialNumber($serialNumbers): ?string
+    {
+        if (is_array($serialNumbers) && !empty($serialNumbers)) {
+            return (string) $serialNumbers[0];
+        }
+
+        if (is_string($serialNumbers)) {
+            $decoded = json_decode($serialNumbers, true);
+            if (is_array($decoded) && !empty($decoded)) {
+                return (string) $decoded[0];
+            }
+
+            return trim($serialNumbers) !== '' ? $serialNumbers : null;
+        }
+
+        return null;
+    }
+
+    private function generateProjectWarrantyNumber(): string
+    {
+        do {
+            $candidate = 'WR-' . now()->format('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+        } while (Project_warranties::where('warranty_number', $candidate)->exists());
+
+        return $candidate;
+    }
+
+    private function generateProjectSerialNumber(): string
+    {
+        $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $serialNumber = '';
+
+        for ($index = 0; $index < 10; $index++) {
+            $serialNumber .= $characters[random_int(0, strlen($characters) - 1)];
+        }
+
+        return $serialNumber;
     }
 
     public function update_invoice($company, $invoice_id, array $data)

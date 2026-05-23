@@ -41,6 +41,9 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_conflict_agency_invoice($company);
     public function proccess_technical_inspection_request($request, $inspection_request, $company);
     public function filter_invoices($company, array $filters);
+    public function filter_inner_sales($company, array $filters);
+    public function create_warranty($company, array $data);
+    public function filter_warranty($company, array $filters);
     public function update_invoice($company, $invoice_id, array $data);
     public function delete_invoice($company, $invoice_id);
     public function proccess_mantainance_request($request, $mantainance_request, $company);
