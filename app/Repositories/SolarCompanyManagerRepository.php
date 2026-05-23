@@ -1360,7 +1360,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function show_ready_output_requests($company)
     {
-        return $company
+        $requests = $company
             ->input_output_requests()
             ->where('request_type', 'output')
             ->where('status', 'ready')
@@ -1378,6 +1378,28 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->latest('ready_datetime')
             ->latest('id')
             ->get();
+
+        $invoiceIds = $requests
+            ->pluck('invoice_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $warrantyInvoiceIds = Project_warranties::query()
+            ->whereIn('invoice_id', $invoiceIds)
+            ->pluck('invoice_id')
+            ->all();
+
+        $warrantyLookup = array_flip($warrantyInvoiceIds);
+
+        return $requests->map(function ($request) use ($warrantyLookup) {
+            return [
+                'output_request' => $request,
+                'has_warranty' => $request->invoice_id
+                    ? isset($warrantyLookup[$request->invoice_id])
+                    : false,
+            ];
+        });
     }
 
     public function filter_invoices($company, array $filters)
