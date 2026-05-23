@@ -43,9 +43,11 @@ interface SolarCompanyManagerRepositoryInterface
     public function filter_invoices($company, array $filters);
     public function filter_inner_sales($company, array $filters);
     public function create_warranty($company, array $data);
+    public function show_ready_output_requests($company);
     public function filter_warranty($company, array $filters);
     public function update_invoice($company, $invoice_id, array $data);
     public function delete_invoice($company, $invoice_id);
+    public function add_project_to_company_protofolio($company, array $data);
     public function proccess_mantainance_request($request, $mantainance_request, $company);
     public function delete_assign_task($company, $task_id);
     public function filter_installation_tasks($company, array $filters);

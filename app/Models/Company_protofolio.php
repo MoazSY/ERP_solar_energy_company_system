@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Model;
 
 class Company_protofolio extends Model
 {
@@ -30,10 +30,19 @@ class Company_protofolio extends Model
         'project_task_id',
     ];
 
+    protected $casts = [
+        'project_images' => 'array',
+        'project_videos' => 'array',
+        'installation_date' => 'date',
+        'is_featured' => 'boolean',
+        'customer_satisfaction' => 'integer',
+    ];
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Solar_company::class, 'company_id');
     }
+
     public function projectTask(): BelongsTo
     {
         return $this->belongsTo(Project_task::class, 'project_task_id');

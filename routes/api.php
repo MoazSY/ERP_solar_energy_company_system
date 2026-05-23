@@ -96,8 +96,10 @@ Route::middleware('check_company_manager')->group(function () {
     Route::get('show_conflict_agency_invoice', [SolarCompanyManager::class, 'show_conflict_agency_invoice'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('register_inner_sales', [SolarCompanyManager::class, 'register_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('filter_inner_sales', [SolarCompanyManager::class, 'filter_inner_sales'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::get('show_ready_output_requests', [SolarCompanyManager::class, 'show_ready_output_requests'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('create_warranty', [SolarCompanyManager::class, 'create_warranty'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('filter_warranty', [SolarCompanyManager::class, 'filter_warranty'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('add_project_to_company_protofolio', [SolarCompanyManager::class, 'add_project_to_company_protofolio'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

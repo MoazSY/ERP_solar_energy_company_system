@@ -26,6 +26,7 @@ use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class SolarCompanyManagerService
@@ -1747,6 +1748,18 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->filter_inner_sales($company, $filters);
     }
 
+    public function show_ready_output_requests()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_ready_output_requests($company);
+    }
+
     public function create_warranty(array $data)
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;
@@ -1793,5 +1806,154 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->delete_invoice($company, $invoice_id);
+    }
+
+    public function add_project_to_company_protofolio($request, array $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $projectTask = null;
+        if (!empty($data['project_task_id'])) {
+            $projectTask = $company
+                ->projectTasks()
+                ->with(['taskable', 'customerRateFeedbacks'])
+                ->find($data['project_task_id']);
+
+            if (!$projectTask) {
+                return ['error' => 'project task not found or does not belong to your company'];
+            }
+        }
+
+        $taskImages = $this->extractTaskImages($projectTask?->task_images);
+        $avgRating = $projectTask
+            ? (float) $projectTask->customerRateFeedbacks()->avg('rate')
+            : null;
+        $normalizedRating = $avgRating !== null
+            ? max(1, min(5, (int) round($avgRating)))
+            : null;
+
+        $defaults = [
+            'project_name' => $projectTask ? 'Project #' . $projectTask->id : null,
+            'title' => $projectTask ? Str::headline((string) ($projectTask->task_type ?? 'installation')) . ' Project' : null,
+            'description' => $projectTask
+                ? ($projectTask->manager_notes ?: $projectTask->employee_notes ?: ('Project created from task #' . $projectTask->id))
+                : null,
+            'project_status' => $this->normalizePortfolioStatus($projectTask?->task_status),
+            'project_type' => 'residential',
+            'location' => null,
+            'project_size' => 'small',
+            'system_type' => $this->extractSystemTypeFromTask($projectTask),
+            'capacity_kw' => 0,
+            'total_cost' => $projectTask?->task_fee ?? 0,
+            'installation_date' => $projectTask?->completed_at ?? $projectTask?->sheduled_at,
+            'project_cover_image' => null,
+            'project_images' => $taskImages,
+            'project_videos' => [],
+            'customer_satisfaction' => $normalizedRating ?? 5,
+            'is_featured' => false,
+            'project_task_id' => $projectTask?->id,
+        ];
+
+        $payload = array_merge($defaults, $data);
+
+        foreach (['project_name', 'title', 'description'] as $requiredField) {
+            if (empty($payload[$requiredField])) {
+                return ['error' => $requiredField . ' is required (or provide project_task_id with enough data)'];
+            }
+        }
+
+        if ($request->hasFile('project_cover_image')) {
+            $cover = $request->file('project_cover_image');
+            $coverPath = $cover->storeAs('CompanyManager/protofolio/images', $cover->getClientOriginalName(), 'public');
+            $payload['project_cover_image'] = $coverPath;
+        }
+
+        if ($request->hasFile('project_images')) {
+            $projectImages = [];
+            foreach ((array) $request->file('project_images') as $image) {
+                $projectImages[] = $image->storeAs('CompanyManager/protofolio/images', $image->getClientOriginalName(), 'public');
+            }
+            $payload['project_images'] = $projectImages;
+        }
+
+        if ($request->hasFile('project_videos')) {
+            $projectVideos = [];
+            foreach ((array) $request->file('project_videos') as $video) {
+                $projectVideos[] = $video->storeAs('CompanyManager/protofolio/videos', $video->getClientOriginalName(), 'public');
+            }
+            $payload['project_videos'] = $projectVideos;
+        }
+
+        if (empty($payload['project_cover_image']) && !empty($payload['project_images'][0])) {
+            $payload['project_cover_image'] = $payload['project_images'][0];
+        }
+
+        $portfolio = $this->solarCompanyManagerRepositoryInterface->add_project_to_company_protofolio($company, $payload);
+
+        return [
+            'portfolio' => $portfolio,
+            'project_cover_image' => $portfolio->project_cover_image ? asset('storage/' . $portfolio->project_cover_image) : null,
+            'project_images' => collect($portfolio->project_images ?? [])->map(function ($path) {
+                return asset('storage/' . $path);
+            })->values()->all(),
+            'project_videos' => collect($portfolio->project_videos ?? [])->map(function ($path) {
+                return asset('storage/' . $path);
+            })->values()->all(),
+        ];
+    }
+
+    private function normalizePortfolioStatus(?string $taskStatus): string
+    {
+        return match (strtolower((string) $taskStatus)) {
+            'completed' => 'completed',
+            'in_progress' => 'in_progress',
+            default => 'pending',
+        };
+    }
+
+    private function extractTaskImages($taskImages): array
+    {
+        if (is_array($taskImages)) {
+            return array_values(array_filter($taskImages));
+        }
+
+        if (is_string($taskImages)) {
+            $decoded = json_decode($taskImages, true);
+            if (is_array($decoded)) {
+                return array_values(array_filter($decoded));
+            }
+
+            return trim($taskImages) !== '' ? [trim($taskImages)] : [];
+        }
+
+        return [];
+    }
+
+    private function extractSystemTypeFromTask($projectTask): string
+    {
+        if (!$projectTask || !$projectTask->taskable) {
+            return 'off_grid';
+        }
+
+        $taskable = $projectTask->taskable;
+
+        if ($taskable instanceof Purchase_invoice && $taskable->object_entity_type === Subscribe_offer::class) {
+            $taskable->loadMissing('object_entity.offer');
+            $systemType = $taskable->object_entity?->offer?->system_type;
+
+            return match ($systemType) {
+                'on_grid' => 'grid_tied',
+                'off_grid' => 'off_grid',
+                'hybrid' => 'hybrid',
+                default => 'off_grid',
+            };
+        }
+
+        return 'off_grid';
     }
 }

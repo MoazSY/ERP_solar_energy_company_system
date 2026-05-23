@@ -1257,6 +1257,27 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 200);
     }
 
+    public function show_ready_output_requests()
+    {
+        $requests = $this->solarCompanyManagerService->show_ready_output_requests();
+
+        if (isset($requests['error'])) {
+            return response()->json(['message' => $requests['error']], 404);
+        }
+
+        if ($requests->isEmpty()) {
+            return response()->json([
+                'message' => 'No ready output requests found',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Ready output requests retrieved successfully',
+            'data' => $requests,
+        ], 200);
+    }
+
     public function create_warranty(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -1328,11 +1349,45 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function add_project_to_company_protofolio(Request $request)
     {
-        /*
-         * اضافة مشروع الى بورتفوليو الشركة لعرضه في صفحة البورتفوليو في الموقع
-         * يتم اضافة المشروع مع كافة التفاصيل المتعلقة به من نوع المنظومة والاحمال المطلوبة والموقع الجغرافي للمشروع وصور المشروع قبل وبعد التنفيذ واي مرفقات اخرى متعلقة بالمشروع
-         * واراء العملاء وتقيماتهم
-         */
+        $validate = Validator::make($request->all(), [
+            'project_task_id' => 'sometimes|nullable|integer|exists:project_tasks,id',
+            'project_name' => 'sometimes|string|max:255',
+            'title' => 'sometimes|string|max:255',
+            'description' => 'sometimes|string',
+            'project_status' => 'sometimes|string|in:completed,in_progress,pending',
+            'project_type' => 'sometimes|string|in:residential,commercial,industrial',
+            'location' => 'sometimes|nullable|string|max:255',
+            'project_size' => 'sometimes|string|in:small,medium,large',
+            'system_type' => 'sometimes|string|in:grid_tied,off_grid,hybrid',
+            'capacity_kw' => 'sometimes|nullable|numeric|min:0',
+            'total_cost' => 'sometimes|nullable|numeric|min:0',
+            'installation_date' => 'sometimes|nullable|date',
+            'project_cover_image' => 'sometimes|nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'project_images' => 'sometimes|array',
+            'project_images.*' => 'sometimes|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'project_videos' => 'sometimes|array',
+            'project_videos.*' => 'sometimes|file|mimes:mp4,mov,mkv,avi,webm|max:20480',
+            'customer_satisfaction' => 'sometimes|nullable|integer|in:1,2,3,4,5',
+            'is_featured' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->add_project_to_company_protofolio($request, $validate->validated());
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Project added to company portfolio successfully',
+            'portfolio' => $result['portfolio'],
+            'project_cover_image' => $result['project_cover_image'],
+            'project_images' => $result['project_images'],
+            'project_videos' => $result['project_videos'],
+        ], 201);
     }
 
     public function show_company_protofolio()

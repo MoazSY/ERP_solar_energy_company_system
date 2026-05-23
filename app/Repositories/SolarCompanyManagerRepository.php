@@ -1358,6 +1358,28 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         });
     }
 
+    public function show_ready_output_requests($company)
+    {
+        return $company
+            ->input_output_requests()
+            ->where('request_type', 'output')
+            ->where('status', 'ready')
+            ->with([
+                'inventoryManager',
+                'invoice.seller_entity',
+                'invoice.buyer_entity',
+                'invoice.object_entity',
+                'order.request_entity',
+                'order.orderable_entity',
+                'order.Items.product.inverters',
+                'order.Items.product.batteries',
+                'order.Items.product.solarPanals',
+            ])
+            ->latest('ready_datetime')
+            ->latest('id')
+            ->get();
+    }
+
     public function filter_invoices($company, array $filters)
     {
         $query = Purchase_invoice::query()
@@ -1821,6 +1843,33 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             }
             $invoice->delete();
             return ['success' => true];
+        });
+    }
+
+    public function add_project_to_company_protofolio($company, array $data)
+    {
+        return DB::transaction(function () use ($company, $data) {
+            $portfolio = $company->companyProtofolios()->create([
+                'project_name' => $data['project_name'],
+                'title' => $data['title'],
+                'description' => $data['description'],
+                'project_status' => $data['project_status'] ?? 'completed',
+                'project_type' => $data['project_type'] ?? 'residential',
+                'location' => $data['location'] ?? null,
+                'project_size' => $data['project_size'] ?? 'small',
+                'system_type' => $data['system_type'] ?? 'off_grid',
+                'capacity_kw' => $data['capacity_kw'] ?? 0,
+                'total_cost' => $data['total_cost'] ?? 0,
+                'installation_date' => $data['installation_date'] ?? null,
+                'project_cover_image' => $data['project_cover_image'] ?? null,
+                'project_images' => $data['project_images'] ?? [],
+                'project_videos' => $data['project_videos'] ?? [],
+                'customer_satisfaction' => $data['customer_satisfaction'] ?? 5,
+                'is_featured' => $data['is_featured'] ?? false,
+                'project_task_id' => $data['project_task_id'] ?? null,
+            ]);
+
+            return $portfolio->fresh(['projectTask.customerRateFeedbacks', 'company']);
         });
     }
 }
