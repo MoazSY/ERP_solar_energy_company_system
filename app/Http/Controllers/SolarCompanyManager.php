@@ -1390,33 +1390,109 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
         ], 201);
     }
 
-    public function show_company_protofolio()
-    {
-        /*
-         * رؤية بورتفوليو الشركة الذي يحتوي على المشاريع التي تم تنفيذها مع كافة التفاصيل المتعلقة بكل مشروع من نوع المنظومة والاحمال المطلوبة والموقع الجغرافي للمشروع وصور المشروع قبل وبعد التنفيذ واي مرفقات اخرى متعلقة بالمشروع واراء العملاء وتقيماتهم
-         */
-    }
+    // public function show_company_protofolio()
+    // {
+    //     /*
+    //      * رؤية بورتفوليو الشركة الذي يحتوي على المشاريع التي تم تنفيذها مع كافة التفاصيل المتعلقة بكل مشروع من نوع المنظومة والاحمال المطلوبة والموقع الجغرافي للمشروع وصور المشروع قبل وبعد التنفيذ واي مرفقات اخرى متعلقة بالمشروع واراء العملاء وتقيماتهم
+    //      */
+    // }
 
     public function filter_company_protofolio(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب نوع المنظومة او حسب الموقع الجغرافي للمشروع او حسب تقييم العملاء للمشروع او حسب تاريخ تنفيذ المشروع
-         */
+        $validate = Validator::make($request->all(), [
+            'project_task_id' => 'sometimes|integer|exists:project_tasks,id',
+            'project_name' => 'sometimes|string|max:255',
+            'title' => 'sometimes|string|max:255',
+            'project_status' => 'sometimes|string|in:completed,in_progress,pending',
+            'project_type' => 'sometimes|string|in:residential,commercial,industrial',
+            'system_type' => 'sometimes|string|in:grid_tied,off_grid,hybrid',
+            'location' => 'sometimes|string|max:255',
+            'customer_satisfaction' => 'sometimes|integer|in:1,2,3,4,5',
+            'min_capacity_kw' => 'sometimes|numeric|min:0',
+            'max_capacity_kw' => 'sometimes|numeric|min:0',
+            'min_total_cost' => 'sometimes|numeric|min:0',
+            'max_total_cost' => 'sometimes|numeric|min:0',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'is_featured' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->filter_company_protofolio($validate->validated());
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Company portfolio filtered successfully',
+            'portfolio' => $result,
+        ]);
     }
 
     public function update_company_protofolio(Request $request, $project_id)
     {
-        /*
-         * تعديل مشروع في بورتفوليو الشركة لعرضه في صفحة البورتفوليو في الموقع
-         * يتم تعديل المشروع مع كافة التفاصيل المتعلقة به من نوع المنظومة والاحمال المطلوبة والموقع الجغرافي للمشروع وصور المشروع قبل وبعد التنفيذ واي مرفقات اخرى متعلقة
-         */
+        $validate = Validator::make($request->all(), [
+            'project_task_id' => 'sometimes|nullable|integer|exists:project_tasks,id',
+            'project_name' => 'sometimes|string|max:255',
+            'title' => 'sometimes|string|max:255',
+            'description' => 'sometimes|string',
+            'project_status' => 'sometimes|string|in:completed,in_progress,pending',
+            'project_type' => 'sometimes|string|in:residential,commercial,industrial',
+            'location' => 'sometimes|nullable|string|max:255',
+            'project_size' => 'sometimes|string|in:small,medium,large',
+            'system_type' => 'sometimes|string|in:grid_tied,off_grid,hybrid',
+            'capacity_kw' => 'sometimes|nullable|numeric|min:0',
+            'total_cost' => 'sometimes|nullable|numeric|min:0',
+            'installation_date' => 'sometimes|nullable|date',
+            'project_cover_image' => 'sometimes|nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'project_images' => 'sometimes|array',
+            'project_images.*' => 'sometimes|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'project_videos' => 'sometimes|array',
+            'project_videos.*' => 'sometimes|file|mimes:mp4,mov,mkv,avi,webm|max:20480',
+            'customer_satisfaction' => 'sometimes|nullable|integer|in:1,2,3,4,5',
+            'is_featured' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->update_company_protofolio($request, $project_id, $validate->validated());
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Company portfolio updated successfully',
+            'portfolio' => $result['portfolio'],
+            'project_cover_image' => $result['project_cover_image'],
+            'project_images' => $result['project_images'],
+            'project_videos' => $result['project_videos'],
+        ]);
     }
 
     public function delete_company_protofolio($project_id)
     {
-        /*
-         * حذف مشروع من بورتفوليو الشركة لعرضه في صفحة البورتفوليو في الموقع
-         */
+        $validate = Validator::make(['project_id' => $project_id], [
+            'project_id' => 'required|integer|exists:company_protofolios,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->delete_company_protofolio($project_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json(['message' => 'Company portfolio deleted successfully']);
     }
 
     public function agency_rating(Request $request, $agency_id)

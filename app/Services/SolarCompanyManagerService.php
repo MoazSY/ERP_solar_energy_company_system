@@ -1845,11 +1845,11 @@ class SolarCompanyManagerService
                 : null,
             'project_status' => $this->normalizePortfolioStatus($projectTask?->task_status),
             'project_type' => 'residential',
-            'location' => null,
+            'location' => $projectTask->taskable->buyer_entity->addresses()->latest('id')->first()->address_description ?? null,
             'project_size' => 'small',
             'system_type' => $this->extractSystemTypeFromTask($projectTask),
             'capacity_kw' => 0,
-            'total_cost' => $projectTask?->task_fee ?? 0,
+            'total_cost' => $projectTask?->taskable->total_amount ?? 0,
             'installation_date' => $projectTask?->completed_at ?? $projectTask?->sheduled_at,
             'project_cover_image' => null,
             'project_images' => $taskImages,
@@ -1905,6 +1905,90 @@ class SolarCompanyManagerService
                 return asset('storage/' . $path);
             })->values()->all(),
         ];
+    }
+
+    public function filter_company_protofolio(array $filters)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->filter_company_protofolio($company, $filters);
+    }
+
+    public function update_company_protofolio($request, $project_id, array $data)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        if (!empty($data['project_task_id'])) {
+            $projectTask = $company->projectTasks()->find($data['project_task_id']);
+
+            if (!$projectTask) {
+                return ['error' => 'project task not found or does not belong to your company'];
+            }
+        }
+
+        if ($request->hasFile('project_cover_image')) {
+            $cover = $request->file('project_cover_image');
+            $data['project_cover_image'] = $cover->storeAs('CompanyManager/protofolio/images', $cover->getClientOriginalName(), 'public');
+        }
+
+        if ($request->hasFile('project_images')) {
+            $projectImages = [];
+            foreach ((array) $request->file('project_images') as $image) {
+                $projectImages[] = $image->storeAs('CompanyManager/protofolio/images', $image->getClientOriginalName(), 'public');
+            }
+            $data['project_images'] = $projectImages;
+        }
+
+        if ($request->hasFile('project_videos')) {
+            $projectVideos = [];
+            foreach ((array) $request->file('project_videos') as $video) {
+                $projectVideos[] = $video->storeAs('CompanyManager/protofolio/videos', $video->getClientOriginalName(), 'public');
+            }
+            $data['project_videos'] = $projectVideos;
+        }
+
+        if (empty($data['project_cover_image']) && !empty($data['project_images'][0])) {
+            $data['project_cover_image'] = $data['project_images'][0];
+        }
+
+        $portfolio = $this->solarCompanyManagerRepositoryInterface->update_company_protofolio($company, $project_id, $data);
+
+        if (isset($portfolio['error'])) {
+            return $portfolio;
+        }
+
+        return [
+            'portfolio' => $portfolio,
+            'project_cover_image' => $portfolio->project_cover_image ? asset('storage/' . $portfolio->project_cover_image) : null,
+            'project_images' => collect($portfolio->project_images ?? [])->map(function ($path) {
+                return asset('storage/' . $path);
+            })->values()->all(),
+            'project_videos' => collect($portfolio->project_videos ?? [])->map(function ($path) {
+                return asset('storage/' . $path);
+            })->values()->all(),
+        ];
+    }
+
+    public function delete_company_protofolio($project_id)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->delete_company_protofolio($company, $project_id);
     }
 
     private function normalizePortfolioStatus(?string $taskStatus): string

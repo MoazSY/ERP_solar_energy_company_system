@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\Metainence_request;
 use App\Models\Order_list;
 // use App\Models\Items;
+use App\Models\Company_protofolio;
 use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Project_warranties;
@@ -1892,6 +1893,112 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ]);
 
             return $portfolio->fresh(['projectTask.customerRateFeedbacks', 'company']);
+        });
+    }
+
+    public function filter_company_protofolio($company, array $filters)
+    {
+        $query = $company
+            ->companyProtofolios()
+            ->with(['projectTask.customerRateFeedbacks', 'projectTask.taskable'])
+            ->when(!empty($filters['project_task_id']), function ($query) use ($filters) {
+                $query->where('project_task_id', $filters['project_task_id']);
+            })
+            ->when(!empty($filters['project_name']), function ($query) use ($filters) {
+                $query->where('project_name', 'like', '%' . $filters['project_name'] . '%');
+            })
+            ->when(!empty($filters['title']), function ($query) use ($filters) {
+                $query->where('title', 'like', '%' . $filters['title'] . '%');
+            })
+            ->when(!empty($filters['project_status']), function ($query) use ($filters) {
+                $query->where('project_status', $filters['project_status']);
+            })
+            ->when(!empty($filters['project_type']), function ($query) use ($filters) {
+                $query->where('project_type', $filters['project_type']);
+            })
+            ->when(!empty($filters['system_type']), function ($query) use ($filters) {
+                $query->where('system_type', $filters['system_type']);
+            })
+            ->when(isset($filters['is_featured']), function ($query) use ($filters) {
+                $query->where('is_featured', (bool) $filters['is_featured']);
+            })
+            ->when(!empty($filters['location']), function ($query) use ($filters) {
+                $query->where('location', 'like', '%' . $filters['location'] . '%');
+            })
+            ->when(isset($filters['customer_satisfaction']), function ($query) use ($filters) {
+                $query->where('customer_satisfaction', (int) $filters['customer_satisfaction']);
+            })
+            ->when(isset($filters['min_capacity_kw']), function ($query) use ($filters) {
+                $query->where('capacity_kw', '>=', (float) $filters['min_capacity_kw']);
+            })
+            ->when(isset($filters['max_capacity_kw']), function ($query) use ($filters) {
+                $query->where('capacity_kw', '<=', (float) $filters['max_capacity_kw']);
+            })
+            ->when(isset($filters['min_total_cost']), function ($query) use ($filters) {
+                $query->where('total_cost', '>=', (float) $filters['min_total_cost']);
+            })
+            ->when(isset($filters['max_total_cost']), function ($query) use ($filters) {
+                $query->where('total_cost', '<=', (float) $filters['max_total_cost']);
+            })
+            ->when(!empty($filters['date_from']), function ($query) use ($filters) {
+                $query->whereDate('installation_date', '>=', $filters['date_from']);
+            })
+            ->when(!empty($filters['date_to']), function ($query) use ($filters) {
+                $query->whereDate('installation_date', '<=', $filters['date_to']);
+            });
+
+        return $query->latest('id')->get();
+    }
+
+    public function update_company_protofolio($company, $project_id, array $data)
+    {
+        return DB::transaction(function () use ($company, $project_id, $data) {
+            $portfolio = $company->companyProtofolios()->whereKey($project_id)->first();
+
+            if (!$portfolio) {
+                return ['error' => 'project portfolio not found or does not belong to your company'];
+            }
+
+            $portfolio->fill(array_filter([
+                'project_name' => $data['project_name'] ?? $portfolio->project_name,
+                'title' => $data['title'] ?? $portfolio->title,
+                'description' => $data['description'] ?? $portfolio->description,
+                'project_status' => $data['project_status'] ?? $portfolio->project_status,
+                'project_type' => $data['project_type'] ?? $portfolio->project_type,
+                'location' => array_key_exists('location', $data) ? $data['location'] : $portfolio->location,
+                'project_size' => $data['project_size'] ?? $portfolio->project_size,
+                'system_type' => $data['system_type'] ?? $portfolio->system_type,
+                'capacity_kw' => array_key_exists('capacity_kw', $data) ? $data['capacity_kw'] : $portfolio->capacity_kw,
+                'total_cost' => array_key_exists('total_cost', $data) ? $data['total_cost'] : $portfolio->total_cost,
+                'installation_date' => $data['installation_date'] ?? $portfolio->installation_date,
+                'project_cover_image' => array_key_exists('project_cover_image', $data) ? $data['project_cover_image'] : $portfolio->project_cover_image,
+                'project_images' => array_key_exists('project_images', $data) ? $data['project_images'] : $portfolio->project_images,
+                'project_videos' => array_key_exists('project_videos', $data) ? $data['project_videos'] : $portfolio->project_videos,
+                'customer_satisfaction' => $data['customer_satisfaction'] ?? $portfolio->customer_satisfaction,
+                'is_featured' => $data['is_featured'] ?? $portfolio->is_featured,
+                'project_task_id' => array_key_exists('project_task_id', $data) ? $data['project_task_id'] : $portfolio->project_task_id,
+            ], function ($value) {
+                return $value !== null;
+            }));
+
+            $portfolio->save();
+
+            return $portfolio->fresh(['projectTask.customerRateFeedbacks', 'company']);
+        });
+    }
+
+    public function delete_company_protofolio($company, $project_id)
+    {
+        return DB::transaction(function () use ($company, $project_id) {
+            $portfolio = $company->companyProtofolios()->whereKey($project_id)->first();
+
+            if (!$portfolio) {
+                return ['error' => 'project portfolio not found or does not belong to your company'];
+            }
+
+            $portfolio->delete();
+
+            return ['success' => true];
         });
     }
 }
