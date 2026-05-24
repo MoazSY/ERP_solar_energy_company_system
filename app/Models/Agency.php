@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Agency_rate_feedback;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -56,6 +57,11 @@ class Agency extends Model
         return $this->hasMany(Conflict_invoice::class, 'agency_id');
     }
 
+    public function agencyRateFeedbacks(): HasMany
+    {
+        return $this->hasMany(Agency_rate_feedback::class, 'agency_id');
+    }
+
     public function paymentsMade(): MorphMany
     {
         return $this->morphMany(Payment::class, 'payable');
@@ -65,25 +71,32 @@ class Agency extends Model
     {
         return $this->morphMany(Payment::class, 'target_table');
     }
+
     public function products(): MorphMany
     {
         return $this->morphMany(Products::class, 'entity_type');
-
     }
+
     public function specific_disscounts(): MorphMany
     {
         return $this->morphMany(Specific_disscount::class, 'entity_type');
     }
+
     public function Invoice_purchase(): MorphMany
     {
         return $this->morphMany(Purchase_invoice::class, 'seller_entity');
     }
-public function Employment_orders():MorphMany{
-    return $this->morphMany(Employment_orders::class,'entity_type');
-}
-public function deliveryRules():MorphMany{
-    return $this->morphMany(Delivery_rules::class,'entity_type');
+
+    public function Employment_orders(): MorphMany
+    {
+        return $this->morphMany(Employment_orders::class, 'entity_type');
     }
+
+    public function deliveryRules(): MorphMany
+    {
+        return $this->morphMany(Delivery_rules::class, 'entity_type');
+    }
+
     public function Assign_delivery_tasks(): MorphMany
     {
         return $this->morphMany(Deliveries::class, 'entity_type');

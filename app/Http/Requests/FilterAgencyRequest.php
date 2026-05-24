@@ -26,6 +26,9 @@ class FilterAgencyRequest extends FormRequest
             'governorate_id' => 'sometimes|exists:governorates,id',
             'area_id' => 'sometimes|exists:areas,id',
             'neighborhood_id' => 'sometimes|exists:neighborhoods,id',
+            'agency_rating' => 'sometimes|numeric|min:1|max:5',
+            'min_agency_rating' => 'sometimes|numeric|min:1|max:5',
+            'max_agency_rating' => 'sometimes|numeric|min:1|max:5|gte:min_agency_rating',
             'product_type' => 'sometimes|in:solar_panel,inverter,battery,accessory',
             'product_brand' => 'sometimes|string|max:255',
             'product_name' => 'sometimes|string|max:255',
@@ -62,6 +65,12 @@ class FilterAgencyRequest extends FormRequest
             // التحقق من تبعية المنتج: إذا تم تحديد model_number، يجب تحديد product_name
             if (isset($data['model_number']) && !isset($data['product_name'])) {
                 $validator->errors()->add('product', 'you should specify product name when you specify model number');
+            }
+
+            if ((isset($data['agency_rating']) || isset($data['min_agency_rating']) || isset($data['max_agency_rating'])) &&
+                    isset($data['agency_rating']) &&
+                    (isset($data['min_agency_rating']) || isset($data['max_agency_rating']))) {
+                $validator->errors()->add('agency_rating', 'use either exact agency rating or min/max agency rating filters, not both');
             }
 
             // إذا تم تحديد product_brand أو product_name أو model_number، يجب تحديد product_type

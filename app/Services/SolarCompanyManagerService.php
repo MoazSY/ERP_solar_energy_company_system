@@ -3,6 +3,7 @@ namespace App\Services;
 
 // use App\Models\Agency;
 
+use App\Models\Agency;
 use App\Models\Agency_manager;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
@@ -108,6 +109,18 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->show_conflict_agency_invoice($company);
+    }
+
+    public function show_custom_disscount_from_agency()
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->show_custom_disscount_from_agency($company);
     }
 
     public function update_profile($request, $data)
@@ -340,6 +353,33 @@ class SolarCompanyManagerService
         });
 
         return $grouped_products;
+    }
+
+    public function agency_rating($request, $agency_id, array $data)
+    {
+        $company_manager = Auth::guard('company_manager')->user();
+        $company = Solar_company_manager::findOrFail($company_manager->id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        $agency = Agency::find($agency_id);
+        if (!$agency) {
+            return ['error' => 'agency not found'];
+        }
+
+        $hasInvoiceFromAgency = Purchase_invoice::where('seller_entity_type', Agency::class)
+            ->where('seller_entity_id', $agency->id)
+            ->where('buyer_entity_type', Solar_company::class)
+            ->where('buyer_entity_id', $company->id)
+            ->exists();
+
+        if (!$hasInvoiceFromAgency) {
+            return ['error' => 'you can rate this agency only after receiving at least one invoice from it'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->agency_rating($company, $agency, $data);
     }
 
     public function show_company_products()
@@ -609,9 +649,9 @@ class SolarCompanyManagerService
             return ['error' => 'invoice not found or does not belong to the current company'];
         }
 
-        if (!in_array($invoice->object_entity_type, [Subscribe_offer::class], true)) {
-            return ['error' => 'this invoice is not linked to an installation request'];
-        }
+        // if (!in_array($invoice->object_entity_type, [Subscribe_offer::class], true)) {
+        //     return ['error' => 'this invoice is not linked to an installation request'];
+        // }
 
         if ($invoice->payment_status !== 'paid') {
             return ['error' => 'invoice must be paid before assigning the installation task'];

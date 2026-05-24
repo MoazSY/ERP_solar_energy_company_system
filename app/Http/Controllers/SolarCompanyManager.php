@@ -1497,18 +1497,35 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function agency_rating(Request $request, $agency_id)
     {
-        /*
-         * تقيمم وكالة لكن يجب ان يكون قد اتم استلام اي فاتورة منها
-         */
+        $validate = Validator::make(array_merge($request->all(), ['agency_id' => $agency_id]), [
+            'agency_id' => 'required|integer|exists:agencies,id',
+            'rate' => 'required|integer|between:1,5',
+            'feedback' => 'sometimes|nullable|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->solarCompanyManagerService->agency_rating($request, $agency_id, $validate->validated());
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Agency rated successfully',
+            'agency_rating' => $result,
+        ], 201);
     }
 
-    public function show_company_profits(Request $request)
-    {
-        /*
-         * رؤية ارباح الشركة من خلال الفواتير التي تم توليدها سواء كانت لطلبات منظومات او طلبات منتجات منفردة او طلبات صيانة او كشف فني
-         * يتم حساب الارباح بناء على الفواتير التي تم توليدها مع خصم التكاليف المتعلقة بالمنظومات او المنتجات او الصيانة او كشف الفني من سعر الفاتورة
-         */
-    }
+    // public function show_company_profits(Request $request)
+    // {
+    //     /*
+    //      * رؤية ارباح الشركة من خلال الفواتير التي تم توليدها سواء كانت لطلبات منظومات او طلبات منتجات منفردة او طلبات صيانة او كشف فني
+    //      * يتم حساب الارباح بناء على الفواتير التي تم توليدها مع خصم التكاليف المتعلقة بالمنظومات او المنتجات او الصيانة او كشف الفني من سعر الفاتورة
+    //      */
+    // }
 
     public function filter_company_profits(Request $request)
     {
@@ -1517,19 +1534,19 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
          */
     }
 
-    public function show_company_expenses(Request $request)
-    {
-        /*
-         * رؤية مصاريف الشركة المتعلقة بالمنظومات او المنتجات او المدفوعات واجور الموظفين
-         */
-    }
+    // public function show_company_expenses(Request $request)
+    // {
+    //     /*
+    //      * رؤية مصاريف الشركة المتعلقة بالمنظومات او المنتجات او المدفوعات واجور الموظفين
+    //      */
+    // }
 
-    public function filter_company_expenses(Request $request)
-    {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ المصروف
-         */
-    }
+    // public function filter_company_expenses(Request $request)
+    // {
+    //     /*
+    //      * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ المصروف
+    //      */
+    // }
 
     public function recieve_cash_from_employee(Request $request)
     {
@@ -1540,8 +1557,22 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function show_custom_disscount_from_agency()
     {
-        /*
-         * رؤية الخصومات على المنتجات التي عملتها الوكالة للشركة
-         */
+        $discounts = $this->solarCompanyManagerService->show_custom_disscount_from_agency();
+
+        if (isset($discounts['error'])) {
+            return response()->json(['message' => $discounts['error']], 400);
+        }
+
+        if ($discounts->isEmpty()) {
+            return response()->json([
+                'message' => 'No custom discounts found for the current company',
+                'data' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Agency custom discounts retrieved successfully',
+            'data' => $discounts,
+        ], 200);
     }
 }

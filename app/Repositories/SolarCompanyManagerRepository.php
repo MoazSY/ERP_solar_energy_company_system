@@ -2,6 +2,7 @@
 namespace App\Repositories;
 
 use App\Models\Agency;
+use App\Models\Agency_rate_feedback;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
 // use App\Models\Deliveries;
@@ -18,6 +19,7 @@ use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Models\Specific_disscount;
 use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
 use App\Models\Technical_inspection_request;
@@ -152,7 +154,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function filter_agency($filters)
     {
-        $query = Agency::query();
+        $query = Agency::query()->withAvg('agencyRateFeedbacks as agency_rating', 'rate');
 
         // فلتر اسم الوكالة
         if (isset($filters['agency_name'])) {
@@ -216,6 +218,18 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                     $productQuery->where('disscount_value', '<=', $filters['disscount_value_max']);
                 }
             });
+        }
+
+        if (isset($filters['agency_rating'])) {
+            $query->having('agency_rating', '=', (float) $filters['agency_rating']);
+        }
+
+        if (isset($filters['min_agency_rating'])) {
+            $query->having('agency_rating', '>=', (float) $filters['min_agency_rating']);
+        }
+
+        if (isset($filters['max_agency_rating'])) {
+            $query->having('agency_rating', '<=', (float) $filters['max_agency_rating']);
         }
 
         return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products', 'agencyManager'])->get();
@@ -1216,6 +1230,24 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ->values();
     }
 
+    public function show_custom_disscount_from_agency($company)
+    {
+        return Specific_disscount::query()
+            ->where('discount_type_type', Solar_company::class)
+            ->where('discount_type_id', $company->id)
+            ->with(['product', 'entity_type'])
+            ->latest('id')
+            ->get()
+            ->map(function (Specific_disscount $discount) {
+                return [
+                    'custom_discount' => $discount,
+                    'agency' => $discount->entity_type,
+                    'product' => $discount->product,
+                ];
+            })
+            ->values();
+    }
+
     public function show_all_subscriptions($company)
     {
         return Subscribe_offer::query()
@@ -1999,6 +2031,24 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             $portfolio->delete();
 
             return ['success' => true];
+        });
+    }
+
+    public function agency_rating($company, $agency, array $data)
+    {
+        return DB::transaction(function () use ($company, $agency, $data) {
+            $rating = Agency_rate_feedback::updateOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'agency_id' => $agency->id,
+                ],
+                [
+                    'rate' => (int) $data['rate'],
+                    'feedback' => $data['feedback'] ?? null,
+                ]
+            );
+
+            return $rating->fresh(['company', 'agency']);
         });
     }
 }

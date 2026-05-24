@@ -39,6 +39,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_mantainance_requests($company);
     public function show_public_customer_requests();
     public function show_conflict_agency_invoice($company);
+    public function show_custom_disscount_from_agency($company);
     public function proccess_technical_inspection_request($request, $inspection_request, $company);
     public function filter_invoices($company, array $filters);
     public function filter_inner_sales($company, array $filters);
@@ -51,6 +52,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function filter_company_protofolio($company, array $filters);
     public function update_company_protofolio($company, $project_id, array $data);
     public function delete_company_protofolio($company, $project_id);
+    public function agency_rating($company, $agency, array $data);
     public function proccess_mantainance_request($request, $mantainance_request, $company);
     public function delete_assign_task($company, $task_id);
     public function filter_installation_tasks($company, array $filters);
