@@ -16,6 +16,7 @@ use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Models\Specific_disscount;
 use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
 use App\Models\System_admin;
@@ -436,6 +437,16 @@ class SolarCompanyManagerService
             ->get()
             ->keyBy('id');
 
+        $customDiscountsByProduct = $agency
+            ->specific_disscounts()
+            ->where('discount_type_type', Solar_company::class)
+            ->where('discount_type_id', $company->id)
+            ->where('disscount_active', true)
+            ->whereIn('product_id', $productIds)
+            ->latest('id')
+            ->get()
+            ->groupBy('product_id');
+
         $amount = 0;
         foreach ($products as $item) {
             $product = $productsMap->get($item['id']);
@@ -459,7 +470,13 @@ class SolarCompanyManagerService
                 $discount = (float) $product->disscount_value * $quantity;
             }
 
-            $amount += max($lineSubTotal - $discount, 0);
+            $customDiscount = $this->calculateSpecificDiscountAmount(
+                $customDiscountsByProduct->get($product->id)?->first(),
+                $lineSubTotal,
+                $quantity
+            );
+
+            $amount += max($lineSubTotal - $discount - $customDiscount, 0);
         }
 
         if ($amount <= 0) {
@@ -1122,7 +1139,7 @@ class SolarCompanyManagerService
             $driver_id = $delivery_task->driver_id;
             $driver = \App\Models\Employee::findOrFail($driver_id);
             $employee = $driver;
-            $amount = $delivery_task->delivery_fee;
+            $amount = 0.7 * $delivery_task->delivery_fee;
             if ($amount <= 0) {
                 return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
             }
@@ -1145,7 +1162,7 @@ class SolarCompanyManagerService
             }
             $employee_id = $project_task->employee_id;
             $employee = \App\Models\Employee::findOrFail($employee_id);
-            $amount = $project_task->task_fee;
+            $amount = 0.5 * $project_task->task_fee;
             if ($amount <= 0) {
                 return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
             }
@@ -1225,19 +1242,16 @@ class SolarCompanyManagerService
                     continue;
                 }
                 $unitPrice = (float) $product->price;
-                // if ($product->currency === 'USD') {
-                //     $unitPrice *= 1.35;
-                // } else {
-                //     $unitPrice /= 100;
-                // }
+
                 $quantity = (int) $item['quantity'];
                 $lineSubTotal = $unitPrice * $quantity;
-                if ($product->disscount_type === 'percentage') {
-                    $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
-                } else {
-                    $discount = (float) $product->disscount_value * $quantity;
-                }
-                $subtotalAmount += max($lineSubTotal - $discount, 0);
+                // if ($product->disscount_type === 'percentage') {
+                //     $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+                // } else {
+                //     $discount = (float) $product->disscount_value * $quantity;
+                // }
+                // $subtotalAmount += max($lineSubTotal - $discount, 0);
+                $subtotalAmount += $lineSubTotal;
             }
             $offerLevelDiscountAmount = 0;
             if (($data['discount_type'] ?? 'fixed') === 'percentage') {
@@ -1391,7 +1405,7 @@ class SolarCompanyManagerService
             case 'offer':
             case 'subscription':
             case 'subscribe_offer':
-                $subscription = Subscribe_offer::with(['customer', 'offer'])->where('subscription_status', 'accepted')->find($targetId);
+                $subscription = Subscribe_offer::with(['customer', 'offer.Items'])->where('subscription_status', 'accepted')->find($targetId);
                 if (!$subscription) {
                     return ['error' => 'offer subscription not found'];
                 }
@@ -1424,6 +1438,16 @@ class SolarCompanyManagerService
                 $invoicePayload['installation_fee'] = $installationFee;
                 $invoicePayload['payment_method'] = $subscription->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $subscription->Payment?->payment_status ?? 'pending';
+                $productsCostAfterDiscount = (float) ($subscription->offer?->Items?->sum(function ($item) {
+                    $lineSubtotal = (float) ($item->unit_price ?? 0) * (int) ($item->quantity ?? 0);
+                    $lineDiscount = $this->calculateOrderItemDiscount($item, $lineSubtotal);
+
+                    return max($lineSubtotal - $lineDiscount, 0);
+                }) ?? 0);
+                $invoicePayload['net_profit'] = (float) $subscription->final_amount
+                    - (0.7 * $deliveryFee)
+                    - (0.5 * $installationFee)
+                    - $productsCostAfterDiscount;
                 break;
 
             case 'order':
@@ -1450,7 +1474,16 @@ class SolarCompanyManagerService
                 }));
                 $totalDiscount = (float) ($orderList->total_discount_amount ?? 0);
                 $totalAmount = (float) ($orderList->total_amount ?? max($subtotal - $totalDiscount, 0));
+                $productCostAfterDiscount = (float) $orderList->Items->sum(function ($item) {
+                    $lineSubtotal = (float) ($item->unit_price ?? 0) * (int) ($item->quantity ?? 0);
+                    $lineDiscount = $this->calculateOrderItemDiscount($item, $lineSubtotal);
 
+                    return max($lineSubtotal - $lineDiscount, 0);
+                });
+                $deliveryCommission = 0.7 * (float) ($orderList->calculated_delivery_fee ?? 0);
+                $installationCommission = 0.5 * (float) ($orderList->calculated_installation_fee ?? 0);
+                $metalInstallationCommission = 0.5 * (float) ($orderList->calculated_metal_installation_fee ?? 0);
+                $net_profit = $totalAmount - $deliveryCommission - $installationCommission - $metalInstallationCommission - $productCostAfterDiscount;
                 $invoicePayload['buyer_entity_type'] = Customer::class;
                 $invoicePayload['buyer_entity_id'] = $customer?->id ?? $orderList->request_entity_id;
                 $invoicePayload['buyer_name'] = trim(($customer?->first_name ?? $orderList->customer_first_name ?? '') . ' ' . ($customer?->last_name ?? $orderList->customer_last_name ?? ''));
@@ -1464,6 +1497,7 @@ class SolarCompanyManagerService
                 $invoicePayload['total_discount'] = $totalDiscount;
                 $invoicePayload['total_amount'] = $totalAmount + (float) ($orderList->calculated_delivery_fee ?? 0);
                 $invoicePayload['delivery_fee'] = $orderList->with_delivery ? (float) ($orderList->calculated_delivery_fee ?? 0) : 0;
+                $invoicePayload['net_profit'] = $net_profit;
                 $invoicePayload['payment_method'] = $orderList->Payment?->transaction?->gateway ?? null;
                 $invoicePayload['payment_status'] = $orderList->Payment?->payment_status ?? 'pending';
                 break;
@@ -1498,6 +1532,7 @@ class SolarCompanyManagerService
                 $invoicePayload['payment_method'] = $inspection->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $inspection->Payment?->payment_status ?? 'pending';
                 $invoicePayload['installation_fee'] = $inspection->inspection_price ?? 0;
+                $invoicePayload['net_profit'] = 0.5 * (float) ($inspection->inspection_price ?? 50000);  // assuming 50% profit margin for inspections
                 break;
 
             case 'maintenance':
@@ -1530,6 +1565,7 @@ class SolarCompanyManagerService
                 $invoicePayload['payment_method'] = $maintenance->Payment?->transaction->gateway ?? null;
                 $invoicePayload['payment_status'] = $maintenance->Payment?->payment_status ?? 'pending';
                 $invoicePayload['installation_fee'] = $maintenance->estimated_cost ?? 0;
+                $invoicePayload['net_profit'] = 0.5 * (float) ($maintenance->estimated_cost ?? 0);  // assuming 50% profit margin for maintenance
                 break;
 
             default:
@@ -1774,6 +1810,37 @@ class SolarCompanyManagerService
         }
 
         return $this->solarCompanyManagerRepositoryInterface->filter_invoices($company, $filters);
+    }
+
+    private function calculateOrderItemDiscount($item, float $lineSubtotal): float
+    {
+        $discountValue = (float) ($item->unit_discount_amount ?? 0);
+
+        if (($item->discount_type ?? null) === 'percentage') {
+            return ($discountValue / 100) * $lineSubtotal;
+        }
+
+        return $discountValue * (int) ($item->quantity ?? 0);
+    }
+
+    private function calculateSpecificDiscountAmount(?Specific_disscount $discount, float $lineSubtotal, int $quantity): float
+    {
+        if (!$discount) {
+            return 0.0;
+        }
+
+        $minimumQuantity = (int) ($discount->quentity_condition ?? 0);
+        if ($minimumQuantity > 0 && $quantity < $minimumQuantity) {
+            return 0.0;
+        }
+
+        $discountValue = (float) ($discount->discount_amount ?? 0);
+
+        if (($discount->disscount_type ?? null) === 'percentage') {
+            return ($discountValue / 100) * $lineSubtotal;
+        }
+
+        return $discountValue * $quantity;
     }
 
     public function filter_inner_sales(array $filters)

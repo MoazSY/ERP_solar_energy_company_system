@@ -193,16 +193,26 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $assignments = Company_agency_employee::query()
             ->where('entity_type_type', $entityTypeClass)
             ->where('entity_type_id', $entity->id)
-            ->with(['employee'])
+            // ->with(['employee.projectTasks.customerRateFeedbacks'])
             ->latest('id')
             ->get();
 
         return $assignments->map(function ($assignment) {
+            $employee = $assignment->employee;
+            $projectTasks = $employee?->projectTasks ?? collect();
+            $employeeRating = $projectTasks
+                ->flatMap(fn($task) => $task->customerRateFeedbacks ?? collect())
+                ->avg('rate');
+
             return [
                 'assignment' => $assignment,
-                'employee' => $assignment->employee,
-                'imageUrl' => $assignment->employee?->image ? asset('storage/' . $assignment->employee->image) : null,
-                'identification_imageUrl' => $assignment->employee?->identification_image ? asset('storage/' . $assignment->employee->identification_image) : null,
+                'employee' => $employee,
+                'rating' => $employeeRating !== null ? round((float) $employeeRating, 2) : null,
+                'rejected_tasks_count' => $projectTasks->filter(function ($task) {
+                    return $task->rejected_at !== null || $task->task_accepted === false;
+                })->count(),
+                'imageUrl' => $employee?->image ? asset('storage/' . $employee->image) : null,
+                'identification_imageUrl' => $employee?->identification_image ? asset('storage/' . $employee->identification_image) : null,
             ];
         });
     }
@@ -258,7 +268,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface
     public function show_orderList_for_inventory_manager($employee)
     {
         $input_output_request = Input_output_request::query()
-            ->where('inventory_manager_id', $employee->id)->where('request_type','input')
+            ->where('inventory_manager_id', $employee->id)
+            ->where('request_type', 'input')
             ->with(['order', 'order.request_entity', 'order.Items', 'order.Items.product', 'order.Items.product.inverters', 'order.Items.product.batteries'])
             ->get();
         return $input_output_request;
@@ -267,9 +278,9 @@ class EmployeeRepository implements EmployeeRepositoryInterface
     public function insert_product_to_stock($data, $company)
     {
         return DB::transaction(function () use ($data, $company) {
-            if(isset($data['product_name_for_validation'])){
-                $pruduct=$company->products()->where('product_name',$data['product_name_for_validation'])->first();
-                if($pruduct){
+            if (isset($data['product_name_for_validation'])) {
+                $pruduct = $company->products()->where('product_name', $data['product_name_for_validation'])->first();
+                if ($pruduct) {
                     $existingProduct = $pruduct;
                     $existingQuantity = (int) ($existingProduct->quentity ?? 0);
                     $incomingQuantity = (int) ($data['quentity'] ?? 0);
@@ -423,50 +434,51 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
         $product->save();
         $product->refresh();  // Refresh the model to get the latest data
-        if(isset($data['update_technical_details']) && $data['update_technical_details'] == true){
-        if ($data['update_technical_details'] == true && $product->product_type == 'battery') {
-            $battery = $product->batteries;
-            $battery->update([
-                'battery_type' => $data['battery_type'] ?? $battery->battery_type,
-                'capacity_kwh' => $data['capacity_kwh'] ?? $battery->capacity_kwh,
-                'voltage_v' => $data['voltage_v'] ?? $battery->voltage_v,
-                'cycle_life' => $data['cycle_life'] ?? $battery->cycle_life,
-                'warranty_years' => $data['warranty_years'] ?? $battery->warranty_years,
-                'weight_kg' => $data['weight_kg'] ?? $battery->weight_kg,
-                'Amperage_Ah' => $data['Amperage_Ah'] ?? $battery->Amperage_Ah,
-                'celles_type' => $data['celles_type'] ?? $battery->celles_type,
-                'celles_name' => $data['celles_name'] ?? $battery->celles_name,
-            ]);
-            $battery->save();
-            $battery->refresh();
+        if (isset($data['update_technical_details']) && $data['update_technical_details'] == true) {
+            if ($data['update_technical_details'] == true && $product->product_type == 'battery') {
+                $battery = $product->batteries;
+                $battery->update([
+                    'battery_type' => $data['battery_type'] ?? $battery->battery_type,
+                    'capacity_kwh' => $data['capacity_kwh'] ?? $battery->capacity_kwh,
+                    'voltage_v' => $data['voltage_v'] ?? $battery->voltage_v,
+                    'cycle_life' => $data['cycle_life'] ?? $battery->cycle_life,
+                    'warranty_years' => $data['warranty_years'] ?? $battery->warranty_years,
+                    'weight_kg' => $data['weight_kg'] ?? $battery->weight_kg,
+                    'Amperage_Ah' => $data['Amperage_Ah'] ?? $battery->Amperage_Ah,
+                    'celles_type' => $data['celles_type'] ?? $battery->celles_type,
+                    'celles_name' => $data['celles_name'] ?? $battery->celles_name,
+                ]);
+                $battery->save();
+                $battery->refresh();
+            }
+            if ($data['update_technical_details'] == true && $product->product_type == 'inverter') {
+                $inverter = $product->inverters;
+                $inverter->update([
+                    'grid_type' => $data['grid_type'] ?? $inverter->grid_type,
+                    'voltage_v' => $data['voltage_v'] ?? $inverter->voltage_v,
+                    'grid_capacity_kw' => $data['grid_capacity_kw'] ?? $inverter->grid_capacity_kw,
+                    'solar_capacity_kw' => $data['solar_capacity_kw'] ?? $inverter->solar_capacity_kw,
+                    'inverter_open' => $data['inverter_open'] ?? $inverter->inverter_open,
+                    'voltage_open' => $data['voltage_open'] ?? $inverter->voltage_open,
+                    'weight_kg' => $data['weight_kg'] ?? $inverter->weight_kg,
+                    'warranty_years' => $data['warranty_years'] ?? $inverter->warranty_years,
+                ]);
+                $inverter->save();
+                $inverter->refresh();
+            }
+            if ($data['update_technical_details'] == true && $product->product_type == 'solar_panel') {
+                $solar_panel = $product->solarPanals;
+                $solar_panel->update([
+                    'panel_type' => $data['panel_type'] ?? $solar_panel->panel_type,
+                    'capacity_kw' => $data['capacity_kw'] ?? $solar_panel->capacity_kw,
+                    'voltage_v' => $data['voltage_v'] ?? $solar_panel->voltage_v,
+                    'warranty_years' => $data['warranty_years'] ?? $solar_panel->warranty_years,
+                    'weight_kg' => $data['weight_kg'] ?? $solar_panel->weight_kg,
+                ]);
+                $solar_panel->save();
+                $solar_panel->refresh();
+            }
         }
-        if ($data['update_technical_details'] == true && $product->product_type == 'inverter') {
-            $inverter = $product->inverters;
-            $inverter->update([
-                'grid_type' => $data['grid_type'] ?? $inverter->grid_type,
-                'voltage_v' => $data['voltage_v'] ?? $inverter->voltage_v,
-                'grid_capacity_kw' => $data['grid_capacity_kw'] ?? $inverter->grid_capacity_kw,
-                'solar_capacity_kw' => $data['solar_capacity_kw'] ?? $inverter->solar_capacity_kw,
-                'inverter_open' => $data['inverter_open'] ?? $inverter->inverter_open,
-                'voltage_open' => $data['voltage_open'] ?? $inverter->voltage_open,
-                'weight_kg' => $data['weight_kg'] ?? $inverter->weight_kg,
-                'warranty_years' => $data['warranty_years'] ?? $inverter->warranty_years,
-            ]);
-            $inverter->save();
-            $inverter->refresh();
-        }
-        if ($data['update_technical_details'] == true && $product->product_type == 'solar_panel') {
-            $solar_panel = $product->solarPanals;
-            $solar_panel->update([
-                'panel_type' => $data['panel_type'] ?? $solar_panel->panel_type,
-                'capacity_kw' => $data['capacity_kw'] ?? $solar_panel->capacity_kw,
-                'voltage_v' => $data['voltage_v'] ?? $solar_panel->voltage_v,
-                'warranty_years' => $data['warranty_years'] ?? $solar_panel->warranty_years,
-                'weight_kg' => $data['weight_kg'] ?? $solar_panel->weight_kg,
-            ]);
-            $solar_panel->save();
-            $solar_panel->refresh();
-        }}
 
         // if ($data['product_image'] != null) {
         //     $product_image_URL = asset('storage/' . $data['product_image']);

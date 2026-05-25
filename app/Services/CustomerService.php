@@ -953,14 +953,14 @@ class CustomerService
 
             $quantity = (int) $item['quantity'];
             $lineSubTotal = $unitPrice * $quantity;
+            $amount+=$lineSubTotal;
+        //     if ($product->disscount_type === 'percentage') {
+        //         $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+        //     } else {
+        //         $discount = (float) $product->disscount_value * $quantity;
+        //     }
 
-            if ($product->disscount_type === 'percentage') {
-                $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
-            } else {
-                $discount = (float) $product->disscount_value * $quantity;
-            }
-
-            $amount += max($lineSubTotal - $discount, 0);
+        //     $amount += max($lineSubTotal - $discount, 0);
         }
 
         if ($amount <= 0) {

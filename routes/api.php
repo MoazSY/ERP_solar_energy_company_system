@@ -105,6 +105,7 @@ Route::middleware('check_company_manager')->group(function () {
     Route::post('filter_company_protofolio', [SolarCompanyManager::class, 'filter_company_protofolio'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('update_company_protofolio/{project_id}', [SolarCompanyManager::class, 'update_company_protofolio'])->middleware(['check_company_manager_active', 'check_company_active']);
     Route::post('delete_company_protofolio/{project_id}', [SolarCompanyManager::class, 'delete_company_protofolio'])->middleware(['check_company_manager_active', 'check_company_active']);
+    Route::post('filter_company_profits',[SolarCompanyManager::class,'filter_company_profits'])->middleware(['check_company_manager_active', 'check_company_active']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

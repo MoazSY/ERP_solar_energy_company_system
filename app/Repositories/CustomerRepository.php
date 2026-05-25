@@ -305,13 +305,13 @@ class CustomerRepository implements CustomerRepositoryInterface
                 return $item->unit_price * $item->quantity;
             });
 
-            $orderList->total_discount_amount = $orderList->Items->sum(function ($item) {
-                if ($item->discount_type === 'percentage') {
-                    return ($item->unit_discount_amount / 100) * $item->unit_price * $item->quantity;
-                }
+            // $orderList->total_discount_amount = $orderList->Items->sum(function ($item) {
+            //     if ($item->discount_type === 'percentage') {
+            //         return ($item->unit_discount_amount / 100) * $item->unit_price * $item->quantity;
+            //     }
 
-                return $item->unit_discount_amount * $item->quantity;
-            });
+            //     return $item->unit_discount_amount * $item->quantity;
+            // });
 
             $orderList->total_amount = max($orderList->sub_total_amount - $orderList->total_discount_amount, 0);
             $orderList->save();

@@ -1529,9 +1529,55 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
 
     public function filter_company_profits(Request $request)
     {
-        /*
-         * تتم الفلترة بناء على بيانات معينة مثلا حسب تاريخ البيع او حسب نوع الطلبية منظومة او منتجات منفردة
-         */
+        $validate = Validator::make($request->all(), [
+            'invoice_date_from' => 'sometimes|date',
+            'invoice_date_to' => 'sometimes|date|after_or_equal:invoice_date_from',
+            'request_type' => 'sometimes|string|in:product_order,subscribe_offer,technical_inspection,maintenance',
+            'currency' => 'sometimes|string|in:USD,SY',
+            'min_profit' => 'sometimes|numeric',
+            'max_profit' => 'sometimes|numeric|gte:min_profit',
+            'invoice_number' => 'sometimes|string',
+            'buyer_name' => 'sometimes|string',
+            'payment_status' => 'sometimes|string|in:pending,partially_paid,paid',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+
+        $invoices = $this->solarCompanyManagerService->filter_invoices($filters);
+
+        if (isset($invoices['error'])) {
+            return response()->json(['message' => $invoices['error']], 400);
+        }
+
+        $collection = collect($invoices);
+
+        if (isset($filters['min_profit'])) {
+            $collection = $collection->filter(function (array $inv) use ($filters) {
+                return isset($inv['net_profit']) && $inv['net_profit'] >= $filters['min_profit'];
+            });
+        }
+
+        if (isset($filters['max_profit'])) {
+            $collection = $collection->filter(function (array $inv) use ($filters) {
+                return isset($inv['net_profit']) && $inv['net_profit'] <= $filters['max_profit'];
+            });
+        }
+
+        $total_net_profit = $collection->sum(function (array $inv) {
+            return isset($inv['net_profit']) ? (float) $inv['net_profit'] : 0;
+        });
+
+        return response()->json([
+            'message' => 'Company profits filtered successfully',
+            'count' => $collection->count(),
+            'total_net_profit' => $total_net_profit,
+            'currency' => $filters['currency'] ?? null,
+            'invoices' => $collection->values(),
+        ], 200);
     }
 
     // public function show_company_expenses(Request $request)
@@ -1552,11 +1598,15 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     {
         /*
          * استلام الاموال من الفني التي استلمها من العملاء في حال دفع العميل للمهمة كاش او ثمن المستهلكات الاضاقية
-         */
-    }
+         * اي في المهام التي فيها مستهلكات اضافية وكان الدفع فيها كاش 
+         * فاجعل المدير يستلم الكاش من الفني الذي استلم من  الزبون 
+         * في حال دفع الزبون المستهلكات كاش فانه يبقى منتظر الى ان يستلم المدير فتتحول الى دفع 
+        */
+        }
+
 
     public function show_custom_disscount_from_agency()
-    {
+     {
         $discounts = $this->solarCompanyManagerService->show_custom_disscount_from_agency();
 
         if (isset($discounts['error'])) {
