@@ -1223,6 +1223,21 @@ class SolarCompanyManagerService
         return $this->solarCompanyManagerRepositoryInterface->paid_to_employee($request, $task, $company, $amount, $paymentResponse);
     }
 
+    public function recieve_cash_from_employee($request)
+    {
+        $company_manager_id = Auth::guard('company_manager')->user()->id;
+        $company = Solar_company_manager::findOrFail($company_manager_id)->solarCompanies()->first();
+
+        if (!$company) {
+            return ['error' => 'company not found for the current manager'];
+        }
+
+        return $this->solarCompanyManagerRepositoryInterface->recieve_cash_from_employee($company, [
+            'invoice_id' => $request->invoice_id,
+            'receipt_type' => $request->input('receipt_type'),
+        ]);
+    }
+
     public function solar_system_offers($request, array $data = [])
     {
         $company_manager_id = Auth::guard('company_manager')->user()->id;

@@ -1594,19 +1594,31 @@ class SolarCompanyManager extends \App\Http\Controllers\Controller
     //      */
     // }
 
-    public function recieve_cash_from_employee(Request $request)
+    public function recieve_cash(Request $request)
     {
-        /*
-         * استلام الاموال من الفني التي استلمها من العملاء في حال دفع العميل للمهمة كاش او ثمن المستهلكات الاضاقية
-         * اي في المهام التي فيها مستهلكات اضافية وكان الدفع فيها كاش 
-         * فاجعل المدير يستلم الكاش من الفني الذي استلم من  الزبون 
-         * في حال دفع الزبون المستهلكات كاش فانه يبقى منتظر الى ان يستلم المدير فتتحول الى دفع 
-        */
+        $validate = Validator::make($request->all(), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'receipt_type' => 'sometimes|string|in:customer,employee',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
         }
 
+        $result = $this->solarCompanyManagerService->recieve_cash_from_employee($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Cash received by manager successfully',
+            'invoice' => $result,
+        ], 200);
+    }
 
     public function show_custom_disscount_from_agency()
-     {
+    {
         $discounts = $this->solarCompanyManagerService->show_custom_disscount_from_agency();
 
         if (isset($discounts['error'])) {

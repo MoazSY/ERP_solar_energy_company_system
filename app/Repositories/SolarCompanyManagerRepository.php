@@ -648,7 +648,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'assistant_names' => $assistantNamesCollection->isNotEmpty() ? $assistantNamesCollection->all() : null,
                 'client_additional_cost_amount' => 0,
                 'client_additional_entitlement_amount' => 0,
-                'payment_status' => 'client_paid',
+                'payment_status' => 'pending',
                 'payment_method' => $invoice->payment_method ?: 'bank_transfer',
                 'payment_received' => false,
                 'sheduled_at' => $request->input('sheduled_at', $invoice->due_date),
@@ -1866,6 +1866,64 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'buyer_entity',
                 'object_entity',
                 'payments',
+            ])->toArray();
+        });
+    }
+
+    public function recieve_cash_from_employee($company, array $data)
+    {
+        $invoice = Purchase_invoice::where('seller_entity_type', Solar_company::class)
+            ->where('seller_entity_id', $company->id)
+            ->find($data['invoice_id']);
+
+        if (!$invoice) {
+            return ['error' => 'Invoice not found or does not belong to your company'];
+        }
+
+        if ($invoice->manager_received_cash) {
+            return ['error' => 'Cash for this invoice has already been received by the manager'];
+        }
+
+        $latestProjectTask = $invoice->projectTask()->latest('id')->first();
+        $receiptType = $data['receipt_type'] ?? null;
+
+        $customerCashInvoice = $invoice->payment_method === 'cash' && $invoice->payment_status === 'pending';
+        $installationCashFromEmployee = $latestProjectTask &&
+            $latestProjectTask->task_type === 'installation' &&
+            $latestProjectTask->payment_method === 'cash' &&
+            $latestProjectTask->payment_status === 'client_paid' &&
+            (bool) $latestProjectTask->payment_received === true;
+
+        if ($receiptType === 'customer' && !$customerCashInvoice) {
+            return ['error' => 'Customer cash receipt is allowed only for cash invoices with pending payment status'];
+        }
+
+        if ($receiptType === 'employee' && !$installationCashFromEmployee) {
+            return ['error' => 'Employee cash receipt is allowed only for installation tasks with client_paid status and payment_received = true'];
+        }
+
+        if ($receiptType === null && !$customerCashInvoice && !$installationCashFromEmployee) {
+            return ['error' => 'Invoice is not eligible for cash receipt confirmation'];
+        }
+
+        return DB::transaction(function () use ($invoice, $customerCashInvoice,$receiptType) {
+             $updates = [];
+            if($receiptType==='employee'){
+            $updates = ['manager_received_cash' => true];
+            }
+
+            if ($receiptType==='customer'&&$customerCashInvoice) {
+                $updates['payment_status'] = 'paid';
+            }
+
+            $invoice->update($updates);
+
+            return $invoice->fresh([
+                'seller_entity',
+                'buyer_entity',
+                'object_entity',
+                'payments',
+                'projectTask',
             ])->toArray();
         });
     }

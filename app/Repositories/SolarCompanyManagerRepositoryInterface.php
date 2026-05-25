@@ -47,6 +47,7 @@ interface SolarCompanyManagerRepositoryInterface
     public function show_ready_output_requests($company);
     public function filter_warranty($company, array $filters);
     public function update_invoice($company, $invoice_id, array $data);
+    public function recieve_cash_from_employee($company, array $data);
     public function delete_invoice($company, $invoice_id);
     public function add_project_to_company_protofolio($company, array $data);
     public function filter_company_protofolio($company, array $filters);

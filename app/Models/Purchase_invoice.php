@@ -38,6 +38,11 @@ class Purchase_invoice extends Model
         'payment_conumables_method',
         'net_profit',
         'admin_commission',
+        'manager_received_cash',
+    ];
+
+    protected $casts = [
+        'manager_received_cash' => 'boolean',
     ];
 
     public function orderList(): BelongsTo
