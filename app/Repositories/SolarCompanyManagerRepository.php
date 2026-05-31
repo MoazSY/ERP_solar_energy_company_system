@@ -637,6 +637,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'taskable_id' => $invoice->id,
                 'task_accepted' => false,
                 'task_type' => $request->input('task_type', 'installation'),
+                'task_type_new'=>$request->input('task_type', 'installation'),
                 'task_fee' => $invoice->installation_fee,
                 'manager_payed' => false,
                 'task_status' => 'pending',
@@ -663,7 +664,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             ]);
 
             $related = null;
-            $taskType = $task->task_type;
+            $taskType = $task->task_type_new;
 
             if ($taskType === 'installation') {
                 $related = $invoice->object_entity->offer->Items->load('product.inverters', 'product.batteries', 'product.solarPanals') ?? null;
@@ -1889,7 +1890,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
         $customerCashInvoice = $invoice->payment_method === 'cash' && $invoice->payment_status === 'pending';
         $installationCashFromEmployee = $latestProjectTask &&
-            $latestProjectTask->task_type === 'installation' &&
+            // $latestProjectTask->task_type === 'installation' &&
             $latestProjectTask->payment_method === 'cash' &&
             $latestProjectTask->payment_status === 'client_paid' &&
             (bool) $latestProjectTask->payment_received === true;

@@ -683,7 +683,7 @@ class SolarCompanyManagerService
         }
 
         $request->merge([
-            'task_type' => $request->input('task_type') ?: $invoiceTaskType,
+            'task_type' => $request->input('task_type') ?: $requestedTaskType,
             'task_fee' => $taskFee,
         ]);
 
