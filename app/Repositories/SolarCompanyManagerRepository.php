@@ -637,7 +637,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'taskable_id' => $invoice->id,
                 'task_accepted' => false,
                 'task_type' => $request->input('task_type', 'installation'),
-                'task_type_new'=>$request->input('task_type', 'installation'),
+                'task_type_new' => $request->input('task_type', 'installation'),
                 'task_fee' => $invoice->installation_fee,
                 'manager_payed' => false,
                 'task_status' => 'pending',
@@ -772,6 +772,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'inventory_manager_id' => $inventory_manager->id,
             'order_id' => $orderList->id,
             'notes' => $request->notes ?? null,
+            'request_datetime' => $invoice->due_date ?? now(),
         ]);
         // notify inventory to enter the products in stock and update the inventory
         $result = $orderList->load('input_output_request');
@@ -792,6 +793,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'order_id' => $invoice->order_list_id ?? null,
             'invoice_id' => $invoice->id,
             'notes' => $request->notes ?? null,
+            'request_datetime' => $invoice->due_date ?? null,
         ]);
 
         $result = $company->input_output_requests()->latest('id')->first();
@@ -1380,7 +1382,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                     'warranty_years' => $years,
                     'warranty_terms' => $data['component_warranty_terms'] ?? null,
                     'product_name' => $item->item_name_snapshot ?: ($item->product?->product_name ?? 'Unknown product'),
-                    'product_serial_number' => $this->resolveFirstSerialNumber($item->serial_numbers),
+                    'product_serial_number' => $this->resolveProductSerialNumber($item->serial_numbers) ?? null,
                     'warranty_status' => 'active',
                     'warranty_source' => $data['warranty_source'] ?? 'manufacturer',
                     'start_date' => $startDate->toDateString(),
@@ -1805,19 +1807,36 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return $startDate->copy()->addYears($wholeYears)->addMonths($months)->toDateString();
     }
 
-    private function resolveFirstSerialNumber($serialNumbers): ?string
+    private function resolveProductSerialNumber($serialNumbers): ?string
     {
-        if (is_array($serialNumbers) && !empty($serialNumbers)) {
-            return (string) $serialNumbers[0];
+        if (is_array($serialNumbers)) {
+            $cleanSerials = collect($serialNumbers)
+                ->flatten()
+                ->map(function ($serialNumber) {
+                    return is_string($serialNumber) ? trim($serialNumber) : $serialNumber;
+                })
+                ->filter(fn($serialNumber) => $serialNumber !== '' && $serialNumber !== null)
+                ->values()
+                ->all();
+
+            if (empty($cleanSerials)) {
+                return null;
+            }
+
+            return count($cleanSerials) === 1
+                ? (string) $cleanSerials[0]
+                : json_encode($cleanSerials, JSON_UNESCAPED_UNICODE);
         }
 
         if (is_string($serialNumbers)) {
             $decoded = json_decode($serialNumbers, true);
-            if (is_array($decoded) && !empty($decoded)) {
-                return (string) $decoded[0];
+            if (is_array($decoded)) {
+                return $this->resolveProductSerialNumber($decoded);
             }
 
-            return trim($serialNumbers) !== '' ? $serialNumbers : null;
+            $serialNumbers = trim($serialNumbers);
+
+            return $serialNumbers !== '' ? $serialNumbers : null;
         }
 
         return null;
@@ -1907,13 +1926,13 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             return ['error' => 'Invoice is not eligible for cash receipt confirmation'];
         }
 
-        return DB::transaction(function () use ($invoice, $customerCashInvoice,$receiptType) {
-             $updates = [];
-            if($receiptType==='employee'){
-            $updates = ['manager_received_cash' => true];
+        return DB::transaction(function () use ($invoice, $customerCashInvoice, $receiptType) {
+            $updates = [];
+            if ($receiptType === 'employee') {
+                $updates = ['manager_received_cash' => true];
             }
 
-            if ($receiptType==='customer'&&$customerCashInvoice) {
+            if ($receiptType === 'customer' && $customerCashInvoice) {
                 $updates['payment_status'] = 'paid';
             }
 

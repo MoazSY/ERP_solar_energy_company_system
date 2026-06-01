@@ -162,6 +162,8 @@ Route::middleware('check_employee')->group(function () {
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'delivery_task_start']);
     Route::get('show_orderList_for_inventory_manager', [EmployeeController::class, 'show_input_orderList_for_inventory_manager']);
+    Route::get('show_output_orderList_for_inventory_manager', [EmployeeController::class, 'show_output_orderList_for_inventory_manager']);
+    Route::post('proccess_input_output_order_request', [EmployeeController::class, 'proccess_input_output_order_request']);
 
     // Inventory Management Routes
     Route::post('insert_product_to_stock', [EmployeeController::class, 'insert_product_to_stock']);

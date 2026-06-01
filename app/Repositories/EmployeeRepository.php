@@ -6,7 +6,9 @@ use App\Models\Deliveries;
 use App\Models\Employee;
 // use App\Models\Employment_orders;
 use App\Models\Input_output_request;
+use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Subscribe_offer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -275,6 +277,200 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         return $input_output_request;
     }
 
+    public function show_output_orderList_for_inventory_manager($employee)
+    {
+        $outputRequests = Input_output_request::query()
+            ->where('inventory_manager_id', $employee->id)
+            ->where('request_type', 'output')
+            // ->with([
+            //     // // 'inventoryManager',
+            //     // 'order.request_entity',
+            //     // 'order.orderable_entity',
+            //     // 'order.Items',
+            //     // 'order.Items.product',
+            //     // 'order.Items.product.inverters',
+            //     // 'order.Items.product.batteries',
+            //     // 'order.Items.product.solarPanals',
+            //     // 'invoice.seller_entity',
+            //     // 'invoice.buyer_entity',
+            //     'invoice.object_entity.Items',
+            // ])
+            ->latest('request_datetime')
+            ->latest('id')
+            ->get();
+
+        return $outputRequests->map(function ($request) {
+            $invoiceItems = $request->invoice?->object_entity_type === Subscribe_offer::class
+                ? ($request->invoice?->object_entity?->Items()->with(['product', 'product.inverters', 'product.batteries', 'product.solarPanals'])->get() ?? collect())
+                : ($request->invoice?->object_entity?->Items->load(['product', 'product.inverters', 'product.batteries', 'product.solarPanals']) ?? collect());
+
+            return [
+                'output_request' => $request,
+                // 'order_list' => $request->order,
+                'items' => $invoiceItems,
+                'invoice' => $request->invoice,
+                'status' => $request->status,
+                'request_datetime' => $request->request_datetime,
+                'notes' => $request->notes,
+            ];
+        });
+    }
+
+    public function proccess_input_output_order_request($data, $inputOutputRequest, $company, $employee)
+    {
+        return DB::transaction(function () use ($data, $inputOutputRequest, $company, $employee) {
+            // Authorization: only assigned manager or unassigned
+            if ($inputOutputRequest->inventory_manager_id && (int) $inputOutputRequest->inventory_manager_id !== (int) $employee->id) {
+                return ['error' => 'Unauthorized'];
+            }
+
+            if ($inputOutputRequest->status === 'ready') {
+                return ['error' => 'This request has already been processed'];
+            }
+
+            // get items associated with this request (from invoice.object_entity or order)
+            $items = $this->fetchItemsForRequest($inputOutputRequest);
+            if ($items->isEmpty()) {
+                return ['error' => 'No items found for this request'];
+            }
+
+            $serialNumbers = $data['serial_numbers'] ?? [];
+            $status = $data['status'] ?? 'pending';
+
+            if ($status === 'ready') {
+                if ($inputOutputRequest->request_type === 'output') {
+                    $this->decreaseStockForOutputItems($items);
+                }
+
+                $saveResult = $this->saveSerialsForItems($items, $serialNumbers);
+                if (isset($saveResult['error'])) {
+                    return $saveResult;
+                }
+                $inputOutputRequest->ready_datetime = now();
+            }
+
+            $inputOutputRequest->status = $status;
+            $inputOutputRequest->notes = $data['notes'] ?? $inputOutputRequest->notes;
+            $inputOutputRequest->save();
+
+
+
+                $invoiceItems = $inputOutputRequest->invoice?->object_entity_type === Subscribe_offer::class
+                ? ($inputOutputRequest->invoice?->object_entity?->Items()->with(['product', 'product.inverters', 'product.batteries', 'product.solarPanals'])->get() ?? collect())
+                : ($inputOutputRequest->invoice?->object_entity?->Items->load(['product', 'product.inverters', 'product.batteries', 'product.solarPanals']) ?? collect());
+
+             $inputOutputRequest->load([
+                // 'inventoryManager',
+                'invoice.seller_entity',
+                'invoice.buyer_entity',
+                'invoice.object_entity',
+                // 'order.Items.product',
+                // 'invoice.object_entity'
+            ]);
+            $inputOutputRequest->setAttribute('items', $invoiceItems);
+            return $inputOutputRequest;
+          
+
+        });
+    }
+
+    /**
+     * Return a collection of Items for given Input_output_request.
+     * For output requests items are read from the related invoice's object (order or subscription).
+     */
+    private function fetchItemsForRequest(Input_output_request $request)
+    {
+        $invoice = $request->invoice;
+        if (!$invoice) {
+            return collect();
+        }
+
+        if ($invoice->object_entity_type === Order_list::class) {
+            $orderList = $invoice->orderList ?: $invoice->object_entity;
+            if (!$orderList) {
+                return collect();
+            }
+            $orderList->loadMissing(['Items.product']);
+            return $orderList->Items ?? collect();
+        }
+
+        if ($invoice->object_entity_type === Subscribe_offer::class) {
+            $subscription = $invoice->object_entity;
+            if (!$subscription) {
+                return collect();
+            }
+            return $subscription->Items()->with('product')->get();
+        }
+
+        return collect();
+    }
+
+    /**
+     * Save multiple serial strings per item.
+     * Expects $serialNumbers as [item_id => [serial1, serial2, ...]].
+     */
+    private function saveSerialsForItems($items, array $serialNumbers)
+    {
+        foreach ($items as $item) {
+            $serial = $serialNumbers[$item->id] ?? null;
+
+            if ($serial === null) {
+                continue;
+            }
+
+            if (!is_array($serial)) {
+                $serial = [$serial];
+            }
+
+            $cleanSerials = collect($serial)
+                ->map(function ($serialNumber) {
+                    return is_string($serialNumber) ? trim($serialNumber) : $serialNumber;
+                })
+                ->filter(fn($serialNumber) => $serialNumber !== '' && $serialNumber !== null)
+                ->values()
+                ->all();
+
+            if (empty($cleanSerials)) {
+                continue;
+            }
+
+            $item->serial_numbers = json_encode($cleanSerials);
+            $item->save();
+        }
+        return ['ok' => true];
+    }
+
+    /**
+     * Decrease stock for output items by the available quantity only.
+     * If stock is empty, the item is skipped without failing the request.
+     */
+    private function decreaseStockForOutputItems($items): void
+    {
+        foreach ($items as $item) {
+            $requestedQuantity = (int) ($item->quantity ?? 1);
+            if ($requestedQuantity <= 0) {
+                continue;
+            }
+
+            $product = $item->product ?? Products::find($item->product_id);
+            if (!$product) {
+                continue;
+            }
+
+            $availableQuantity = (int) ($product->quentity ?? 0);
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            $decrementQuantity = min($availableQuantity, $requestedQuantity);
+            $product->quentity = $availableQuantity - $decrementQuantity;
+            $product->save();
+        }
+    }
+
+    /**
+     * If the related invoice points to an Order_list, mark it discharged now.
+     */
     public function insert_product_to_stock($data, $company)
     {
         return DB::transaction(function () use ($data, $company) {

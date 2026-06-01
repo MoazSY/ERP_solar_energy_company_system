@@ -275,6 +275,49 @@ class EmployeeService
         return $this->employeeRepositoryInterface->show_orderList_for_inventory_manager($employee);
     }
 
+    public function show_output_orderList_for_inventory_manager()
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'inventory_manager') {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->show_output_orderList_for_inventory_manager($employee);
+    }
+
+    public function proccess_input_output_order_request($data)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'inventory_manager') {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $company = $employee->companyAgencyEmployees()->first()?->entityType()->first();
+        if (!$company) {
+            return ['error' => 'Company not found'];
+        }
+
+        $requestId = $data['input_output_request_id'] ?? null;
+        if (!$requestId) {
+            return ['error' => 'input_output_request_id is required'];
+        }
+
+        $inputOutputRequest = \App\Models\Input_output_request::with(['invoice.object_entity', 'order.Items.product'])->find($requestId);
+
+        if (!$inputOutputRequest) {
+            return ['error' => 'Input/output request not found'];
+        }
+
+        // ensure the request belongs to this company
+        if ((int) $inputOutputRequest->company_id !== (int) $company->id) {
+            return ['error' => 'Request does not belong to your company'];
+        }
+
+        return $this->employeeRepositoryInterface->proccess_input_output_order_request($data, $inputOutputRequest, $company, $employee);
+    }
+
     public function insert_product_to_stock($request, $data)
     {
         $inventory_manager_id = Auth::guard('employee')->user()->id;
