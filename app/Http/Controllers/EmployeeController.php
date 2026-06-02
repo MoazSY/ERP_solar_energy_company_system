@@ -732,18 +732,73 @@ class EmployeeController extends Controller
 
     public function create_conflict_invoice(Request $request, $invoice_id)
     {
-        // في حال وجود اي مشكلة في الطلبية او في عملية التسليم او الاستلام يتم انشاء فاتورة خلافية لتوثيق المشكلة وحلها
-        // يتم تعيين التضارب في الفاتورة المستلمة من الوكالة
+        $validate = Validator::make(array_merge($request->all(), ['invoice_id' => $invoice_id]), [
+            'invoice_id' => 'required|integer|exists:purchase_invoices,id',
+            'conflict_type' => 'required|string|in:decreased_amount,increased_amount,spoiled_amount,other',
+            'conflict_amount' => 'sometimes|numeric|min:0',
+            'conflict_description' => 'sometimes|string',
+            'conflict_state' => 'sometimes|string|in:pending,resolved,closed',
+            'image_related' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        if ($request->hasFile('image_related')) {
+            $imagePath = $request->file('image_related')->getClientOriginalName();
+            $data['image_related'] = $request->file('image_related')->storeAs('ConflictInvoices/images', $imagePath, 'public');
+        }
+
+        $result = $this->employeeService->create_conflict_invoice($request, $invoice_id, $data);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Conflict invoice created successfully',
+            'conflict_invoice' => $result,
+        ], 201);
     }
 
-    public function show_installation_tasks()
-    {
-        // رؤية مهام التركيب المخصصة للتقنيين مع كافة المعلومات والتفاصيل عن المهمة
-    }
+    // public function show_installation_tasks()
+    // {
+    //     // رؤية مهام التركيب المخصصة للتقنيين مع كافة المعلومات والتفاصيل عن المهمة
+    // }
 
     public function filter_installation_tasks(Request $request)
     {
-        // فلترة مهام التركيب حسب الحالة او حسب التاريخ او حسب العميل او حسب نوع النظام او المنتهي او المقبوض اختر ما تراه مناسبا للفلترة
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'sometimes|integer|exists:project_tasks,id',
+            'task_type' => 'sometimes|string|in:installation,metal_base,blacksmith_workshop',
+            'task_status' => 'sometimes|string|in:pending,in_progress,completed',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'customer_name' => 'sometimes|string',
+            'is_completed' => 'sometimes|boolean',
+            'payment_received' => 'sometimes|boolean',
+            'min_fee' => 'sometimes|numeric|min:0',
+            'max_fee' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $tasks = $this->employeeService->filter_installation_tasks($filters);
+
+        if (isset($tasks['error'])) {
+            return response()->json(['message' => $tasks['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation tasks filtered successfully',
+            'tasks' => $tasks,
+        ], 200);
     }
 
     public function proccess_installation_task(Request $request)
@@ -805,10 +860,10 @@ class EmployeeController extends Controller
         // في حال كان العميل سيدفع كاش عند التسليم يقوم الفني بتسجيل استلام المبلغ من العميل وتوثيقه في النظام
     }
 
-    public function show_profits_from_installation_tasks(Request $request)
-    {
-        // رؤية الارباح التي حققها من مهام التركيب التي قام بها
-    }
+    // public function show_profits_from_installation_tasks(Request $request)
+    // {
+    //     // رؤية الارباح التي حققها من مهام التركيب التي قام بها
+    // }
 
     public function filter_profits_from_installation_tasks(Request $request)
     {

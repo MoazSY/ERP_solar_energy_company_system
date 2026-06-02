@@ -17,6 +17,7 @@ interface EmployeeRepositoryInterface
     public function show_orderList_for_inventory_manager($employee);
     public function show_output_orderList_for_inventory_manager($employee);
     public function proccess_input_output_order_request($data, $inputOutputRequest, $company, $employee);
+    public function create_conflict_invoice(array $data, $invoice_id, $company, $employee);
     public function insert_product_to_stock($data, $company);
     public function add_inventory_product_battery($request, $product_id);
     public function add_inventory_product_inverter($request, $product_id);
@@ -26,4 +27,5 @@ interface EmployeeRepositoryInterface
     public function delete_inventory_product_details($product_id);
     public function filter_inventory_products($filters);
     public function show_inventory_products($inventory_manager);
+    public function filter_installation_tasks($employee, array $filters);
 }

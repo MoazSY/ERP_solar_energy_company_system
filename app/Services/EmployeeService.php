@@ -318,6 +318,27 @@ class EmployeeService
         return $this->employeeRepositoryInterface->proccess_input_output_order_request($data, $inputOutputRequest, $company, $employee);
     }
 
+    public function create_conflict_invoice($request, $invoice_id, $data)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if ($employee->employee_type != 'inventory_manager') {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $company = $employee
+            ->companyAgencyEmployees()
+            ->where('entity_type_type', Solar_company::class)
+            ->first()
+            ?->entityType()
+            ->first();
+
+        if (!$company) {
+            return ['error' => 'Company not found'];
+        }
+        return $this->employeeRepositoryInterface->create_conflict_invoice($data, $invoice_id, $company, $employee);
+    }
+
     public function insert_product_to_stock($request, $data)
     {
         $inventory_manager_id = Auth::guard('employee')->user()->id;
@@ -419,6 +440,18 @@ class EmployeeService
             return ['product' => $item, 'product_image' => $product_image_URL, 'details' => $details];
         });
         return $result;
+    }
+
+    public function filter_installation_tasks($filters)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->filter_installation_tasks($employee, $filters);
     }
 
     public function recieve_cash_from_manager($taskId)

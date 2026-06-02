@@ -1,13 +1,16 @@
 <?php
 namespace App\Repositories;
 
+use App\Models\Agency;
 use App\Models\Company_agency_employee;
+use App\Models\Conflict_invoice;
 use App\Models\Deliveries;
 use App\Models\Employee;
-// use App\Models\Employment_orders;
 use App\Models\Input_output_request;
 use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Purchase_invoice;
+use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -316,6 +319,50 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         });
     }
 
+    public function create_conflict_invoice(array $data, $invoice_id, $company, $employee)
+    {
+        return DB::transaction(function () use ($data, $invoice_id, $company, $employee) {
+            $invoice = Purchase_invoice::with(['input_output_requests', 'seller_entity'])
+                ->where('id', $invoice_id)
+                ->where('buyer_entity_type', Solar_company::class)
+                ->where('buyer_entity_id', $company->id)
+                ->where('seller_entity_type', Agency::class)
+                ->first();
+
+            if (!$invoice) {
+                return ['error' => 'Invoice not found or not received from an agency for your company'];
+            }
+
+            $inputRequestExists = $invoice
+                ->input_output_requests()
+                ->where('request_type', 'input')
+                ->whereIn('status', ['pending', 'problem'])
+                ->exists();
+
+            if (!$inputRequestExists) {
+                return ['error' => 'No related input shipment with pending or problem status found for this invoice'];
+            }
+
+            $agencyId = $invoice->seller_entity_id;
+            if (!$agencyId) {
+                return ['error' => 'Invoice seller agency not found'];
+            }
+
+            $conflictInvoice = Conflict_invoice::create([
+                'invoice_id' => $invoice->id,
+                'company_id' => $company->id,
+                'agency_id' => $agencyId,
+                'conflict_type' => $data['conflict_type'],
+                'conflict_amount' => $data['conflict_amount'] ?? null,
+                'conflict_description' => $data['conflict_description'] ?? null,
+                'image_related' => $data['image_related'] ?? null,
+                'conflict_state' => $data['conflict_state'] ?? 'pending',
+            ]);
+
+            return $conflictInvoice->load('invoice', 'agency')->setAttribute('imageUrl', $conflictInvoice->image_related ? asset('storage/' . $conflictInvoice->image_related) : null);
+        });
+    }
+
     public function proccess_input_output_order_request($data, $inputOutputRequest, $company, $employee)
     {
         return DB::transaction(function () use ($data, $inputOutputRequest, $company, $employee) {
@@ -353,13 +400,11 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             $inputOutputRequest->notes = $data['notes'] ?? $inputOutputRequest->notes;
             $inputOutputRequest->save();
 
-
-
-                $invoiceItems = $inputOutputRequest->invoice?->object_entity_type === Subscribe_offer::class
+            $invoiceItems = $inputOutputRequest->invoice?->object_entity_type === Subscribe_offer::class
                 ? ($inputOutputRequest->invoice?->object_entity?->Items()->with(['product', 'product.inverters', 'product.batteries', 'product.solarPanals'])->get() ?? collect())
                 : ($inputOutputRequest->invoice?->object_entity?->Items->load(['product', 'product.inverters', 'product.batteries', 'product.solarPanals']) ?? collect());
 
-             $inputOutputRequest->load([
+            $inputOutputRequest->load([
                 // 'inventoryManager',
                 'invoice.seller_entity',
                 'invoice.buyer_entity',
@@ -369,8 +414,6 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ]);
             $inputOutputRequest->setAttribute('items', $invoiceItems);
             return $inputOutputRequest;
-          
-
         });
     }
 
@@ -959,6 +1002,71 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         }
 
         return $query->with(['batteries', 'inverters', 'solarPanals'])->get();
+    }
+
+    public function filter_installation_tasks($employee, array $filters)
+    {
+        $query = $employee->projectTasks()->with(['employee', 'taskable', 'orderList.request_entity']);
+
+        if (!empty($filters['task_id'])) {
+            $query->where('id', $filters['task_id']);
+        }
+
+        if (!empty($filters['task_type'])) {
+            $query->where('task_type', $filters['task_type']);
+        }
+
+        if (!empty($filters['task_status'])) {
+            $query->where('task_status', $filters['task_status']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('sheduled_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('sheduled_at', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['customer_name'])) {
+            $customerName = '%' . $filters['customer_name'] . '%';
+            $query->whereHas('orderList', function ($orderListQuery) use ($customerName) {
+                $orderListQuery
+                    ->where('customer_first_name', 'like', $customerName)
+                    ->orWhere('customer_last_name', 'like', $customerName);
+            });
+        }
+
+        if (array_key_exists('is_completed', $filters)) {
+            if ($filters['is_completed']) {
+                $query->whereNotNull('completed_at')->orWhere('task_status', 'completed');
+            } else {
+                $query->whereNull('completed_at');
+            }
+        }
+
+        if (array_key_exists('payment_received', $filters)) {
+            $query->where('payment_received', (bool) $filters['payment_received']);
+        }
+
+        if (!empty($filters['min_fee'])) {
+            $query->where('task_fee', '>=', $filters['min_fee']);
+        }
+
+        if (!empty($filters['max_fee'])) {
+            $query->where('task_fee', '<=', $filters['max_fee']);
+        }
+
+        return $query->latest('id')->get()->map(function ($task) {
+            return [
+                'task' => $task->toArray(),
+                'employee' => $task->employee?->toArray(),
+                'taskable' => $task->taskable?->toArray(),
+                'order_list' => $task->orderList?->toArray(),
+                'customer' => $task->orderList?->request_entity?->toArray(),
+                'is_completed' => !is_null($task->completed_at),
+            ];
+        });
     }
 
     public function show_inventory_products($inventory_manager)
