@@ -31,4 +31,5 @@ interface EmployeeRepositoryInterface
     public function proccess_installation_task($employee, $task_id, array $data);
     public function start_installation_task($employee, $task_id);
     public function define_solar_system_for_customer($employee, $task_id, array $data);
+    public function installation_task_complete($employee, $task_id, array $data);
 }

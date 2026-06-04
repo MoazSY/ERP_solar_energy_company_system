@@ -904,11 +904,44 @@ class EmployeeController extends Controller
 
     public function installation_task_complete(Request $request)
     {
-        /*
-         * اكمال مهمة التركيب من قبل التقني وتسجيل الوقت والتاريخ لنهاية المهمة
-         * تسجيل الملاحظات وتصوير المنظومة اذا كان فني تركيب ورفع صور القاعدة اذا كان فني قواعد
-         * اذا كان فني تركيب يجب مسح QR code  لاتمام التركيب
-         */
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'employee_notes' => 'sometimes|nullable|string',
+            'system_sn' => 'sometimes|nullable|string',
+            'images' => 'sometimes|array',
+            'images.*' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        // store uploaded images and collect stored paths
+        $storedImages = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                $original = $file->getClientOriginalName();
+                $path = $file->storeAs('Installation/complete', time() . '_' . $original, 'public');
+                $storedImages[] = $path;
+            }
+        }
+
+        if (!empty($storedImages)) {
+            $data['images'] = $storedImages;
+        }
+
+        $result = $this->employeeService->installation_task_complete($request->all(), $data);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation task completed successfully',
+            'task' => $result,
+        ], 200);
     }
 
     public function define_system_attachments(Request $request)

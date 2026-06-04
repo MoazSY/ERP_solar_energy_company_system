@@ -276,6 +276,23 @@ class EmployeeService
         return $this->employeeRepositoryInterface->start_installation_task($employee, $request->task_id);
     }
 
+    public function installation_task_complete($requestPayload, array $data)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $taskId = $data['task_id'] ?? ($requestPayload['task_id'] ?? null);
+        if (!$taskId) {
+            return ['error' => 'task_id is required'];
+        }
+
+        return $this->employeeRepositoryInterface->installation_task_complete($employee, $taskId, $data);
+    }
+
     public function define_solar_system_for_customer($task_id, array $data)
     {
         $employee_id = Auth::guard('employee')->user()->id;

@@ -10,6 +10,7 @@ use App\Models\Input_output_request;
 use App\Models\Order_list;
 use App\Models\Products;
 use App\Models\Project_task;
+use App\Models\Project_warranties;
 use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
@@ -299,12 +300,96 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         return $task->load(['employee', 'company', 'taskable']);
     }
 
+    public function installation_task_complete($employee, $task_id, array $data)
+    {
+        return DB::transaction(function () use ($employee, $task_id, $data) {
+            $task = Project_task::find($task_id);
+
+            if (!$task) {
+                return ['error' => 'Installation task not found'];
+            }
+
+            if ((int) $task->employee_id !== (int) $employee->id) {
+                return ['error' => 'Unauthorized: This task is not assigned to you'];
+            }
+
+            if ($task->task_status === 'completed' || $task->completed_at != null) {
+                return ['error' => 'This installation task has already been completed'];
+            }
+
+            $isInspection = ($task->task_type_new ?? $task->task_type) === 'technical_inspection';
+            $taskable = $task->taskable;
+            $expectedSerial = null;
+
+            if ($taskable instanceof Purchase_invoice) {
+                $projectWarranty = Project_warranties::where('invoice_id', $taskable->id)
+                    ->latest('id')
+                    ->first();
+
+                if ($projectWarranty && isset($projectWarranty->project_serial_number)) {
+                    $expectedSerial = trim((string) $projectWarranty->project_serial_number);
+                }
+            }
+
+
+
+            if (!$isInspection && $employee->employee_type === 'install_technician') {
+                if (empty($data['system_sn'])) {
+                    return ['error' => 'System serial (system_sn) is required to complete this installation task'];
+                }
+
+                if (empty($data['images']) || !is_array($data['images']) || count($data['images']) === 0) {
+                    return ['error' => 'At least one image is required to complete this installation task'];
+                }
+
+                if ($expectedSerial !== null) {
+                    $enteredSerial = trim((string) $data['system_sn']);
+                    if ($enteredSerial === '') {
+                        return ['error' => 'System serial cannot be empty'];
+                    }
+                    if (strcasecmp($enteredSerial, $expectedSerial) !== 0) {
+                        return ['error' => 'The entered system serial does not match the serial assigned by the company manager'];
+                    }
+                } else {
+                    return ['error' => 'No system serial is defined for this task by the company manager'];
+                }
+            }
+
+            $existingImages = [];
+            if (!empty($task->task_images)) {
+                $existingImages = is_array($task->task_images) ? $task->task_images : (json_decode($task->task_images, true) ?? []);
+            }
+
+            if (!empty($data['images']) && is_array($data['images'])) {
+                $existingImages = array_merge($existingImages, $data['images']);
+            }
+
+            $notes = $task->employee_notes ?? '';
+            if (!empty($data['employee_notes'])) {
+                $notes = trim($notes . "\n" . $data['employee_notes']);
+            }
+            if (!empty($data['system_sn'])) {
+                $notes = trim($notes . "\n" . 'system_sn: ' . $data['system_sn']);
+            }
+
+            $task->task_images = $existingImages;
+            $task->employee_notes = $notes;
+            $task->completed_at = now();
+            $task->task_status = 'completed';
+            $task->save();
+
+            $task->setAttribute('task_images_urls', array_map(fn($p) => asset('storage/' . $p), $existingImages));
+
+            return $task->fresh();
+        });
+    }
+
     public function define_solar_system_for_customer($employee, $task_id, array $data)
     {
         return DB::transaction(function () use ($employee, $task_id, $data) {
             $task = Project_task::find($task_id);
 
-            if (!$task||$task->task_type_new!='technical_inspection') {
+            if (!$task || $task->task_type_new != 'technical_inspection') {
                 return ['error' => 'Installation task not found'];
             }
 
@@ -317,7 +402,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             }
 
             // $customer = $task->orderList?->request_entity;//
-            $customer=$task->taskable?->buyer_entity;
+            $customer = $task->taskable?->buyer_entity;
             if (!$customer || !($customer instanceof \App\Models\Customer)) {
                 return ['error' => 'Customer not found for this installation task'];
             }
