@@ -803,17 +803,103 @@ class EmployeeController extends Controller
 
     public function proccess_installation_task(Request $request)
     {
-        // معالجة مهمة التركيب من حيث تعيينها كمقبولة او مرفوضة من قبل التقني
-    }
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'action' => 'required|string|in:accept,reject',
+            'rejected_reason' => 'required_if:action,reject|nullable|string',
+            'employee_notes' => 'sometimes|nullable|string',
+        ]);
 
-    public function define_solar_system_for_customer(Request $request)
-    {
-        // في حال قبول مهمة التركيب من قبل التقني يتم تعريف نظام الطاقة الشمسية المناسب للعميل حسب طلبه واحتياجه وامكانياته المادية في حال قام العميل بطلب كشف فني
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->proccess_installation_task($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        $message = $request->input('action') === 'accept'
+            ? 'Installation task accepted successfully'
+            : 'Installation task rejected successfully';
+
+        return response()->json([
+            'message' => $message,
+            'task' => $result,
+        ], 200);
     }
 
     public function installation_task_start(Request $request)
     {
-        // بدء مهمة التركيب من قبل التقني وتسجيل الوقت والتاريخ لبداية المهمة
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->installation_task_start($request);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation task started successfully',
+            'task' => $result,
+        ], 200);
+    }
+
+    public function define_solar_system_for_customer(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'requested_capacity_kw' => 'sometimes|numeric|min:0',
+            'dayly_consumption_kwh' => 'sometimes|numeric|min:0',
+            'nightly_consumption_kwh' => 'sometimes|numeric|min:0',
+            'system_type' => 'sometimes|string|in:on_grid,off_grid,hybrid',
+            'inverter_brand' => 'sometimes|string',
+            'battery_type' => 'sometimes|string|in:lithium_ion,lead_acid,nickel_cadmium',
+            'battery_brand' => 'sometimes|string',
+            'solar_panel_brand' => 'sometimes|string',
+            'inverter_capacity_kw' => 'sometimes|numeric|min:0',
+            'solar_panel_capacity_kw' => 'sometimes|numeric|min:0',
+            'solar_panel_number' => 'sometimes|integer|min:0',
+            'battery_capacity_kwh' => 'sometimes|numeric|min:0',
+            'battery_number' => 'sometimes|integer|min:0',
+            'inverter_voltage_v' => 'sometimes|string|in:12V,24V,48V',
+            'battery_voltage_v' => 'sometimes|string|in:12V,24V,48V',
+            'expected_budget' => 'sometimes|string|in:low,medium,high',
+            'metal_base_type' => 'sometimes|string|in:installation,blacksmith_workshop',
+            'front_base_height_m' => 'sometimes|numeric|min:0',
+            'back_base_height_m' => 'sometimes|numeric|min:0',
+            'additional_details' => 'sometimes|nullable|string',
+            'surface_image' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        if ($request->hasFile('surface_image')) {
+            $imagePath = $request->file('surface_image')->getClientOriginalName();
+            $data['surface_image'] = $request->file('surface_image')->storeAs('SolarSystem/technician_defined', $imagePath, 'public');
+        }
+
+        $result = $this->employeeService->define_solar_system_for_customer($request->task_id, $data);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Solar system defined for customer successfully',
+            'solar_system' => $result,
+        ], 201);
     }
 
     public function installation_task_complete(Request $request)

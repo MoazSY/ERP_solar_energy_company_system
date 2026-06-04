@@ -9,7 +9,9 @@ use App\Models\Employee;
 use App\Models\Input_output_request;
 use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Project_task;
 use App\Models\Purchase_invoice;
+use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
 use Illuminate\Support\Facades\Auth;
@@ -268,6 +270,81 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $delivery->driver_approved_delivery_task = $request->action === 'approve' ? 'approve' : 'reject';
         $delivery->save();
         return $delivery;
+    }
+
+    public function start_installation_task($employee, $task_id)
+    {
+        $task = Project_task::find($task_id);
+
+        if (!$task) {
+            return ['error' => 'Installation task not found'];
+        }
+
+        if ((int) $task->employee_id !== (int) $employee->id) {
+            return ['error' => 'Unauthorized: This task is not assigned to you'];
+        }
+
+        if ($task->task_accepted != true) {
+            return ['error' => 'Installation task has not been accepted yet'];
+        }
+
+        if ($task->started_at != null) {
+            return ['error' => 'This installation task has already been started'];
+        }
+
+        $task->started_at = now();
+        $task->task_status = 'in_progress';
+        $task->save();
+
+        return $task->load(['employee', 'company', 'taskable']);
+    }
+
+    public function define_solar_system_for_customer($employee, $task_id, array $data)
+    {
+        return DB::transaction(function () use ($employee, $task_id, $data) {
+            $task = Project_task::find($task_id);
+
+            if (!$task||$task->task_type_new!='technical_inspection') {
+                return ['error' => 'Installation task not found'];
+            }
+
+            if ((int) $task->employee_id !== (int) $employee->id) {
+                return ['error' => 'Unauthorized: This task is not assigned to you'];
+            }
+
+            if ($task->task_accepted != true) {
+                return ['error' => 'Installation task has not been accepted yet'];
+            }
+
+            // $customer = $task->orderList?->request_entity;//
+            $customer=$task->taskable?->buyer_entity;
+            if (!$customer || !($customer instanceof \App\Models\Customer)) {
+                return ['error' => 'Customer not found for this installation task'];
+            }
+
+            $company = $task->company;
+            if (!$company) {
+                return ['error' => 'Company not found for this installation task'];
+            }
+
+            $payload = array_filter($data, fn($value) => !is_null($value));
+            $payload['customer_id'] = $customer->id;
+            $payload['company_id'] = $company->id;
+
+            $solarSystem = $customer
+                ->requestSolarSystems()
+                ->where('company_id', $company->id)
+                ->first();
+
+            if ($solarSystem) {
+                $solarSystem->update($payload);
+                $solarSystem->save();
+            } else {
+                $solarSystem = Request_solar_system::create($payload);
+            }
+
+            return $solarSystem->load(['customer', 'company']);
+        });
     }
 
     public function show_orderList_for_inventory_manager($employee)
@@ -1006,7 +1083,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
     public function filter_installation_tasks($employee, array $filters)
     {
-        $query = $employee->projectTasks()->with(['employee', 'taskable', 'orderList.request_entity']);
+        $query = $employee->projectTasks();
 
         if (!empty($filters['task_id'])) {
             $query->where('id', $filters['task_id']);
@@ -1062,10 +1139,57 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'task' => $task->toArray(),
                 'employee' => $task->employee?->toArray(),
                 'taskable' => $task->taskable?->toArray(),
+                'offer' => $task->taskable?->object_entity?->offer?->toArray(),
+                'item' => $task->taskable?->object_entity?->offer?->Items->toArray(),
                 'order_list' => $task->orderList?->toArray(),
-                'customer' => $task->orderList?->request_entity?->toArray(),
+                'customer' => $task->taskable?->buyer_entity?->toArray(),
+                'address' => $task->taskable?->buyer_entity?->addresses()?->latest('id')->first(),
                 'is_completed' => !is_null($task->completed_at),
             ];
+        });
+    }
+
+    public function proccess_installation_task($employee, $task_id, array $data)
+    {
+        return DB::transaction(function () use ($employee, $task_id, $data) {
+            $task = Project_task::find($task_id);
+
+            if (!$task) {
+                return ['error' => 'Installation task not found'];
+            }
+
+            if ((int) $task->employee_id !== (int) $employee->id) {
+                return ['error' => 'Unauthorized: This task is not assigned to you'];
+            }
+
+            if ($task->task_accepted === true) {
+                return ['error' => 'This task has already been processed'];
+            }
+
+            $action = $data['action'] ?? null;
+
+            if ($action === 'accept') {
+                $task->task_accepted = true;
+                $task->accepted_at = now();
+                $task->task_status = 'pending';
+                $task->rejected_reason = null;
+            } elseif ($action === 'reject') {
+                $task->task_accepted = false;
+                $task->rejected_at = now();
+                $task->rejected_reason = $data['rejected_reason'] ?? null;
+                $task->task_status = 'pending';
+            } else {
+                return ['error' => 'Invalid action. Must be accept or reject'];
+            }
+
+            if (!empty($data['employee_notes'])) {
+                $task->employee_notes = $data['employee_notes'];
+            }
+
+            $task->save();
+            $task->refresh();
+
+            return $task->load(['employee', 'company', 'taskable', 'orderList.request_entity']);
         });
     }
 

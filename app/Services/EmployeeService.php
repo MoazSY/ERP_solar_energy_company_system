@@ -265,6 +265,28 @@ class EmployeeService
         return $delivery;
     }
 
+    public function installation_task_start($request)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'])) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->start_installation_task($employee, $request->task_id);
+    }
+
+    public function define_solar_system_for_customer($task_id, array $data)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'])) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->define_solar_system_for_customer($employee, $task_id, $data);
+    }
+
     public function show_orderList_for_inventory_manager()
     {
         $employee_id = Auth::guard('employee')->user()->id;
@@ -452,6 +474,24 @@ class EmployeeService
         }
 
         return $this->employeeRepositoryInterface->filter_installation_tasks($employee, $filters);
+    }
+
+    public function proccess_installation_task($request)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        // if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+        //     return ['error' => 'Unauthorized'];
+        // }
+
+        $data = [
+            'action' => $request->input('action'),
+            'rejected_reason' => $request->input('rejected_reason'),
+            'employee_notes' => $request->input('employee_notes'),
+        ];
+
+        return $this->employeeRepositoryInterface->proccess_installation_task($employee, $request->task_id, $data);
     }
 
     public function recieve_cash_from_manager($taskId)
