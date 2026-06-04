@@ -601,4 +601,16 @@ class EmployeeService
             'transaction' => $transaction,
         ];
     }
+
+    public function filter_profits_from_installation_tasks($filters)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized: Only installation technicians can view profits'];
+        }
+
+        return $this->employeeRepositoryInterface->filter_profits_from_installation_tasks($employee, $filters);
+    }
 }

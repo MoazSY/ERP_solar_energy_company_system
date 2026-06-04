@@ -331,8 +331,6 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 }
             }
 
-
-
             if (!$isInspection && $employee->employee_type === 'install_technician') {
                 if (empty($data['system_sn'])) {
                     return ['error' => 'System serial (system_sn) is required to complete this installation task'];
@@ -1285,5 +1283,53 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             return null;
         }
         return $company->products()->get();
+    }
+
+    public function filter_profits_from_installation_tasks($employee, array $filters)
+    {
+        $query = $employee
+            ->projectTasks()
+            ->where('task_status', 'completed')
+            ->whereNotNull('completed_at');
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('completed_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('completed_at', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['task_type'])) {
+            $query->where('task_type_new', $filters['task_type']);
+        }
+        if(!empty($filters['company_name'])){
+            $companyName = '%' . $filters['company_name'] . '%';
+            $query->whereHas('company', function ($companyQuery) use ($companyName) {
+                $companyQuery->where('company_name', 'like', $companyName);
+            });
+        }
+
+        $tasks = $query->latest('completed_at')->get();
+
+        $totalProfit = 0;
+
+        $tasks=$tasks->map(function ($task) use (&$totalProfit) {
+            $profit = $task->task_fee ?? 0;
+            $totalProfit += $profit;
+            return[
+                'task' => $task->load('company'),
+                'task_type' => $task->task_type ?? $task->task_type_new,
+                'completed_at' => $task->completed_at,
+                'profit' => $task->task_fee,
+            ];
+        
+        });
+
+        return [
+            'tasks' => $tasks,
+            'total_profit' => $totalProfit,
+            'tasks_count' => count($tasks),
+        ];
     }
 }

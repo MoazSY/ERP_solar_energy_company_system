@@ -979,15 +979,30 @@ class EmployeeController extends Controller
         // في حال كان العميل سيدفع كاش عند التسليم يقوم الفني بتسجيل استلام المبلغ من العميل وتوثيقه في النظام
     }
 
-    // public function show_profits_from_installation_tasks(Request $request)
-    // {
-    //     // رؤية الارباح التي حققها من مهام التركيب التي قام بها
-    // }
-
     public function filter_profits_from_installation_tasks(Request $request)
     {
-        // فلترة الارباح حسب التاريخ او حسب العميل او حسب نوع النظام او المنتهي او المقبوض اختر ما تراه مناسبا للفلترة تاريخ يومي شهري
-        // من شركة محددة فلتر بما تراه مناسبا
+        $validate = Validator::make($request->all(), [
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'task_type' => 'sometimes|string|in:installation,metal_base,blacksmith_workshop,maintenance,technical_inspection',
+            'company_name'=>'sometimes|string'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $result = $this->employeeService->filter_profits_from_installation_tasks($filters);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Installation tasks profits filtered successfully',
+            'data' => $result,
+        ], 200);
     }
 
     public function show_product_nearing_out_of_stock()
