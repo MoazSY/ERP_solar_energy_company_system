@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
 
 class Metainence_request extends Model
 {
@@ -41,5 +43,9 @@ class Metainence_request extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id');
+    }
+        public function Items(): MorphMany
+    {
+        return $this->morphMany(Items::class, 'itemable');
     }
 }

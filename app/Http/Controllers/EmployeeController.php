@@ -946,12 +946,30 @@ class EmployeeController extends Controller
 
     public function define_system_attachments(Request $request)
     {
-        /*
-         * عندما يستلم الفني مهمة التركيب ويوافق عليها
-         * بعد ما يطلع على قائمة الطلبات يستطيع اضافة قائمة من المنتجات ليقوم مدير المستودع لاحقا بتعديل قائمة الطلبات استجابة لطلب الفني
-         * التي هي غالبا من فئة الاكسوارات اي المرفقات للطاقة
-         * القائمة في جدول products technicians مع ربطها بمهمة التركيب وبالعميل وبالطلبية وبالفاتورة
-         */
+        $validate = Validator::make($request->all(), [
+            'task_id'    => 'required|integer|exists:project_tasks,id',
+            'item_ids'   => 'required|array|min:1',
+            'item_ids.*.id' => 'required|integer|exists:products,id',
+            'item_ids.*.quantity'=>'required|integer|min:1'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->define_system_attachments(
+            $validate->validated()['task_id'],
+            $validate->validated()['item_ids']
+        );
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'System attachments defined successfully',
+            'attachments' => $result,
+        ], 201);
     }
 
     public function show_system_attachments_for_technician(Request $request)

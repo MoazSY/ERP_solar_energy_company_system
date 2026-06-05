@@ -184,6 +184,7 @@ Route::middleware('check_employee')->group(function () {
     Route::get('show_output_orderList_for_inventory_manager', [EmployeeController::class, 'show_output_orderList_for_inventory_manager']);
     Route::post('proccess_input_output_order_request', [EmployeeController::class, 'proccess_input_output_order_request']);
     Route::post('show_product_nearing_out_of_stock', [EmployeeController::class, 'show_product_nearing_out_of_stock']);
+    Route::post('define_system_attachments', [EmployeeController::class, 'define_system_attachments']);
 
 });
 

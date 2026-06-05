@@ -630,4 +630,69 @@ class EmployeeService
 
         return $this->employeeRepositoryInterface->show_product_nearing_out_of_stock($company, $threshold);
     }
+
+ public function define_system_attachments(int $task_id, array $item_ids)
+{
+    $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);
+
+    if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+        return ['error' => 'Unauthorized'];
+    }
+
+    $task = $employee->projectTasks()->find($task_id);
+
+    if (!$task) {
+        return ['error' => 'Task not found or not assigned to you'];
+    }
+
+    if (!$task->task_accepted) {
+        return ['error' => 'Task must be accepted before defining attachments'];
+    }
+
+    if ($task->task_status === 'completed') {
+        return ['error' => 'Cannot define attachments for a completed task'];
+    }
+
+    // جلب المنتجات المسموحة للمهمة (من العقد/العرض)
+    $taskItemIds = $this->resolveTaskItemIds($task);
+
+    // استخراج الـ IDs من المنتجات المرسلة
+    $submittedIds = array_column($item_ids, 'id');
+
+    // المنتجات غير المطابقة (التي ليست ضمن المسموحة) – حسب طلبك
+    $invalid = array_diff($submittedIds, $taskItemIds);
+
+    if (empty($invalid)) {
+        return ['error' => 'No non-matching items found to add'];
+    }
+
+    // تصفية المصفوفة الأصلية للحصول على العناصر الكاملة (id + quantity) للمنتجات غير المطابقة
+    $itemsToAdd = array_filter($item_ids, function ($item) use ($invalid) {
+        return in_array($item['id'], $invalid);
+    });
+    $itemsToAdd = array_values($itemsToAdd);
+
+    // ملاحظة: لا نتحقق من $alreadyRegistered لأننا سنحذف القديم في الـ Repository
+
+    return $this->employeeRepositoryInterface->define_system_attachments($employee, $task, $itemsToAdd);
+}
+
+    private function resolveTaskItemIds($task): array
+    {
+        $taskable = $task->taskable;
+
+        if (!$taskable) {
+            return [];
+        }
+
+        if ($taskable->object_entity_type === \App\Models\Subscribe_offer::class) {
+            return $taskable->object_entity?->offer?->Items->pluck('id')->toArray() ?? [];
+        }
+
+        if ($taskable->object_entity_type === \App\Models\Order_list::class) {
+            return $taskable->object_entity?->Items->pluck('id')->toArray() ?? [];
+        }
+
+        return [];
+    }
 }

@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Input_output_request;
 use App\Models\Order_list;
 use App\Models\Products;
+use App\Models\Product_techicians;
 use App\Models\Project_task;
 use App\Models\Project_warranties;
 use App\Models\Purchase_invoice;
@@ -1323,7 +1324,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'completed_at' => $task->completed_at,
                 'profit' => $task->task_fee,
             ];
-        
+
         });
 
         return [
@@ -1342,4 +1343,72 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ->with(['inverters', 'batteries', 'solarPanals'])
             ->get();
     }
+
+public function define_system_attachments($employee, $task, array $products)
+{
+    return DB::transaction(function () use ($employee, $task, $products) {
+        // حذف التعيينات القديمة (إذا أردت الاستبدال)
+        $task->productTechicians()->where('technician_id', $employee->id)->delete();
+
+        $inventoryManager = Company_agency_employee::where('entity_type_type', Solar_company::class)
+            ->where('entity_type_id', $task->company_id)
+            ->where('role', 'inventory_manager')
+            ->first();
+
+        $itemsarray = [];
+        $task_type_object = $task->taskable->object_entity;
+
+        foreach ($products as $productarray) {
+            $product = Products::findOrFail($productarray['id']);
+            $unitPrice = (float) $product->price;
+            $lineSubTotal = $unitPrice * $productarray['quantity'];
+
+            $unitDiscountAmount = (float) ($product->disscount_value ?? 0);
+            $lineDiscount = $product->disscount_type === 'percentage'
+                ? (($unitDiscountAmount / 100) * $lineSubTotal)
+                : ($unitDiscountAmount * $productarray['quantity']);
+
+            if ($task_type_object instanceof \App\Models\Subscribe_offer) {
+                $item = $task_type_object->offer->Items()->create([
+                    'product_id' => $product->id,
+                    'item_name_snapshot' => $product->product_name,
+                    'quantity' => $productarray['quantity'],
+                    'unit_price' => $product->price,
+                    'total_price' => max($lineSubTotal - $lineDiscount, 0),
+                    'unit_discount_amount' => $unitDiscountAmount,
+                    'total_discount_amount' => $lineDiscount,
+                    'discount_type' => $product->disscount_type,
+                    'currency' => $product->currency,
+                ]);
+            } else {
+                // هنا تم إصلاح الخطأ: تخزين النتيجة في $item
+                $item = $task_type_object->Items()->create([
+                    'product_id' => $product->id,
+                    'item_name_snapshot' => $product->product_name,
+                    'quantity' => $productarray['quantity'],
+                    'unit_price' => $product->price,
+                    'total_price' => max($lineSubTotal - $lineDiscount, 0),
+                    'unit_discount_amount' => $unitDiscountAmount,
+                    'total_discount_amount' => $lineDiscount,
+                    'discount_type' => $product->disscount_type,
+                    'currency' => $product->currency,
+                ]);
+            }
+            $itemsarray[] = $item->id;
+        }
+
+        $created = [];
+        foreach ($itemsarray as $item_id) {
+            $created[] = Product_techicians::create([
+                'technician_id' => $employee->id,
+                'task_id'       => $task->id,
+                'item_id'       => $item_id,
+                'inventory_manager_id' => $inventoryManager->id ?? null,
+            ]);
+        }
+
+        // إصلاح تحميل العلاقات
+        return (new \Illuminate\Database\Eloquent\Collection($created))->load('item.product');
+    });
+}
 }
