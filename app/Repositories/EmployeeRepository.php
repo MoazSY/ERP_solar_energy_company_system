@@ -1332,4 +1332,14 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             'tasks_count' => count($tasks),
         ];
     }
+
+    public function show_product_nearing_out_of_stock($company, int $threshold)
+    {
+        return Products::where('entity_type_type', Solar_company::class)
+            ->where('entity_type_id', $company->id)
+            ->where('quentity', '<=', $threshold)
+            ->orderBy('quentity')
+            ->with(['inverters', 'batteries', 'solarPanals'])
+            ->get();
+    }
 }

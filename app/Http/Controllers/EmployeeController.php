@@ -1005,10 +1005,28 @@ class EmployeeController extends Controller
         ], 200);
     }
 
-    public function show_product_nearing_out_of_stock()
+    public function show_product_nearing_out_of_stock(Request $request)
     {
-        /*
-         * رؤية المنتجات التي اوشكت على النفاد مع كمياتها
-         */
+        $validate=Validator::make($request->all(),[
+            'threshold'=>'sometimes|integer|min:0'
+        ]);
+        if($validate->fails())
+        {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+        $threshold = (int) $request->input('threshold', 5);
+
+        $products = $this->employeeService->show_product_nearing_out_of_stock($threshold);
+
+        if (isset($products['error'])) {
+            return response()->json(['message' => $products['error']], isset($products['error']) ? 400 : 200);
+        }
+
+        return response()->json([
+            'message' => 'Products nearing out of stock retrieved successfully',
+            'threshold' => $threshold,
+            'count' => $products->count(),
+            'products' => $products,
+        ]);
     }
 }

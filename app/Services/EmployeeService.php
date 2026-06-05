@@ -613,4 +613,21 @@ class EmployeeService
 
         return $this->employeeRepositoryInterface->filter_profits_from_installation_tasks($employee, $filters);
     }
+
+    public function show_product_nearing_out_of_stock(int $threshold = 5)
+    {
+        $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);
+
+        if ($employee->employee_type !== 'inventory_manager') {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $company = $employee->companyAgencyEmployees()->first()?->entityType()->first();
+
+        if (!$company) {
+            return ['error' => 'Company not found'];
+        }
+
+        return $this->employeeRepositoryInterface->show_product_nearing_out_of_stock($company, $threshold);
+    }
 }
