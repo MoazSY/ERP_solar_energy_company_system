@@ -947,12 +947,12 @@ class EmployeeController extends Controller
     public function show_system_attachments_for_technician(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'task_id'       => 'sometimes|integer|exists:project_tasks,id',
-            'product_type'  => 'sometimes|string|in:battery,inverter,solar_panel,accessory',
-            'product_name'  => 'sometimes|string',
-            'extracted'     => 'sometimes|boolean',
-            'date_from'     => 'sometimes|date',
-            'date_to'       => 'sometimes|date|after_or_equal:date_from',
+            'task_id' => 'sometimes|integer|exists:project_tasks,id',
+            'product_type' => 'sometimes|string|in:battery,inverter,solar_panel,accessory',
+            'product_name' => 'sometimes|string',
+            'extracted' => 'sometimes|boolean',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
         ]);
 
         if ($validate->fails()) {
@@ -968,18 +968,18 @@ class EmployeeController extends Controller
 
         return response()->json([
             'message' => 'System attachments filtered successfully',
-            'count'   => count($result),
-            'attachments'    => $result,
+            'count' => count($result),
+            'attachments' => $result,
         ], 200);
     }
 
     public function define_system_attachments(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'task_id'    => 'required|integer|exists:project_tasks,id',
-            'item_ids'   => 'required|array|min:1',
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'item_ids' => 'required|array|min:1',
             'item_ids.*.id' => 'required|integer|exists:products,id',
-            'item_ids.*.quantity'=>'required|integer|min:1'
+            'item_ids.*.quantity' => 'required|integer|min:1'
         ]);
 
         if ($validate->fails()) {
@@ -1003,7 +1003,24 @@ class EmployeeController extends Controller
 
     public function extract_attachments(Request $request)
     {
-        // ادخالها للطلبية او تعديل كميات او حذفها حسب الحاجة طبعا الذي يقوم بذلك مدير المستودع
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->extract_attachments($validate->validated()['task_id']);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Attachments extracted successfully',
+            'extracted' => $result,
+        ], 200);
     }
 
     public function register_consumable_material(Request $request)
@@ -1027,7 +1044,7 @@ class EmployeeController extends Controller
             'date_from' => 'sometimes|date',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'task_type' => 'sometimes|string|in:installation,metal_base,blacksmith_workshop,maintenance,technical_inspection',
-            'company_name'=>'sometimes|string'
+            'company_name' => 'sometimes|string'
         ]);
 
         if ($validate->fails()) {
@@ -1049,11 +1066,10 @@ class EmployeeController extends Controller
 
     public function show_product_nearing_out_of_stock(Request $request)
     {
-        $validate=Validator::make($request->all(),[
-            'threshold'=>'sometimes|integer|min:0'
+        $validate = Validator::make($request->all(), [
+            'threshold' => 'sometimes|integer|min:0'
         ]);
-        if($validate->fails())
-        {
+        if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
         $threshold = (int) $request->input('threshold', 5);

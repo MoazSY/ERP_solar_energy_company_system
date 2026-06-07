@@ -8,8 +8,8 @@ use App\Models\Deliveries;
 use App\Models\Employee;
 use App\Models\Input_output_request;
 use App\Models\Order_list;
-use App\Models\Products;
 use App\Models\Product_techicians;
+use App\Models\Products;
 use App\Models\Project_task;
 use App\Models\Project_warranties;
 use App\Models\Purchase_invoice;
@@ -1304,7 +1304,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         if (!empty($filters['task_type'])) {
             $query->where('task_type_new', $filters['task_type']);
         }
-        if(!empty($filters['company_name'])){
+        if (!empty($filters['company_name'])) {
             $companyName = '%' . $filters['company_name'] . '%';
             $query->whereHas('company', function ($companyQuery) use ($companyName) {
                 $companyQuery->where('company_name', 'like', $companyName);
@@ -1315,16 +1315,15 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
         $totalProfit = 0;
 
-        $tasks=$tasks->map(function ($task) use (&$totalProfit) {
+        $tasks = $tasks->map(function ($task) use (&$totalProfit) {
             $profit = $task->task_fee ?? 0;
             $totalProfit += $profit;
-            return[
+            return [
                 'task' => $task->load('company'),
                 'task_type' => $task->task_type ?? $task->task_type_new,
                 'completed_at' => $task->completed_at,
                 'profit' => $task->task_fee,
             ];
-
         });
 
         return [
@@ -1376,12 +1375,11 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         if (!empty($filters['date_to'])) {
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
-        if(!empty($filters['extracted'])){
+        if (!empty($filters['extracted'])) {
             $query->where('extract_item', $filters['extracted']);
         }
 
         $attachments = $query->latest('id')->get();
-
 
         return $attachments->groupBy('task_id')->map(function ($attachments, $taskId) {
             return [
@@ -1401,71 +1399,139 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ->get();
     }
 
-public function define_system_attachments($employee, $task, array $products)
-{
-    return DB::transaction(function () use ($employee, $task, $products) {
-        // حذف التعيينات القديمة (إذا أردت الاستبدال)
-        // $task->productTechicians()->where('technician_id', $employee->id)->delete();
+    public function define_system_attachments($employee, $task, array $products)
+    {
+        return DB::transaction(function () use ($employee, $task, $products) {
+            // حذف التعيينات القديمة (إذا أردت الاستبدال)
+            // $task->productTechicians()->where('technician_id', $employee->id)->delete();
 
-        $inventoryManager = Company_agency_employee::where('entity_type_type', Solar_company::class)
-            ->where('entity_type_id', $task->company_id)
-            ->where('role', 'inventory_manager')
-            ->first();
+            $inventoryManager = Company_agency_employee::where('entity_type_type', Solar_company::class)
+                ->where('entity_type_id', $task->company_id)
+                ->where('role', 'inventory_manager')
+                ->first();
 
-        $itemsarray = [];
-        $task_type_object = $task->taskable->object_entity;
+            $itemsarray = [];
+            $task_type_object = $task->taskable->object_entity;
 
-        foreach ($products as $productarray) {
-            $product = Products::findOrFail($productarray['id']);
-            $unitPrice = (float) $product->price;
-            $lineSubTotal = $unitPrice * $productarray['quantity'];
+            foreach ($products as $productarray) {
+                $product = Products::findOrFail($productarray['id']);
+                $unitPrice = (float) $product->price;
+                $lineSubTotal = $unitPrice * $productarray['quantity'];
 
-            $unitDiscountAmount = (float) ($product->disscount_value ?? 0);
-            $lineDiscount = $product->disscount_type === 'percentage'
-                ? (($unitDiscountAmount / 100) * $lineSubTotal)
-                : ($unitDiscountAmount * $productarray['quantity']);
+                $unitDiscountAmount = (float) ($product->disscount_value ?? 0);
+                $lineDiscount = $product->disscount_type === 'percentage'
+                    ? (($unitDiscountAmount / 100) * $lineSubTotal)
+                    : ($unitDiscountAmount * $productarray['quantity']);
 
-            if ($task_type_object instanceof \App\Models\Subscribe_offer) {
-                $item = $task_type_object->offer->Items()->create([
-                    'product_id' => $product->id,
-                    'item_name_snapshot' => $product->product_name,
-                    'quantity' => $productarray['quantity'],
-                    'unit_price' => $product->price,
-                    'total_price' => max($lineSubTotal - $lineDiscount, 0),
-                    'unit_discount_amount' => $unitDiscountAmount,
-                    'total_discount_amount' => $lineDiscount,
-                    'discount_type' => $product->disscount_type,
-                    'currency' => $product->currency,
-                ]);
-            } else {
-                // هنا تم إصلاح الخطأ: تخزين النتيجة في $item
-                $item = $task_type_object->Items()->create([
-                    'product_id' => $product->id,
-                    'item_name_snapshot' => $product->product_name,
-                    'quantity' => $productarray['quantity'],
-                    'unit_price' => $product->price,
-                    'total_price' => max($lineSubTotal - $lineDiscount, 0),
-                    'unit_discount_amount' => $unitDiscountAmount,
-                    'total_discount_amount' => $lineDiscount,
-                    'discount_type' => $product->disscount_type,
-                    'currency' => $product->currency,
+                if ($task_type_object instanceof \App\Models\Subscribe_offer) {
+                    $item = $task_type_object->offer->Items()->create([
+                        'product_id' => $product->id,
+                        'item_name_snapshot' => $product->product_name,
+                        'quantity' => $productarray['quantity'],
+                        'unit_price' => $product->price,
+                        'total_price' => max($lineSubTotal - $lineDiscount, 0),
+                        'unit_discount_amount' => $unitDiscountAmount,
+                        'total_discount_amount' => $lineDiscount,
+                        'discount_type' => $product->disscount_type,
+                        'currency' => $product->currency,
+                    ]);
+                } else {
+                    // هنا تم إصلاح الخطأ: تخزين النتيجة في $item
+                    $item = $task_type_object->Items()->create([
+                        'product_id' => $product->id,
+                        'item_name_snapshot' => $product->product_name,
+                        'quantity' => $productarray['quantity'],
+                        'unit_price' => $product->price,
+                        'total_price' => max($lineSubTotal - $lineDiscount, 0),
+                        'unit_discount_amount' => $unitDiscountAmount,
+                        'total_discount_amount' => $lineDiscount,
+                        'discount_type' => $product->disscount_type,
+                        'currency' => $product->currency,
+                    ]);
+                }
+                $itemsarray[] = $item->id;
+            }
+
+            $created = [];
+            foreach ($itemsarray as $item_id) {
+                $created[] = Product_techicians::create([
+                    'technician_id' => $employee->id,
+                    'task_id' => $task->id,
+                    'item_id' => $item_id,
+                    'inventory_manager_id' => $inventoryManager->id ?? null,
                 ]);
             }
-            $itemsarray[] = $item->id;
+
+            // إصلاح تحميل العلاقات
+            return (new \Illuminate\Database\Eloquent\Collection($created))->load('item.product');
+        });
+    }
+
+    public function extract_system_attachments($employee, int $task_id)
+    {
+        $task = Project_task::find($task_id);
+
+        if (!$task) {
+            return ['error' => 'Task not found'];
         }
 
-        $created = [];
-        foreach ($itemsarray as $item_id) {
-            $created[] = Product_techicians::create([
-                'technician_id' => $employee->id,
-                'task_id'       => $task->id,
-                'item_id'       => $item_id,
-                'inventory_manager_id' => $inventoryManager->id ?? null,
-            ]);
+        $company = $employee->companyAgencyEmployees()->first()?->entityType()->first();
+
+        if (!$company || $company->id !== $task->company_id) {
+            return ['error' => 'Task not found or not associated with your company'];
         }
 
-        // إصلاح تحميل العلاقات
-        return (new \Illuminate\Database\Eloquent\Collection($created))->load('item.product');
-    });
-}
+        $attachments = Product_techicians::with(['item.product'])
+            ->where('task_id', $task_id)
+            ->where('extract_item', false)
+            ->get();
+
+        if ($attachments->isEmpty()) {
+            return ['error' => 'No pending attachments found for extraction'];
+        }
+
+        foreach ($attachments as $attachment) {
+            $item = $attachment->item;
+            if (!$item) {
+                return ['error' => "Missing item record for attachment id {$attachment->id}"];
+            }
+
+            $product = $item->product;
+            if (!$product) {
+                return ['error' => "Missing product record for item id {$item->id}"];
+            }
+
+            $quantity = (int) ($item->quantity ?? 0);
+            if ($quantity <= 0) {
+                return ['error' => "Invalid item quantity for item id {$item->id}"];
+            }
+
+            $availableQuantity = (int) ($product->quentity ?? 0);
+            if ($availableQuantity < $quantity) {
+                return ['error' => "Insufficient stock for product {$product->product_name}. Available {$availableQuantity}, required {$quantity}"];
+            }
+        }
+
+        return DB::transaction(function () use ($attachments, $employee) {
+            foreach ($attachments as $attachment) {
+                $item = $attachment->item;
+                $product = $item->product;
+                $quantity = (int) ($item->quantity ?? 0);
+
+                $product->quentity = max(0, (int) $product->quentity - $quantity);
+                $product->save();
+
+                $attachment->extract_item = true;
+                $attachment->inventory_manager_id = $employee->id;
+                $attachment->save();
+            }
+
+            return $attachments->groupBy('task_id')->map(function ($group, $taskId) {
+                return [
+                    'task_id' => $taskId,
+                    'attachments' => $group,
+                ];
+            })->values();
+        });
+    }
 }
