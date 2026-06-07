@@ -4,9 +4,11 @@ namespace App\Repositories;
 use App\Models\Agency;
 use App\Models\Company_agency_employee;
 use App\Models\Conflict_invoice;
+use App\Models\Consumables;
 use App\Models\Deliveries;
 use App\Models\Employee;
 use App\Models\Input_output_request;
+use App\Models\Items;
 use App\Models\Order_list;
 use App\Models\Product_techicians;
 use App\Models\Products;
@@ -1380,11 +1382,36 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         }
 
         $attachments = $query->latest('id')->get();
+        $taskIds = $attachments->pluck('task_id')->unique();
 
-        return $attachments->groupBy('task_id')->map(function ($attachments, $taskId) {
+        $consumablesByTaskAndItem = Consumables::select('task_id', 'item_id', DB::raw('SUM(quantity_consume) as total_consumed'))
+            ->whereIn('task_id', $taskIds)
+            ->groupBy('task_id', 'item_id')
+            ->get()
+            ->groupBy('task_id')
+            ->map(function ($items) {
+                return $items->mapWithKeys(function ($item) {
+                    return [$item->item_id => (int) $item->total_consumed];
+                });
+            });
+
+        return $attachments->groupBy('task_id')->map(function ($attachments, $taskId) use ($consumablesByTaskAndItem) {
+            $attachmentsWithRemaining = $attachments->map(function ($attachment) use ($taskId, $consumablesByTaskAndItem) {
+                $item = $attachment->item;
+                $consumed = (int) ($consumablesByTaskAndItem[$taskId][$item->id] ?? 0);
+                $remaining = max(0, (int) ($item->quantity ?? 0) - $consumed);
+
+                return [
+                    'attachment' => $attachment,
+                    'consumed_quantity' => $consumed,
+                    'remaining_quantity' => $remaining,
+                    'has_consumables' => $consumed > 0,
+                ];
+            });
+
             return [
                 'task_id' => $taskId,
-                'attachments' => $attachments,
+                'attachments' => $attachmentsWithRemaining,
             ];
         })->values();
     }
@@ -1533,5 +1560,174 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 ];
             })->values();
         });
+    }
+
+    public function register_consumable_material($employee, int $task_id, array $consumables)
+    {
+        $task = Project_task::find($task_id);
+        if (!$task) {
+            return ['error' => 'Task not found'];
+        }
+
+        if ((int) $task->employee_id !== (int) $employee->id) {
+            return ['error' => 'Unauthorized: This task is not assigned to you'];
+        }
+
+        $invoice = $this->findTaskInvoice($task);
+        if (!$invoice) {
+            return ['error' => 'No invoice found for this installation task'];
+        }
+
+        $payload = [];
+        foreach ($consumables as $consumable) {
+            $item = Items::find($consumable['item_id']);
+            if (!$item) {
+                return ['error' => "Consumable item not found: {$consumable['item_id']}"];
+            }
+
+            $attachment = Product_techicians::where('task_id', $task_id)
+                ->where('item_id', $item->id)
+                ->first();
+
+            if (!$attachment) {
+                return ['error' => "Item {$item->id} is not registered as an attachment for this task"];
+            }
+
+            $quantityConsume = (int) $consumable['quantity_consume'];
+            if ($quantityConsume <= 0) {
+                return ['error' => 'Consumable quantity must be greater than zero'];
+            }
+
+            if ($quantityConsume > (int) $item->quantity) {
+                return ['error' => "Consumable quantity {$quantityConsume} exceeds available item quantity {$item->quantity}"];
+            }
+
+            $payload[] = [
+                'item' => $item,
+                'quantity_consume' => $quantityConsume,
+            ];
+        }
+
+        return DB::transaction(function () use ($employee, $task_id, $payload, $invoice) {
+            foreach ($payload as $entry) {
+                Consumables::create([
+                    'technician_id' => $employee->id,
+                    'task_id' => $task_id,
+                    'item_id' => $entry['item']->id,
+                    'quantity_consume' => $entry['quantity_consume'],
+                ]);
+            }
+
+            $consumableItems = Consumables::with('item')
+                ->where('task_id', $task_id)
+                ->get();
+
+            $totalAmount = $consumableItems->reduce(function ($carry, $consumable) {
+                return $carry + ($consumable->quantity_consume * ((float) $consumable->item->unit_price ?? 0));
+            }, 0);
+
+            $originalAmount = (float) ($invoice->consumables_amount ?? 0);
+            $invoice->consumables_amount = $totalAmount;
+            if ($invoice->total_amount !== null) {
+                $invoice->total_amount = max(0, (float) $invoice->total_amount + ($totalAmount - $originalAmount));
+            }
+            $invoice->save();
+
+            return [
+                'consumables' => $consumableItems,
+                'invoice' => $invoice,
+            ];
+        });
+    }
+
+    public function update_consumable_material($employee, int $task_id, array $consumables)
+    {
+        $task = Project_task::find($task_id);
+        if (!$task) {
+            return ['error' => 'Task not found'];
+        }
+
+        if ((int) $task->employee_id !== (int) $employee->id) {
+            return ['error' => 'Unauthorized: This task is not assigned to you'];
+        }
+
+        $invoice = $this->findTaskInvoice($task);
+        if (!$invoice) {
+            return ['error' => 'No invoice found for this installation task'];
+        }
+
+        $payload = [];
+        foreach ($consumables as $consumable) {
+            $record = Consumables::find($consumable['id']);
+            if (!$record || (int) $record->task_id !== $task_id) {
+                return ['error' => "Consumable record not found: {$consumable['id']}"];
+            }
+
+            $delete = !empty($consumable['delete']) || (isset($consumable['quantity_consume']) && (int) $consumable['quantity_consume'] <= 0);
+            $quantityConsume = null;
+
+            if (!$delete && isset($consumable['quantity_consume'])) {
+                $quantityConsume = (int) $consumable['quantity_consume'];
+                if ($quantityConsume <= 0) {
+                    return ['error' => 'Consumable quantity must be greater than zero when updating'];
+                }
+
+                if ($quantityConsume > (int) $record->item->quantity) {
+                    return ['error' => "Consumable quantity {$quantityConsume} exceeds available item quantity {$record->item->quantity}"];
+                }
+            }
+
+            $payload[] = [
+                'record' => $record,
+                'delete' => $delete,
+                'quantity_consume' => $quantityConsume,
+            ];
+        }
+
+        return DB::transaction(function () use ($payload, $invoice, $task_id) {
+            foreach ($payload as $entry) {
+                $record = $entry['record'];
+
+                if ($entry['delete']) {
+                    $record->delete();
+                    continue;
+                }
+
+                if ($entry['quantity_consume'] !== null) {
+                    $record->quantity_consume = $entry['quantity_consume'];
+                    $record->save();
+                }
+            }
+
+            $consumableItems = Consumables::with('item')
+                ->where('task_id', $task_id)
+                ->get();
+
+            $totalAmount = $consumableItems->reduce(function ($carry, $consumable) {
+                return $carry + ($consumable->quantity_consume * ((float) $consumable->item->unit_price ?? 0));
+            }, 0);
+
+            $originalAmount = (float) ($invoice->consumables_amount ?? 0);
+            $invoice->consumables_amount = $totalAmount;
+            if ($invoice->total_amount !== null) {
+                $invoice->total_amount = max(0, (float) $invoice->total_amount + ($totalAmount - $originalAmount));
+            }
+            $invoice->save();
+
+            return [
+                'consumables' => $consumableItems,
+                'invoice' => $invoice,
+            ];
+        });
+    }
+
+    private function findTaskInvoice(Project_task $task)
+    {
+        $taskable = $task->taskable;
+        if ($taskable instanceof Purchase_invoice) {
+            return $taskable;
+        }
+
+        return null;
     }
 }

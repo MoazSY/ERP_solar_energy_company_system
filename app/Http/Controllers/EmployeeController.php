@@ -1025,12 +1025,57 @@ class EmployeeController extends Controller
 
     public function register_consumable_material(Request $request)
     {
-        // تسجيل المستهلكات التي استهلكها الفني في التركيب عند الفني اي المرفقات من كابلات وقواطع ومستلزمات واكسسوارت كهربائية
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'consumables' => 'required|array|min:1',
+            'consumables.*.item_id' => 'required|integer|exists:items,id',
+            'consumables.*.quantity_consume' => 'required|integer|min:1',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+        $result = $this->employeeService->register_consumable_material($data['task_id'], $data['consumables']);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Consumables registered successfully',
+            'consumables' => $result['consumables'],
+            'invoice' => $result['invoice'],
+        ], 201);
     }
 
     public function update_consumable_material(Request $request)
     {
-        // امكانية تعديلها او كمياتها او حذف البعض
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+            'consumables' => 'required|array|min:1',
+            'consumables.*.id' => 'required|integer|exists:consumables,id',
+            'consumables.*.quantity_consume' => 'sometimes|integer|min:0',
+            'consumables.*.delete' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+        $result = $this->employeeService->update_consumable_material($data['task_id'], $data['consumables']);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Consumables updated successfully',
+            'consumables' => $result['consumables'],
+            'invoice' => $result['invoice'],
+        ], 200);
     }
 
     public function recieve_cash_from_customer(Request $request)

@@ -767,12 +767,14 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $delivery->save();
             }
         }
+        $invoice=$orderList->purchaseInvoices()->latest('id')->first();
         $company->input_output_requests()->create([
             'request_type' => 'input',
             'inventory_manager_id' => $inventory_manager->id,
             'order_id' => $orderList->id,
             'notes' => $request->notes ?? null,
             'request_datetime' => $invoice->due_date ?? now(),
+            'invoice_id' => $invoice->id ?? null,
         ]);
         // notify inventory to enter the products in stock and update the inventory
         $result = $orderList->load('input_output_request');

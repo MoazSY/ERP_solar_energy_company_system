@@ -707,6 +707,28 @@ class EmployeeService
         return $this->employeeRepositoryInterface->extract_system_attachments($employee, $task_id);
     }
 
+    public function register_consumable_material(int $task_id, array $consumables)
+    {
+        $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized: only installation technicians can register consumables'];
+        }
+
+        return $this->employeeRepositoryInterface->register_consumable_material($employee, $task_id, $consumables);
+    }
+
+    public function update_consumable_material(int $task_id, array $consumables)
+    {
+        $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized: only installation technicians can update consumables'];
+        }
+
+        return $this->employeeRepositoryInterface->update_consumable_material($employee, $task_id, $consumables);
+    }
+
     private function resolveTaskItemIds($task): array
     {
         $taskable = $task->taskable;
