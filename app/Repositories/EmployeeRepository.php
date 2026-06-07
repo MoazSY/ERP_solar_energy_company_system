@@ -1334,6 +1334,63 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         ];
     }
 
+    public function filter_system_attachments(array $filters, $employee)
+    {
+        $query = Product_techicians::with([
+            'item.product.inverters',
+            'item.product.batteries',
+            'item.product.solarPanals',
+            'task',
+            'technician',
+        ]);
+
+        // الفني العادي يرى مرفقاته فقط — المدير يستطيع تمرير technician_id لرؤية مرفقات فني معين
+        if ($employee) {
+            $query->where('technician_id', $employee->id);
+        }
+
+        if (!empty($filters['technician_id'])) {
+            $query->where('technician_id', $filters['technician_id']);
+        }
+
+        if (!empty($filters['task_id'])) {
+            $query->where('task_id', $filters['task_id']);
+        }
+
+        if (!empty($filters['product_type'])) {
+            $query->whereHas('item.product', function ($q) use ($filters) {
+                $q->where('product_type', $filters['product_type']);
+            });
+        }
+
+        if (!empty($filters['product_name'])) {
+            $query->whereHas('item.product', function ($q) use ($filters) {
+                $q->where('product_name', 'like', '%' . $filters['product_name'] . '%');
+            });
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+        if(!empty($filters['extracted'])){
+            $query->where('extract_item', $filters['extracted']);
+        }
+
+        $attachments = $query->latest('id')->get();
+
+
+        return $attachments->groupBy('task_id')->map(function ($attachments, $taskId) {
+            return [
+                'task_id' => $taskId,
+                'attachments' => $attachments,
+            ];
+        })->values();
+    }
+
     public function show_product_nearing_out_of_stock($company, int $threshold)
     {
         return Products::where('entity_type_type', Solar_company::class)
@@ -1348,7 +1405,7 @@ public function define_system_attachments($employee, $task, array $products)
 {
     return DB::transaction(function () use ($employee, $task, $products) {
         // حذف التعيينات القديمة (إذا أردت الاستبدال)
-        $task->productTechicians()->where('technician_id', $employee->id)->delete();
+        // $task->productTechicians()->where('technician_id', $employee->id)->delete();
 
         $inventoryManager = Company_agency_employee::where('entity_type_type', Solar_company::class)
             ->where('entity_type_id', $task->company_id)

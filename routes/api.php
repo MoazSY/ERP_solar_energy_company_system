@@ -166,6 +166,7 @@ Route::middleware('check_employee')->group(function () {
     Route::post('installation_task_start',[EmployeeController::class,'installation_task_start']);
     Route::post('define_solar_system_for_customer',[EmployeeController::class,'define_solar_system_for_customer']);
     Route::post('installation_task_complete',[EmployeeController::class,'installation_task_complete']);
+    Route::post('show_system_attachments_for_technician', [EmployeeController::class, 'show_system_attachments_for_technician']);
     Route::post('filter_profits_from_installation_tasks',[EmployeeController::class,'filter_profits_from_installation_tasks']);
 
     // Inventory Management Routes

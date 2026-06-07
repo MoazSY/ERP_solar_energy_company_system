@@ -944,6 +944,35 @@ class EmployeeController extends Controller
         ], 200);
     }
 
+    public function show_system_attachments_for_technician(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'task_id'       => 'sometimes|integer|exists:project_tasks,id',
+            'product_type'  => 'sometimes|string|in:battery,inverter,solar_panel,accessory',
+            'product_name'  => 'sometimes|string',
+            'extracted'     => 'sometimes|boolean',
+            'date_from'     => 'sometimes|date',
+            'date_to'       => 'sometimes|date|after_or_equal:date_from',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $result = $this->employeeService->show_system_attachments_for_technician($filters);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'System attachments filtered successfully',
+            'count'   => count($result),
+            'attachments'    => $result,
+        ], 200);
+    }
+
     public function define_system_attachments(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -970,11 +999,6 @@ class EmployeeController extends Controller
             'message' => 'System attachments defined successfully',
             'attachments' => $result,
         ], 201);
-    }
-
-    public function show_system_attachments_for_technician(Request $request)
-    {
-        // رؤية القائمة التي يريدها الفني من المرفقات الاضافية عن الطلبية او الفاتورة
     }
 
     public function extract_attachments(Request $request)

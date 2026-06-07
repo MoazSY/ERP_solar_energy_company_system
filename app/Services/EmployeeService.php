@@ -631,6 +631,25 @@ class EmployeeService
         return $this->employeeRepositoryInterface->show_product_nearing_out_of_stock($company, $threshold);
     }
 
+ public function show_system_attachments_for_technician(array $filters)
+    {
+        $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);
+
+        if ($employee->employee_type === 'inventory_manager') {
+            // مدير المستودع يرى كل المرفقات — يستطيع الفلترة بـ technician_id
+            return $this->employeeRepositoryInterface->filter_system_attachments($filters, null);
+        }
+
+        if (!in_array($employee->employee_type, ['install_technician', 'metal_base_technician'], true)) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        // الفني يرى مرفقاته فقط — لا يستطيع تمرير technician_id مختلف
+        unset($filters['technician_id']);
+
+        return $this->employeeRepositoryInterface->filter_system_attachments($filters, $employee);
+    }
+
  public function define_system_attachments(int $task_id, array $item_ids)
 {
     $employee = Employee::findOrFail(Auth::guard('employee')->user()->id);

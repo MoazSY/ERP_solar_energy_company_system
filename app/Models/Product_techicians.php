@@ -14,6 +14,7 @@ class Product_techicians extends Model
         'inventory_manager_id',
         'task_id',
         'item_id',
+        'extract_item'
     ];
 
     public function technician(): BelongsTo

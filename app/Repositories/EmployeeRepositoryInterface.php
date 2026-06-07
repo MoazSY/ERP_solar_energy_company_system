@@ -35,4 +35,5 @@ interface EmployeeRepositoryInterface
     public function filter_profits_from_installation_tasks($employee, array $filters);
     public function show_product_nearing_out_of_stock($company, int $threshold);
     public function define_system_attachments($employee, $task, array $items);
+    public function filter_system_attachments(array $filters, $employee);
 }
