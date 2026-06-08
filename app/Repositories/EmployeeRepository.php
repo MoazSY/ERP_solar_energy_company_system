@@ -1279,6 +1279,39 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         });
     }
 
+    public function recieve_cash_from_customer($employee, $task_id)
+    {
+        return DB::transaction(function () use ($employee, $task_id) {
+            $task = Project_task::find($task_id);
+
+            if (!$task) {
+                return ['error' => 'Project task not found'];
+            }
+
+            if ((int) $task->employee_id !== (int) $employee->id) {
+                return ['error' => 'This project task is not assigned to the current employee'];
+            }
+
+            if ($task->payment_method !== 'cash') {
+                return ['error' => 'This task is not configured for cash payment'];
+            }
+
+            if ($task->payment_status !== 'pending') {
+                return ['error' => 'Only pending cash payments can be confirmed'];
+            }
+
+            if ($task->payment_received) {
+                return ['error' => 'Cash has already been received for this task'];
+            }
+
+            $task->payment_received = true;
+            $task->payment_status = 'client_paid';
+            $task->save();
+
+            return $task->fresh()->load(['employee', 'company', 'orderList']);
+        });
+    }
+
     public function show_inventory_products($inventory_manager)
     {
         $company = $inventory_manager->companyAgencyEmployees()->first()->entityType()->first();

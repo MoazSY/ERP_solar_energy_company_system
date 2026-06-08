@@ -171,7 +171,7 @@ Route::middleware('check_employee')->group(function () {
     Route::post('define_system_attachments', [EmployeeController::class, 'define_system_attachments']);
     Route::post('register_consumable_material',[EmployeeController::class,'register_consumable_material']);
     Route::post('update_consumable_material',[EmployeeController::class,'update_consumable_material']);
-
+    Route::post('recieve_cash_from_customer',[EmployeeController::class,'recieve_cash_from_customer']);
     
     // Inventory Management Routes
     Route::post('insert_product_to_stock', [EmployeeController::class, 'insert_product_to_stock']);

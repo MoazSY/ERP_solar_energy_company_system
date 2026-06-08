@@ -1080,7 +1080,24 @@ class EmployeeController extends Controller
 
     public function recieve_cash_from_customer(Request $request)
     {
-        // في حال كان العميل سيدفع كاش عند التسليم يقوم الفني بتسجيل استلام المبلغ من العميل وتوثيقه في النظام
+        $validate = Validator::make($request->all(), [
+            'task_id' => 'required|integer|exists:project_tasks,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->employeeService->recieve_cash_from_customer($validate->validated()['task_id']);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Cash received from customer successfully',
+            'task' => $result,
+        ], 200);
     }
 
     public function filter_profits_from_installation_tasks(Request $request)

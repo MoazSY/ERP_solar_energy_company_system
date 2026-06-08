@@ -602,6 +602,19 @@ class EmployeeService
         ];
     }
 
+    public function recieve_cash_from_customer($taskId)
+    {
+        $employeeAuth = Auth::guard('employee')->user();
+
+        if (!$employeeAuth) {
+            return ['error' => 'Unauthorized'];
+        }
+
+        $employee = Employee::findOrFail($employeeAuth->id);
+
+        return $this->employeeRepositoryInterface->recieve_cash_from_customer($employee, $taskId);
+    }
+
     public function filter_profits_from_installation_tasks($filters)
     {
         $employee_id = Auth::guard('employee')->user()->id;

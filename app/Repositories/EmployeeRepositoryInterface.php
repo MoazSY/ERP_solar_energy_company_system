@@ -29,6 +29,7 @@ interface EmployeeRepositoryInterface
     public function show_inventory_products($inventory_manager);
     public function filter_installation_tasks($employee, array $filters);
     public function proccess_installation_task($employee, $task_id, array $data);
+    public function recieve_cash_from_customer($employee, $task_id);
     public function start_installation_task($employee, $task_id);
     public function define_solar_system_for_customer($employee, $task_id, array $data);
     public function installation_task_complete($employee, $task_id, array $data);
