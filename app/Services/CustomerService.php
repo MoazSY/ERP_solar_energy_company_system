@@ -15,6 +15,7 @@ use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_offer;
+use App\Models\Payment_transactions;
 use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
@@ -138,8 +139,14 @@ class CustomerService
         return Auth::guard('customer')->user();
     }
 
-    private function storageUrl(?string $path): ?string
+    private function storageUrl($path)
     {
+        if (is_array($path)) {
+            return array_map(function ($item) {
+                return $item ? asset('storage/' . $item) : null;
+            }, $path);
+        }
+
         return $path ? asset('storage/' . $path) : null;
     }
 
@@ -765,6 +772,60 @@ class CustomerService
             return ['error' => 'payment amount must be greater than zero'];
         }
 
+        if ($amount > (float) $invoice->total_amount) {
+            return ['error' => 'payment amount cannot exceed invoice total'];
+        }
+
+        if (!in_array($request->payment_method, ['syriatel_cash', 'shamcash', 'cash'])) {
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        $invoice->loadMissing('seller_entity');
+        $seller = $invoice->seller_entity;
+
+        if ($request->payment_method === 'syriatel_cash') {
+            if (!$seller || empty($seller->syriatel_cash_phone)) {
+                return ['error' => 'Syriatel beneficiary phone is not configured for invoice recipient'];
+            }
+
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $seller->syriatel_cash_phone,
+                $amount,
+                $request->pin_code
+            );
+        } elseif ($request->payment_method === 'shamcash') {
+            if (!$seller || empty($seller->account_number)) {
+                return ['error' => 'ShamCash beneficiary account address is not configured for invoice recipient'];
+            }
+
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $seller->account_number,
+                $amount,
+                $request->account_address
+            );
+
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+        } else {
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'Cash payment selected, please confirm with the recipient that payment has been made',
+                'data' => null,
+            ];
+        }
+
+        if (!$paymentResponse['success']) {
+            return ['error' => $paymentResponse['message']];
+        }
+
         $isFullyPaid = $amount >= (float) $invoice->total_amount;
         $payment = $this->customerRepositoryInterface->create_payment([
             'payable_type' => Customer::class,
@@ -777,14 +838,23 @@ class CustomerService
             'amount' => $amount,
             'currency' => $invoice->currency,
             'paid_at' => now(),
-            'status' => $isFullyPaid ? 'paid' : 'processing',
+            'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
             're_subscribed' => false,
         ]);
 
-        $invoice = $this->customerRepositoryInterface->update_invoice_payment_status($invoice, $isFullyPaid ? 'paid' : 'partially_paid');
+                $transaction = Payment_transactions::create([
+                    'payment_id' => $payment->id,
+                    'gateway' => $request->payment_method,
+                    'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+                    'payment_url' => $paymentData['data']['payment_url'] ?? null,
+                    'status' => $payment->status,
+                    'response' => $paymentResponse,
+                ]);
+
+        $invoice = $this->customerRepositoryInterface->update_invoice_payment_status($invoice, $payment->status);
 
         return [
-            'invoice' => $invoice->fresh(['orderList.Items.product', 'payments']),
+            'invoice' => $invoice,
             'payment' => $payment,
         ];
     }
@@ -953,14 +1023,14 @@ class CustomerService
 
             $quantity = (int) $item['quantity'];
             $lineSubTotal = $unitPrice * $quantity;
-            $amount+=$lineSubTotal;
-        //     if ($product->disscount_type === 'percentage') {
-        //         $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
-        //     } else {
-        //         $discount = (float) $product->disscount_value * $quantity;
-        //     }
+            $amount += $lineSubTotal;
+            //     if ($product->disscount_type === 'percentage') {
+            //         $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
+            //     } else {
+            //         $discount = (float) $product->disscount_value * $quantity;
+            //     }
 
-        //     $amount += max($lineSubTotal - $discount, 0);
+            //     $amount += max($lineSubTotal - $discount, 0);
         }
 
         if ($amount <= 0) {
@@ -1101,11 +1171,11 @@ class CustomerService
             'issue_description',
             'system_sn',
             'warranty_number',
-            'estimated_cost',
+            // 'estimated_cost',
             'problem_name',
             'problem_cause',
-            'payment_method',
-            'currency',
+            // 'payment_method',
+            // 'currency',
         ]);
 
         $payload['customer_id'] = $customer->id;
@@ -1117,12 +1187,22 @@ class CustomerService
         $payload['manager_approval'] = false;
         $payload['metainence_status'] = 'pending';
         $payload['is_paid'] = false;
-        $payload['payment_method'] = $payload['payment_method'] ?? 'cash';
-        $payload['currency'] = $payload['currency'] ?? 'SY';
+        // $payload['payment_method'] = $payload['payment_method'] ?? 'cash';
+        // $payload['currency'] = $payload['currency'] ?? 'SY';
 
         if ($request->hasFile('image_state')) {
-            $imageState = $request->file('image_state')->getClientOriginalName();
-            $payload['image_state'] = $request->file('image_state')->storeAs('Customer/metainence_requests', $imageState, 'public');
+            $imageFiles = $request->file('image_state');
+            $imageState = [];
+
+            foreach ((array) $imageFiles as $file) {
+                if ($file) {
+                    $imageState[] = $file->store('Customer/metainence_requests', 'public');
+                }
+            }
+
+            if (!empty($imageState)) {
+                $payload['image_state'] = $imageState;
+            }
         }
 
         $maintenanceRequest = $this->customerRepositoryInterface->create_maintenance_request($payload);
@@ -1184,13 +1264,23 @@ class CustomerService
             'estimated_cost',
             'problem_name',
             'problem_cause',
-            'payment_method',
-            'currency',
+            // 'payment_method',
+            // 'currency',
         ]);
 
         if ($request->hasFile('image_state')) {
-            $imageState = $request->file('image_state')->getClientOriginalName();
-            $payload['image_state'] = $request->file('image_state')->storeAs('Customer/metainence_requests', $imageState, 'public');
+            $imageFiles = $request->file('image_state');
+            $imageState = [];
+
+            foreach ((array) $imageFiles as $file) {
+                if ($file) {
+                    $imageState[] = $file->store('Customer/metainence_requests', 'public');
+                }
+            }
+
+            if (!empty($imageState)) {
+                $payload['image_state'] = $imageState;
+            }
         }
 
         $maintenanceRequest = $this->customerRepositoryInterface->update_maintenance_request($maintenanceRequest, $payload);

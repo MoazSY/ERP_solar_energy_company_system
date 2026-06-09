@@ -1654,10 +1654,18 @@ class SolarCompanyManagerService
 
         return $maintenanceRequests->map(function (array $row) {
             $maintenanceRequest = $row['request'];
+            $imageState = $maintenanceRequest->image_state;
+            $imageUrls = null;
+
+            if (is_array($imageState)) {
+                $imageUrls = array_map(fn($path) => $path ? asset('storage/' . $path) : null, $imageState);
+            } elseif ($imageState) {
+                $imageUrls = asset('storage/' . $imageState);
+            }
 
             return [
                 'request' => $maintenanceRequest,
-                'image_state' => $maintenanceRequest->image_state ? asset('storage/' . $maintenanceRequest->image_state) : null,
+                'image_state' => $imageUrls,
                 'warranty' => $row['warranty'],
                 'invoice_created' => $this->requestHasInvoice(Metainence_request::class, $maintenanceRequest->id),
             ];

@@ -35,7 +35,9 @@ class Metainence_request extends Model
         'payment_method',
         'currency',
     ];
-
+    protected $casts=[
+        'image_state'=>'array'
+    ];
     public function company(): BelongsTo
     {
         return $this->belongsTo(Solar_company::class, 'company_id');

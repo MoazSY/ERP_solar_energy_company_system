@@ -1141,7 +1141,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     {
         return Metainence_request::query()
             ->where('company_id', $company->id)
-            ->with(['customer', 'company'])
+            ->with(['customer', 'company'])->where('metainence_status','!=','cancelled')
             ->latest('id')
             ->get()
             ->map(function (Metainence_request $request) use ($company) {
@@ -1902,7 +1902,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             return ['error' => 'Invoice not found or does not belong to your company'];
         }
 
-        if ($invoice->manager_received_cash) {
+        if ($invoice->manager_received_cash && $invoice->payment_status=='paid') {
             return ['error' => 'Cash for this invoice has already been received by the manager'];
         }
 

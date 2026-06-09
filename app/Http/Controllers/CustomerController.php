@@ -146,8 +146,10 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'customer profile update', 'profile' => $profile[0], 'imageUrl' => $profile[1]]);
     }
-        public function add_customer_address(Request $request){
-            $validate = Validator::make($request->all(), [
+
+    public function add_customer_address(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
             'governorate_id' => 'nullable|exists:governorates,id',
             'area_id' => 'nullable|exists:areas,id',
             'neighborhood_id' => 'nullable|exists:neighborhoods,id',
@@ -158,9 +160,10 @@ class CustomerController extends Controller
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()]);
         }
-        $address=$this->customerService->add_customer_address($request);
-        return response()->json(['message' => 'customer address added successfully','address'=>$address]);
-        }
+        $address = $this->customerService->add_customer_address($request);
+        return response()->json(['message' => 'customer address added successfully', 'address' => $address]);
+    }
+
     public function show_company_offers($company_id)
     {
         $validate = Validator::make(['company_id' => $company_id], [
@@ -324,7 +327,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'customer requests retrieved successfully', 'requests' => $result]);
     }
 
-
     public function filter_requests(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -409,12 +411,11 @@ class CustomerController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
-           'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
+            'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
             'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
             'pin_code' => 'required_if:payment_method,syriatel_cash|string',
             'account_address' => 'required_if:payment_method,shamcash|string',
             'with_delivery' => 'sometimes|boolean',
-
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -425,9 +426,12 @@ class CustomerController extends Controller
             return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'product order created successfully','purchase_request_order' => $result[0],
+        return response()->json([
+            'message' => 'product order created successfully',
+            'purchase_request_order' => $result[0],
             'order_items' => $result[1],
-            'transaction' => $result[2],], 201);
+            'transaction' => $result[2],
+        ], 201);
     }
 
     public function filter_company_products(Request $request, $company_id)
@@ -491,26 +495,25 @@ class CustomerController extends Controller
         return response()->json(['message' => 'Products retrieved successfully', 'data' => $products], 200);
     }
 
+    // ////////
 
-
-        //////////
-
-        public function request_maintenance_service(Request $request)
+    public function request_maintenance_service(Request $request)
     {
         $validate = Validator::make($request->all(), [
             'company_id' => 'required|exists:solar_companies,id',
-            'metainence_type' => 'sometimes|string',
-            'issue_category' => 'sometimes|string',
-            'priority' => 'sometimes|string',
+            'metainence_type' => 'sometimes|string|in:preventive,corrective,warranty,upgrade',
+            'issue_category' => 'sometimes|string|in:inverter,solar_panel,battery,fullsystem,other',
+            'priority' => 'sometimes|string:in:low,medium,high',
             'issue_description' => 'sometimes|nullable|string',
             'system_sn' => 'sometimes|nullable|string',
             'warranty_number' => 'sometimes|nullable|string',
-            'estimated_cost' => 'sometimes|numeric|min:0',
+            // 'estimated_cost' => 'sometimes|numeric|min:0',
             'problem_name' => 'sometimes|nullable|string',
             'problem_cause' => 'sometimes|nullable|string',
-            'payment_method' => 'sometimes|string',
-            'currency' => 'sometimes|string',
-            'image_state' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            // 'payment_method' => 'sometimes|string',
+            // 'currency' => 'sometimes|string',
+            'image_state' => 'sometimes|nullable|array',
+            'image_state.*' => 'image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -546,18 +549,19 @@ class CustomerController extends Controller
         $validate = Validator::make(array_merge($request->all(), ['request_id' => $request_id]), [
             'request_id' => 'required|exists:metainence_requests,id',
             'company_id' => 'sometimes|exists:solar_companies,id',
-            'metainence_type' => 'sometimes|string',
-            'issue_category' => 'sometimes|string',
-            'priority' => 'sometimes|string',
+            'metainence_type' => 'sometimes|string|in:preventive,corrective,warranty,upgrade',
+            'issue_category' => 'sometimes|string|in:inverter,solar_panel,battery,fullsystem,other',
+            'priority' => 'sometimes|string|in:low,medium,high',
             'issue_description' => 'sometimes|nullable|string',
             'system_sn' => 'sometimes|nullable|string',
             'warranty_number' => 'sometimes|nullable|string',
-            'estimated_cost' => 'sometimes|numeric|min:0',
+            // 'estimated_cost' => 'sometimes|numeric|min:0',
             'problem_name' => 'sometimes|nullable|string',
             'problem_cause' => 'sometimes|nullable|string',
-            'payment_method' => 'sometimes|string',
-            'currency' => 'sometimes|string',
-            'image_state' => 'sometimes|nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            // 'payment_method' => 'sometimes|string',
+            // 'currency' => 'sometimes|string',
+            'image_state' => 'sometimes|nullable|array',
+            'image_state.*' => 'image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -571,10 +575,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'maintenance request updated successfully', 'request' => $result]);
     }
 
-
-
-
-
     public function show_invoices_details()
     {
         $result = $this->customerService->show_invoices_details();
@@ -586,9 +586,11 @@ class CustomerController extends Controller
         $validate = Validator::make(array_merge($request->all(), ['invoice_id' => $invoice_id]), [
             'invoice_id' => 'required|exists:purchase_invoices,id',
             'amount' => 'sometimes|numeric|min:0.01',
-            'payment_method' => 'sometimes|string',
+            'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
             'currency' => 'sometimes|string',
-            'payment_reference' => 'sometimes|nullable|string',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -601,6 +603,9 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'invoice approval recorded successfully', 'result' => $result]);
     }
+
+
+
 
     public function recieve_invoice(Request $request, $invoice_id)
     {
@@ -728,7 +733,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'company gallery retrieved successfully', 'gallery' => $result]);
     }
 
-
     public function recieve_maintenance_service(Request $request, $request_id)
     {
         $validate = Validator::make(['request_id' => $request_id], [
@@ -745,10 +749,10 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'maintenance service received successfully', 'request' => $result]);
     }
-    public function recieve_installation_service(Request $request, $installation_id){
-        
-    }
 
+    public function recieve_installation_service(Request $request, $installation_id) 
+    {
+    }
     public function simulation_solar_system_finacial_savings(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -791,19 +795,15 @@ class CustomerController extends Controller
         return response()->json(['message' => 'customer solar systems retrieved successfully', 'solar_systems' => $result]);
     }
 
-
-
     //     public function show_requested_products_orders()
     // {
     //     $result = $this->customerService->show_requested_products_orders();
     //     return response()->json(['message' => 'requested products orders retrieved successfully', 'orders' => $result]);
     // }
 
-
     // public function show_my_maintenance_requests()
     // {
     //     $result = $this->customerService->show_my_maintenance_requests();
     //     return response()->json(['message' => 'maintenance requests retrieved successfully', 'requests' => $result]);
     // }
-
 }
