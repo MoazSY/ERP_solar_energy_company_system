@@ -349,7 +349,6 @@ class CustomerRepository implements CustomerRepositoryInterface
     {
         return Purchase_invoice::where('buyer_entity_type', Customer::class)
             ->where('buyer_entity_id', $customer_id)
-            ->with(['orderList.Items.product', 'seller_entity', 'object_entity.offer.Items.product'])
             ->latest('id')
             ->get();
     }

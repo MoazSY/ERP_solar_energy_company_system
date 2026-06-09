@@ -623,7 +623,24 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'invoice received successfully', 'invoice' => $result]);
     }
+    public function recieve_project_task(Request $request, $task_id)
+    {
+        $validate = Validator::make(array_merge($request->all(), ['task_id' => $task_id]), [
+            'task_id' => 'required|exists:project_tasks,id',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
 
+        $result = $this->customerService->recieve_project_task($request, $task_id);
+        if (is_array($result) && isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json(['message' => 'project task received successfully', 'task' => $result]);
+    }
+
+    
     public function show_installations_services_status()
     {
         $result = $this->customerService->show_installations_services_status();

@@ -215,6 +215,7 @@ Route::middleware('check_customer')->group(function () {
     Route::get('invoices_details', [CustomerController::class, 'show_invoices_details']);
     Route::post('approve_pay_invoice/{invoice_id}', [CustomerController::class, 'approve_pay_invoice']);
     Route::post('recieve_invoice/{invoice_id}', [CustomerController::class, 'recieve_invoice']);
+   Route::post('recieve_project_task/{task_id}', [CustomerController::class, 'recieve_project_task']);
     Route::get('installations_services_status', [CustomerController::class, 'show_installations_services_status']);
     Route::post('pay_for_additional_consumables/{installation_id}', [CustomerController::class, 'pay_for_additional_consumables']);
     Route::post('technical_employee_rating/{installation_id}', [CustomerController::class, 'technical_employee_rating']);

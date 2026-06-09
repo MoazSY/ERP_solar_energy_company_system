@@ -17,6 +17,7 @@ use App\Models\Solar_company_manager;
 use App\Models\Subscribe_offer;
 use App\Models\Payment_transactions;
 use App\Models\Technical_inspection_request;
+use App\Models\Order_list;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
@@ -754,6 +755,15 @@ class CustomerService
             ->customerRepositoryInterface
             ->show_invoices_details($customer->id)
             ->map(function (Purchase_invoice $invoice) {
+
+                if($invoice->object_entity_type === Order_list::class){
+                    $invoice->loadMissing(['object_entity', 'object_entity.Items.product']);
+                }elseif($invoice->object_entity_type ===Subscribe_offer::class){
+                    $invoice->loadMissing(['object_entity.offer.Items.product']);
+                }else{
+                    $invoice->loadMissing(['object_entity']);
+                }
+                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity','projectTask','delivery_tasks']);
                 return $this->invoiceToArray($invoice);
             });
     }
@@ -867,8 +877,40 @@ class CustomerService
         if (!$invoice) {
             return ['error' => 'invoice not found'];
         }
-
+        if($invoice->object_entity_type===Order_list::class){
+        $invoice->object_entity->status='completed';
+        $invoice->object_entity->recieve_datetime=now();
+        $invoice->object_entity->save();
+        if($invoice->object_entity->with_delivery==true){
+            $delivery=$invoice->object_entity->deliveries()->first();
+            if($delivery){
+            $delivery->client_recieve_delivery=true;
+            $delivery->save();
+            }
+        }
+        }else{
+            // return $invoice->object_entity;
+        return ['error' => 'invoice object entity type is not supported for receiving'];
+        }
         return $this->invoiceToArray($invoice->fresh(['orderList.Items.product', 'payments']));
+    }
+
+    public function recieve_project_task($request, $task_id)
+    {
+        $customer = $this->currentCustomer();
+        $task = $this->customerRepositoryInterface->find_project_task($task_id);
+
+        if (!$task) {
+            return ['error' => 'project task not found'];
+        }
+
+        if ($task->taskable->buyer_entity->id !== $customer->id) {
+            return ['error' => 'project task does not belong to the current customer'];
+        }
+
+        $task = $this->customerRepositoryInterface->update_project_task($task, ['client_recieve_task' => true]);
+
+        return $task->fresh();
     }
 
     public function show_installations_services_status()
