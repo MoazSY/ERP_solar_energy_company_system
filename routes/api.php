@@ -231,4 +231,5 @@ Route::middleware('check_customer')->group(function () {
     Route::post('recieve_maintenance_service/{request_id}', [CustomerController::class, 'recieve_maintenance_service']);
     Route::post('simulation_solar_system_finacial_savings', [CustomerController::class, 'simulation_solar_system_finacial_savings']);
     Route::post('company_report/{company_id}', [CustomerController::class, 'company_report']);
+    Route::post('pay_for_additional_consumables/{installation_id}', [CustomerController::class, 'pay_for_additional_consumables']);
 });

@@ -604,9 +604,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'invoice approval recorded successfully', 'result' => $result]);
     }
 
-
-
-
     public function recieve_invoice(Request $request, $invoice_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['invoice_id' => $invoice_id]), [
@@ -623,6 +620,7 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'invoice received successfully', 'invoice' => $result]);
     }
+
     public function recieve_project_task(Request $request, $task_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['task_id' => $task_id]), [
@@ -640,16 +638,17 @@ class CustomerController extends Controller
         return response()->json(['message' => 'project task received successfully', 'task' => $result]);
     }
 
-
-
     public function pay_for_additional_consumables(Request $request, $installation_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['installation_id' => $installation_id]), [
             'installation_id' => 'required|exists:project_tasks,id',
-            'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'sometimes|string',
-            'currency' => 'sometimes|string',
-            'payment_reference' => 'sometimes|nullable|string',
+            // 'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|in:syriatel_cash,shamcash,cash',
+            // 'currency' => 'sometimes|string',
+            // 'payment_reference' => 'sometimes|nullable|string',
+            'gsm' => 'required_if:payment_method,syriatel_cash|regex:/^09\d{8}$/',
+            'pin_code' => 'required_if:payment_method,syriatel_cash|string',
+            'account_address' => 'required_if:payment_method,shamcash|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -663,6 +662,7 @@ class CustomerController extends Controller
         return response()->json(['message' => 'additional consumables payment recorded successfully', 'result' => $result], 201);
     }
 
+    
     public function technical_employee_rating(Request $request, $installation_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['installation_id' => $installation_id]), [
@@ -745,26 +745,26 @@ class CustomerController extends Controller
         return response()->json(['message' => 'company gallery retrieved successfully', 'gallery' => $result]);
     }
 
-    public function recieve_maintenance_service(Request $request, $request_id)
-    {
-        $validate = Validator::make(['request_id' => $request_id], [
-            'request_id' => 'required|exists:metainence_requests,id',
-        ]);
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 422);
-        }
+    // public function recieve_maintenance_service(Request $request, $request_id)
+    // {
+    //     $validate = Validator::make(['request_id' => $request_id], [
+    //         'request_id' => 'required|exists:metainence_requests,id',
+    //     ]);
+    //     if ($validate->fails()) {
+    //         return response()->json(['message' => $validate->errors()], 422);
+    //     }
 
-        $result = $this->customerService->recieve_maintenance_service($request, $request_id);
-        if (is_array($result) && isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 400);
-        }
+    //     $result = $this->customerService->recieve_maintenance_service($request, $request_id);
+    //     if (is_array($result) && isset($result['error'])) {
+    //         return response()->json(['message' => $result['error']], 400);
+    //     }
 
-        return response()->json(['message' => 'maintenance service received successfully', 'request' => $result]);
-    }
+    //     return response()->json(['message' => 'maintenance service received successfully', 'request' => $result]);
+    // }
 
-    public function recieve_installation_service(Request $request, $installation_id)
-    {
-    }
+    // public function recieve_installation_service(Request $request, $installation_id)
+    // {
+    // }
     public function simulation_solar_system_finacial_savings(Request $request)
     {
         $validate = Validator::make($request->all(), [

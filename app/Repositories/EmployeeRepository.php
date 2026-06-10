@@ -1641,7 +1641,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ];
         }
 
-        return DB::transaction(function () use ($employee, $task_id, $payload, $invoice) {
+        return DB::transaction(function () use ($employee, $task_id,$task, $payload, $invoice) {
             foreach ($payload as $entry) {
                 Consumables::create([
                     'technician_id' => $employee->id,
@@ -1665,7 +1665,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 $invoice->total_amount = max(0, (float) $invoice->total_amount + ($totalAmount - $originalAmount));
             }
             $invoice->save();
-
+            $task->client_additional_cost_amount=$totalAmount;
+            $task->save();
             return [
                 'consumables' => $consumableItems,
                 'invoice' => $invoice,
@@ -1717,7 +1718,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ];
         }
 
-        return DB::transaction(function () use ($payload, $invoice, $task_id) {
+        return DB::transaction(function () use ($payload, $invoice, $task, $task_id) {
             foreach ($payload as $entry) {
                 $record = $entry['record'];
 
@@ -1746,7 +1747,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 $invoice->total_amount = max(0, (float) $invoice->total_amount + ($totalAmount - $originalAmount));
             }
             $invoice->save();
-
+            $task->client_additional_cost_amount = $totalAmount;
+            $task->save();  
             return [
                 'consumables' => $consumableItems,
                 'invoice' => $invoice,

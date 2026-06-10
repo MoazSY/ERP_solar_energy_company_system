@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\Customer_electrical_device_characteristic;
 use App\Models\Metainence_request;
 use App\Models\Offers;
+use App\Models\Order_list;
+use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Project_task;
 use App\Models\Purchase_invoice;
@@ -15,9 +17,7 @@ use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
 use App\Models\Subscribe_offer;
-use App\Models\Payment_transactions;
 use App\Models\Technical_inspection_request;
-use App\Models\Order_list;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
@@ -755,15 +755,14 @@ class CustomerService
             ->customerRepositoryInterface
             ->show_invoices_details($customer->id)
             ->map(function (Purchase_invoice $invoice) {
-
-                if($invoice->object_entity_type === Order_list::class){
+                if ($invoice->object_entity_type === Order_list::class) {
                     $invoice->loadMissing(['object_entity', 'object_entity.Items.product']);
-                }elseif($invoice->object_entity_type ===Subscribe_offer::class){
+                } elseif ($invoice->object_entity_type === Subscribe_offer::class) {
                     $invoice->loadMissing(['object_entity.offer.Items.product']);
-                }else{
+                } else {
                     $invoice->loadMissing(['object_entity']);
                 }
-                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity','projectTask','delivery_tasks','project_warranties.componentWarranties']);
+                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity', 'projectTask', 'delivery_tasks', 'project_warranties.componentWarranties']);
                 return $this->invoiceToArray($invoice);
             });
     }
@@ -852,14 +851,14 @@ class CustomerService
             're_subscribed' => false,
         ]);
 
-                $transaction = Payment_transactions::create([
-                    'payment_id' => $payment->id,
-                    'gateway' => $request->payment_method,
-                    'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
-                    'payment_url' => $paymentData['data']['payment_url'] ?? null,
-                    'status' => $payment->status,
-                    'response' => $paymentResponse,
-                ]);
+        $transaction = Payment_transactions::create([
+            'payment_id' => $payment->id,
+            'gateway' => $request->payment_method,
+            'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+            'payment_url' => $paymentData['data']['payment_url'] ?? null,
+            'status' => $payment->status,
+            'response' => $paymentResponse,
+        ]);
 
         $invoice = $this->customerRepositoryInterface->update_invoice_payment_status($invoice, $payment->status);
 
@@ -877,20 +876,20 @@ class CustomerService
         if (!$invoice) {
             return ['error' => 'invoice not found'];
         }
-        if($invoice->object_entity_type===Order_list::class){
-        $invoice->object_entity->status='completed';
-        $invoice->object_entity->recieve_datetime=now();
-        $invoice->object_entity->save();
-        if($invoice->object_entity->with_delivery==true){
-            $delivery=$invoice->object_entity->deliveries()->first();
-            if($delivery){
-            $delivery->client_recieve_delivery=true;
-            $delivery->save();
+        if ($invoice->object_entity_type === Order_list::class) {
+            $invoice->object_entity->status = 'completed';
+            $invoice->object_entity->recieve_datetime = now();
+            $invoice->object_entity->save();
+            if ($invoice->object_entity->with_delivery == true) {
+                $delivery = $invoice->object_entity->deliveries()->first();
+                if ($delivery) {
+                    $delivery->client_recieve_delivery = true;
+                    $delivery->save();
+                }
             }
-        }
-        }else{
+        } else {
             // return $invoice->object_entity;
-        return ['error' => 'invoice object entity type is not supported for receiving'];
+            return ['error' => 'invoice object entity type is not supported for receiving'];
         }
         return $this->invoiceToArray($invoice->fresh(['orderList.Items.product', 'payments']));
     }
@@ -913,8 +912,6 @@ class CustomerService
         return $task->fresh();
     }
 
-
-
     public function pay_for_additional_consumables($request, $installation_id)
     {
         $customer = $this->currentCustomer();
@@ -929,6 +926,80 @@ class CustomerService
             return ['error' => 'payment amount must be greater than zero'];
         }
 
+        if (!in_array($request->payment_method, ['syriatel_cash', 'shamcash', 'cash'])) {
+            return ['error' => 'Unsupported payment method'];
+        }
+
+        $company = Solar_company::find($task->company_id);
+        if (!$company) {
+            return ['error' => 'Associated company not found'];
+        }
+
+        $paymentStatus = 'paid';
+        $transactionData = [
+            'gateway' => $request->payment_method,
+            'external_id' => null,
+            'payment_url' => null,
+            'status' => 'paid',
+            'response' => null,
+        ];
+
+        if ($request->payment_method === 'syriatel_cash') {
+            $companyManager = $company->solarCompanyManager;
+            if (!$companyManager || !$companyManager->syriatel_cash_phone) {
+                return ['error' => 'Syriatel beneficiary phone is not configured for target company manager'];
+            }
+
+            $paymentResponse = $this->apiSyriaService->transferCash(
+                $request->gsm,
+                $companyManager->syriatel_cash_phone,
+                $amount,
+                $request->pin_code
+            );
+
+            if (!$paymentResponse['success']) {
+                return ['error' => $paymentResponse['message']];
+            }
+
+            $transactionData['external_id'] = $paymentResponse['data']['transaction_no'] ?? $paymentResponse['data']['billcode'] ?? null;
+            $transactionData['payment_url'] = $paymentResponse['data']['payment_url'] ?? null;
+            $transactionData['response'] = $paymentResponse;
+        } elseif ($request->payment_method === 'shamcash') {
+            $companyManager = $company->solarCompanyManager;
+            if (!$companyManager || !$companyManager->account_number) {
+                return ['error' => 'ShamCash beneficiary account address is not configured for target company manager'];
+            }
+
+            if (!$request->account_address) {
+                return ['error' => 'Your ShamCash account address is required for payment verification'];
+            }
+
+            $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
+                $companyManager->account_number,
+                $amount,
+                $request->account_address
+            );
+
+            if (!$verificationResult['success']) {
+                return ['error' => $verificationResult['message']];
+            }
+
+            $paymentResponse = [
+                'success' => true,
+                'message' => 'ShamCash payment verified from logs',
+                'data' => $verificationResult['matched_log'] ?? null,
+            ];
+            $transactionData['external_id'] = $paymentResponse['data']['transaction_id'] ?? $paymentResponse['data']['external_id'] ?? null;
+            $transactionData['response'] = $paymentResponse;
+        } else {
+            $paymentStatus = 'pending';
+            $transactionData['status'] = 'pending';
+            $transactionData['response'] = [
+                'success' => true,
+                'message' => 'Cash payment selected. Confirm receipt when the technician collects the cash.',
+            ];
+        }
+
         $payment = $this->customerRepositoryInterface->create_payment([
             'payable_type' => Customer::class,
             'payable_id' => $customer->id,
@@ -939,15 +1010,26 @@ class CustomerService
             'payment_object_type_name' => 'service',
             'amount' => $amount,
             'currency' => $request->input('currency', 'SY'),
-            'paid_at' => now(),
-            'status' => $request->input('payment_status', 'paid'),
+            'paid_at' => $paymentStatus === 'paid' ? now() : null,
+            'status' => $paymentStatus,
             're_subscribed' => false,
         ]);
 
-        $taskData = ['payment_received' => true];
+        Payment_transactions::create(array_merge(
+            $transactionData,
+            ['payment_id' => $payment->id]
+        ));
+
+        $taskData = [
+            'payment_method' => $request->payment_method,
+            'payment_status' => $paymentStatus,
+            'payment_received' => $paymentStatus === 'paid',
+        ];
+
         if (empty($task->client_additional_cost_amount)) {
             $taskData['client_additional_cost_amount'] = $amount;
         }
+
         $task = $this->customerRepositoryInterface->update_project_task($task, $taskData);
 
         return ['payment' => $payment, 'task' => $task->fresh()];
