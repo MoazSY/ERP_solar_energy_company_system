@@ -640,12 +640,7 @@ class CustomerController extends Controller
         return response()->json(['message' => 'project task received successfully', 'task' => $result]);
     }
 
-    
-    public function show_installations_services_status()
-    {
-        $result = $this->customerService->show_installations_services_status();
-        return response()->json(['message' => 'installations and services status retrieved successfully', 'data' => $result]);
-    }
+
 
     public function pay_for_additional_consumables(Request $request, $installation_id)
     {
@@ -767,7 +762,7 @@ class CustomerController extends Controller
         return response()->json(['message' => 'maintenance service received successfully', 'request' => $result]);
     }
 
-    public function recieve_installation_service(Request $request, $installation_id) 
+    public function recieve_installation_service(Request $request, $installation_id)
     {
     }
     public function simulation_solar_system_finacial_savings(Request $request)

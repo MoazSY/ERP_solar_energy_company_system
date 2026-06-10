@@ -395,23 +395,7 @@ class CustomerRepository implements CustomerRepositoryInterface
         );
     }
 
-    public function show_installations_services_status($customer_id)
-    {
-        return [
-            'project_warranties' => Project_warranties::where('customer_id', $customer_id)
-                ->with(['invoice', 'company', 'componentWarranties'])
-                ->latest('id')
-                ->get(),
-            'maintenance_requests' => Metainence_request::where('customer_id', $customer_id)
-                ->with('company')
-                ->latest('id')
-                ->get(),
-            'solar_system_requests' => Request_solar_system::where('customer_id', $customer_id)
-                ->with('company')
-                ->latest('id')
-                ->get(),
-        ];
-    }
+
 
     public function first_admin_id()
     {

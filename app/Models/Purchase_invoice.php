@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Model;
@@ -93,5 +95,9 @@ class Purchase_invoice extends Model
     public function delivery_tasks(): MorphMany
     {
         return $this->morphMany(Deliveries::class, 'deliverable_object');
+    }
+    public function project_warranties(): HasOne
+    {
+        return $this->hasOne(Project_warranties::class, 'invoice_id');
     }
 }

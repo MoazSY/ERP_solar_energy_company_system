@@ -41,7 +41,6 @@ interface CustomerRepositoryInterface
     public function find_project_task($task_id);
     public function update_project_task($task, array $data);
     public function upsert_customer_rate_feedback($customer_id, $task_id, array $data);
-    public function show_installations_services_status($customer_id);
     public function first_admin_id();
     public function create_report(array $data);
     public function show_company_gallary($company_id);

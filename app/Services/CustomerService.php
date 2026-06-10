@@ -763,7 +763,7 @@ class CustomerService
                 }else{
                     $invoice->loadMissing(['object_entity']);
                 }
-                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity','projectTask','delivery_tasks']);
+                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity','projectTask','delivery_tasks','project_warranties.componentWarranties']);
                 return $this->invoiceToArray($invoice);
             });
     }
@@ -913,12 +913,7 @@ class CustomerService
         return $task->fresh();
     }
 
-    public function show_installations_services_status()
-    {
-        $customer = $this->currentCustomer();
 
-        return $this->customerRepositoryInterface->show_installations_services_status($customer->id);
-    }
 
     public function pay_for_additional_consumables($request, $installation_id)
     {
