@@ -220,7 +220,6 @@ Route::middleware('check_customer')->group(function () {
     Route::post('pay_for_additional_consumables/{installation_id}', [CustomerController::class, 'pay_for_additional_consumables']);
     Route::post('technical_employee_rating/{installation_id}', [CustomerController::class, 'technical_employee_rating']);
     Route::post('task_feedsback/{task_id}', [CustomerController::class, 'task_feedsback']);
-    Route::post('company_feedsback/{company_id}', [CustomerController::class, 'company_feedsback']);
     Route::post('company_rating/{company_id}', [CustomerController::class, 'company_rating']);
     Route::get('company_gallary/{company_id}', [CustomerController::class, 'show_company_gallary']);
     Route::get('requested_products_orders', [CustomerController::class, 'show_requested_products_orders']);

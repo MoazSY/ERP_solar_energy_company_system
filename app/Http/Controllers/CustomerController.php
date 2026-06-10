@@ -662,7 +662,8 @@ class CustomerController extends Controller
         return response()->json(['message' => 'additional consumables payment recorded successfully', 'result' => $result], 201);
     }
 
-    
+
+
     public function technical_employee_rating(Request $request, $installation_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['installation_id' => $installation_id]), [
@@ -682,42 +683,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'technical employee rating recorded successfully', 'rating' => $result], 201);
     }
 
-    public function task_feedsback(Request $request, $task_id)
-    {
-        $validate = Validator::make(array_merge($request->all(), ['task_id' => $task_id]), [
-            'task_id' => 'required|exists:project_tasks,id',
-            'rate' => 'required|numeric|min:1|max:5',
-            'feedback' => 'sometimes|nullable|string',
-        ]);
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 422);
-        }
-
-        $result = $this->customerService->task_feedsback($request, $task_id);
-        if (is_array($result) && isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 400);
-        }
-
-        return response()->json(['message' => 'task feedback recorded successfully', 'feedback' => $result], 201);
-    }
-
-    public function company_feedsback(Request $request, $company_id)
-    {
-        $validate = Validator::make(array_merge($request->all(), ['company_id' => $company_id]), [
-            'company_id' => 'required|exists:solar_companies,id',
-            'feedback' => 'required|string',
-        ]);
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 422);
-        }
-
-        $result = $this->customerService->company_feedsback($request, $company_id);
-        if (is_array($result) && isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 400);
-        }
-
-        return response()->json(['message' => 'company feedback recorded successfully', 'report' => $result], 201);
-    }
 
     public function company_rating(Request $request, $company_id)
     {
@@ -725,7 +690,6 @@ class CustomerController extends Controller
             'company_id' => 'required|exists:solar_companies,id',
             'rate' => 'required|numeric|min:1|max:5',
             'feedback' => 'sometimes|nullable|string',
-            'comment' => 'sometimes|nullable|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -736,50 +700,13 @@ class CustomerController extends Controller
             return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'company rating recorded successfully', 'report' => $result], 201);
+        return response()->json(['message' => 'company rating recorded successfully', 'rating' => $result], 201);
     }
 
     public function show_company_gallary($company_id)
     {
         $result = $this->customerService->show_company_gallary($company_id);
         return response()->json(['message' => 'company gallery retrieved successfully', 'gallery' => $result]);
-    }
-
-    // public function recieve_maintenance_service(Request $request, $request_id)
-    // {
-    //     $validate = Validator::make(['request_id' => $request_id], [
-    //         'request_id' => 'required|exists:metainence_requests,id',
-    //     ]);
-    //     if ($validate->fails()) {
-    //         return response()->json(['message' => $validate->errors()], 422);
-    //     }
-
-    //     $result = $this->customerService->recieve_maintenance_service($request, $request_id);
-    //     if (is_array($result) && isset($result['error'])) {
-    //         return response()->json(['message' => $result['error']], 400);
-    //     }
-
-    //     return response()->json(['message' => 'maintenance service received successfully', 'request' => $result]);
-    // }
-
-    // public function recieve_installation_service(Request $request, $installation_id)
-    // {
-    // }
-    public function simulation_solar_system_finacial_savings(Request $request)
-    {
-        $validate = Validator::make($request->all(), [
-            'system_cost' => 'required|numeric|min:0',
-            'current_monthly_cost' => 'required|numeric|min:0',
-            'monthly_generation_kwh' => 'sometimes|numeric|min:0',
-            'value_per_kwh' => 'sometimes|numeric|min:0',
-            'monthly_savings' => 'sometimes|numeric|min:0',
-        ]);
-        if ($validate->fails()) {
-            return response()->json(['message' => $validate->errors()], 422);
-        }
-
-        $result = $this->customerService->simulation_solar_system_finacial_savings($request);
-        return response()->json(['message' => 'financial savings simulation calculated successfully', 'result' => $result]);
     }
 
     public function company_report(Request $request, $company_id)
@@ -800,6 +727,25 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'company report submitted successfully', 'report' => $result], 201);
     }
+
+    public function simulation_solar_system_finacial_savings(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'system_cost' => 'required|numeric|min:0',
+            'current_monthly_cost' => 'required|numeric|min:0',
+            'monthly_generation_kwh' => 'sometimes|numeric|min:0',
+            'value_per_kwh' => 'sometimes|numeric|min:0',
+            'monthly_savings' => 'sometimes|numeric|min:0',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $result = $this->customerService->simulation_solar_system_finacial_savings($request);
+        return response()->json(['message' => 'financial savings simulation calculated successfully', 'result' => $result]);
+    }
+
+
 
     public function show_my_solar_systems()
     {

@@ -1052,42 +1052,16 @@ class CustomerService
         return $rating->fresh();
     }
 
-    public function task_feedsback($request, $task_id)
-    {
-        return $this->technical_employee_rating($request, $task_id);
-    }
-
-    public function company_feedsback($request, $company_id)
-    {
-        $customer = $this->currentCustomer();
-        $adminId = $this->adminIdForCustomerReports();
-
-        if (!$adminId) {
-            return ['error' => 'system admin is not configured'];
-        }
-
-        $report = $this->customerRepositoryInterface->create_report([
-            'customer_id' => $customer->id,
-            'company_id' => $company_id,
-            'admin_id' => $adminId,
-            'report_type' => $request->input('report_type', 'Service_Complaint'),
-            'report_subject' => $request->input('subject', 'Company feedback'),
-            'report_content' => $request->input('feedback', $request->input('report_content')),
-        ]);
-
-        return $this->reportToArray($report);
-    }
-
     public function company_rating($request, $company_id)
     {
-        $rating = $request->input('rate', $request->input('rating', 0));
-        $feedback = $request->input('feedback', $request->input('comment'));
-        $request->merge([
-            'subject' => 'Company rating: ' . $rating . '/5',
-            'feedback' => $feedback,
+        $customer = $this->currentCustomer();
+
+        $rating = $this->customerRepositoryInterface->upsert_company_rate_feedback($customer->id, $company_id, [
+            'rate' => (float) $request->input('rate', 0),
+            'feedback' => $request->input('feedback'),
         ]);
 
-        return $this->company_feedsback($request, $company_id);
+        return $rating->fresh();
     }
 
     public function show_company_gallary($company_id)

@@ -65,6 +65,11 @@ class Customer extends Authenticatable
         return $this->hasMany(Customer_rate_feedback::class, 'customer_id');
     }
 
+    public function companyRateFeedbacks(): HasMany
+    {
+        return $this->hasMany(Company_rate_feedback::class, 'customer_id');
+    }
+
     public function projectWarranties(): HasMany
     {
         return $this->hasMany(Project_warranties::class, 'customer_id');

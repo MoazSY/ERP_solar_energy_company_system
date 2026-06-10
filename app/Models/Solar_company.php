@@ -71,6 +71,11 @@ class Solar_company extends Model
         return $this->hasMany(Report::class, 'company_id');
     }
 
+    public function companyRateFeedbacks(): HasMany
+    {
+        return $this->hasMany(Company_rate_feedback::class, 'company_id');
+    }
+
     public function conflictInvoices(): HasMany
     {
         return $this->hasMany(Conflict_invoice::class, 'company_id');

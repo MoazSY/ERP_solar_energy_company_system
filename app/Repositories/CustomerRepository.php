@@ -4,6 +4,7 @@ namespace App\Repositories;
 use App\Models\Company_protofolio;
 use App\Models\Customer;
 use App\Models\Customer_electrical_device_characteristic;
+use App\Models\Company_rate_feedback;
 use App\Models\Customer_rate_feedback;
 use App\Models\Metainence_request;
 use App\Models\Offers;
@@ -390,6 +391,17 @@ class CustomerRepository implements CustomerRepositoryInterface
             [
                 'customer_id' => $customer_id,
                 'task_id' => $task_id,
+            ],
+            $data
+        );
+    }
+
+    public function upsert_company_rate_feedback($customer_id, $company_id, array $data)
+    {
+        return Company_rate_feedback::updateOrCreate(
+            [
+                'customer_id' => $customer_id,
+                'company_id' => $company_id,
             ],
             $data
         );
