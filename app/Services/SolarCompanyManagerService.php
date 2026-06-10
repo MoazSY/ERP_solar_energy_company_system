@@ -24,6 +24,7 @@ use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\RatingHelper;
 use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +85,11 @@ class SolarCompanyManagerService
             } else {
                 $company_logoUrl = asset('storage/' . $company_logo);
             }
-            return ['company' => $item, 'company_logoUrl' => $company_logoUrl];
+            return [
+                'company' => $item,
+                'company_logoUrl' => $company_logoUrl,
+                'rating' => RatingHelper::forCompany($item),
+            ];
         });
         $identification_image = $profile[0]->identification_image;
         if ($identification_image == null) {
@@ -307,14 +312,24 @@ class SolarCompanyManagerService
             } else {
                 $agency_logoUrl = asset('storage/' . $agency_logo);
             }
-            return ['agency' => $item, 'agency_logoUrl' => $agency_logoUrl, 'account_number' => $manager_account];
+            return [
+                'agency' => $item,
+                'agency_logoUrl' => $agency_logoUrl,
+                'account_number' => $manager_account,
+                'rating' => RatingHelper::forAgency($item),
+            ];
         });
         return $agencies;
     }
 
     public function filter_agency($filter)
     {
-        return $this->solarCompanyManagerRepositoryInterface->filter_agency($filter);
+        return $this->solarCompanyManagerRepositoryInterface->filter_agency($filter)->map(function ($agency) {
+            return [
+                'agency' => $agency,
+                'rating' => RatingHelper::forAgency($agency),
+            ];
+        });
     }
 
     public function show_agency_products($agency_id)

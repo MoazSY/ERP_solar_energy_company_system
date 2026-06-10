@@ -10,6 +10,7 @@ use App\Models\Subscribe_polices;
 use App\Models\System_admin;
 use App\Repositories\SystemAdminRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -172,7 +173,8 @@ class SystemAdminService
                 'company' => $company,
                 'company_logoUrl' => $company_logo
                     ? asset('storage/' . $company_logo)
-                    : null
+                    : null,
+                'rating' => RatingHelper::forCompany($company->id),
             ];
         });
 
@@ -194,7 +196,8 @@ class SystemAdminService
                 'agency' => $agency,
                 'agency_logoUrl' => $agency_logo
                     ? asset('storage/' . $agency_logo)
-                    : null
+                    : null,
+                'rating' => RatingHelper::forAgency($agency->id),
             ];
         });
 

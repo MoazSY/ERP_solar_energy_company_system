@@ -18,6 +18,7 @@ use App\Models\Purchase_invoice;
 use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
+use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -204,22 +205,18 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $assignments = Company_agency_employee::query()
             ->where('entity_type_type', $entityTypeClass)
             ->where('entity_type_id', $entity->id)
-            // ->with(['employee.projectTasks.customerRateFeedbacks'])
+            ->with(['employee.projectTasks'])
             ->latest('id')
             ->get();
 
         return $assignments->map(function ($assignment) {
             $employee = $assignment->employee;
-            $projectTasks = $employee?->projectTasks ?? collect();
-            $employeeRating = $projectTasks
-                ->flatMap(fn($task) => $task->customerRateFeedbacks ?? collect())
-                ->avg('rate');
 
             return [
                 'assignment' => $assignment,
                 'employee' => $employee,
-                'rating' => $employeeRating !== null ? round((float) $employeeRating, 2) : null,
-                'rejected_tasks_count' => $projectTasks->filter(function ($task) {
+                'rating' => $employee ? RatingHelper::forEmployee($employee->id) : RatingHelper::summarize(collect()),
+                'rejected_tasks_count' => ($employee?->projectTasks ?? collect())->filter(function ($task) {
                     return $task->rejected_at !== null || $task->task_accepted === false;
                 })->count(),
                 'imageUrl' => $employee?->image ? asset('storage/' . $employee->image) : null,
@@ -1220,8 +1217,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             $query->where('task_fee', '<=', $filters['max_fee']);
         }
 
-        return $query->latest('id')->get()->map(function ($task) {
-            return [
+        return $query->with(['employee', 'taskable', 'customerRateFeedbacks.customer'])->latest('id')->get()->map(function ($task) {
+            return RatingHelper::appendTaskRatings([
                 'task' => $task->toArray(),
                 'employee' => $task->employee?->toArray(),
                 'taskable' => $task->taskable?->toArray(),
@@ -1231,7 +1228,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'customer' => $task->taskable?->buyer_entity?->toArray(),
                 'address' => $task->taskable?->buyer_entity?->addresses()?->latest('id')->first(),
                 'is_completed' => !is_null($task->completed_at),
-            ];
+            ], $task);
         });
     }
 
@@ -1353,12 +1350,14 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $tasks = $tasks->map(function ($task) use (&$totalProfit) {
             $profit = $task->task_fee ?? 0;
             $totalProfit += $profit;
-            return [
+            $task->loadMissing('customerRateFeedbacks.customer');
+
+            return RatingHelper::appendTaskRatings([
                 'task' => $task->load('company'),
                 'task_type' => $task->task_type ?? $task->task_type_new,
                 'completed_at' => $task->completed_at,
                 'profit' => $task->task_fee,
-            ];
+            ], $task);
         });
 
         return [

@@ -20,6 +20,7 @@ use App\Models\Subscribe_offer;
 use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -127,7 +128,10 @@ class CustomerService
             ];
         });
 
-        return $result;
+        return [
+            'rating' => RatingHelper::forCompany($company_id),
+            'offers' => $result,
+        ];
     }
 
     public function get_all_electrical_devices()
@@ -248,9 +252,15 @@ class CustomerService
 
     private function invoiceToArray(Purchase_invoice $invoice): array
     {
-        $invoice->loadMissing(['orderList.Items.product', 'payments', 'seller_entity', 'buyer_entity', 'object_entity']);
+        $invoice->loadMissing(['orderList.Items.product', 'payments', 'seller_entity', 'buyer_entity', 'object_entity', 'projectTask.customerRateFeedbacks.customer']);
 
-        return ['invoice' => $invoice];
+        $payload = ['invoice' => $invoice];
+
+        if ($invoice->projectTask) {
+            $payload['project_task_rating'] = RatingHelper::forTask($invoice->projectTask);
+        }
+
+        return $payload;
     }
 
     private function portfolioToArray(Company_protofolio $portfolio): array
@@ -762,7 +772,7 @@ class CustomerService
                 } else {
                     $invoice->loadMissing(['object_entity']);
                 }
-                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity', 'projectTask', 'delivery_tasks', 'project_warranties.componentWarranties']);
+                $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity', 'projectTask.customerRateFeedbacks.customer', 'delivery_tasks', 'project_warranties.componentWarranties']);
                 return $this->invoiceToArray($invoice);
             });
     }
@@ -908,8 +918,12 @@ class CustomerService
         }
 
         $task = $this->customerRepositoryInterface->update_project_task($task, ['client_recieve_task' => true]);
+        $task = $task->fresh(['customerRateFeedbacks.customer']);
 
-        return $task->fresh();
+        return [
+            'task' => $task,
+            'rating' => RatingHelper::forTask($task),
+        ];
     }
 
     public function pay_for_additional_consumables($request, $installation_id)
@@ -1066,12 +1080,15 @@ class CustomerService
 
     public function show_company_gallary($company_id)
     {
-        return $this
-            ->customerRepositoryInterface
-            ->show_company_gallary($company_id)
-            ->map(function (Company_protofolio $portfolio) {
-                return $this->portfolioToArray($portfolio);
-            });
+        return [
+            'rating' => RatingHelper::forCompany($company_id),
+            'gallery' => $this
+                ->customerRepositoryInterface
+                ->show_company_gallary($company_id)
+                ->map(function (Company_protofolio $portfolio) {
+                    return $this->portfolioToArray($portfolio);
+                }),
+        ];
     }
 
     public function request_products_order($request, $company_id)

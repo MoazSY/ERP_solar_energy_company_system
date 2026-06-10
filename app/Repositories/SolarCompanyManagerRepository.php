@@ -3,6 +3,7 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_rate_feedback;
+use App\Support\RatingHelper;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
 // use App\Models\Deliveries;
@@ -154,7 +155,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function filter_agency($filters)
     {
-        $query = Agency::query()->withAvg('agencyRateFeedbacks as agency_rating', 'rate');
+        $query = Agency::query()->withAvg('agencyRateFeedbacks as agency_rating', 'rate')
+            ->with(['agencyRateFeedbacks.company:id,company_name']);
 
         // فلتر اسم الوكالة
         if (isset($filters['agency_name'])) {
@@ -703,7 +705,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function filter_installation_tasks($company, array $filters)
     {
-        $query = $company->projectTasks()->with(['employee', 'taskable']);
+        $query = $company->projectTasks()->with(['employee', 'taskable', 'customerRateFeedbacks.customer']);
 
         if (!empty($filters['date_from'])) {
             $query->whereDate('sheduled_at', '>=', $filters['date_from']);
@@ -740,12 +742,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
 
         return $query->latest('id')->get()->map(function ($t) {
-            return [
+            return RatingHelper::appendTaskRatings([
                 'task' => $t->getAttributes(),
                 'employee' => $t->employee?->toArray(),
                 'taskable' => $t->taskable?->toArray(),
                 'is_completed' => !is_null($t->completed_at),
-            ];
+            ], $t);
         });
     }
 

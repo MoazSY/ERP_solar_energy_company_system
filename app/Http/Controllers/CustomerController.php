@@ -173,7 +173,11 @@ class CustomerController extends Controller
             return response()->json(['message' => $validate->errors()], 422);
         }
         $offers = $this->customerService->show_company_offers($company_id);
-        return response()->json(['message' => 'company offers retrieved successfully', 'offers' => $offers]);
+        return response()->json([
+            'message' => 'company offers retrieved successfully',
+            'rating' => $offers['rating'],
+            'offers' => $offers['offers'],
+        ]);
     }
 
     public function electrical_devices()
@@ -635,7 +639,11 @@ class CustomerController extends Controller
             return response()->json(['message' => $result['error']], 400);
         }
 
-        return response()->json(['message' => 'project task received successfully', 'task' => $result]);
+        return response()->json([
+            'message' => 'project task received successfully',
+            'task' => $result['task'],
+            'rating' => $result['rating'],
+        ]);
     }
 
     public function pay_for_additional_consumables(Request $request, $installation_id)
@@ -706,7 +714,11 @@ class CustomerController extends Controller
     public function show_company_gallary($company_id)
     {
         $result = $this->customerService->show_company_gallary($company_id);
-        return response()->json(['message' => 'company gallery retrieved successfully', 'gallery' => $result]);
+        return response()->json([
+            'message' => 'company gallery retrieved successfully',
+            'rating' => $result['rating'],
+            'gallery' => $result['gallery'],
+        ]);
     }
 
     public function company_report(Request $request, $company_id)

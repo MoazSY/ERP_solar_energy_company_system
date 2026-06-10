@@ -685,7 +685,9 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             });
         }
 
-        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->get();
+        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->withAvg('companyRateFeedbacks as company_rating', 'rate')
+            ->with(['companyRateFeedbacks.customer:id,first_name,last_name'])
+            ->get();
     }
 
     public function create_custom_discount($data, $solar_company_id)

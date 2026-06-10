@@ -9,6 +9,7 @@ use App\Models\System_admin;
 use App\Models\Deliveries;
 use App\Repositories\AgencyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\RatingHelper;
 use App\Services\ApiSyriaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -63,7 +64,11 @@ class AgencyManagerService
             } else {
                 $agency_logoUrl = asset('storage/' . $agency_logo);
             }
-            return ['agency' => $item, 'agency_logoUrl' => $agency_logoUrl];
+            return [
+                'agency' => $item,
+                'agency_logoUrl' => $agency_logoUrl,
+                'rating' => RatingHelper::forAgency($item),
+            ];
         });
         $identification_image = $profile[0]->identification_image;
         if ($identification_image == null) {
@@ -333,7 +338,12 @@ class AgencyManagerService
 
     public function filter_solar_companies($filters)
     {
-        return $this->agencyManagerRepositoryInterface->filter_solar_companies($filters);
+        return $this->agencyManagerRepositoryInterface->filter_solar_companies($filters)->map(function ($company) {
+            return [
+                'company' => $company,
+                'rating' => RatingHelper::forCompany($company),
+            ];
+        });
     }
 
     public function create_custom_discount($data, $solar_company_id)

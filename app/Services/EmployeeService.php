@@ -12,6 +12,7 @@ use App\Models\Payment_transactions;
 use App\Models\Project_task;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
+use App\Support\RatingHelper;
 use App\Repositories\EmployeeRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
@@ -58,6 +59,7 @@ class EmployeeService
             'employee' => $employee,
             'imageUrl' => $imageUrl,
             'identification_imageUrl' => $identification_imageUrl,
+            'rating' => RatingHelper::forEmployee($employee->id),
         ];
     }
 
@@ -177,6 +179,7 @@ class EmployeeService
                 'employee' => $emp,
                 'imageUrl' => $emp->image ? asset('storage/' . $emp->image) : null,
                 'identification_imageUrl' => $emp->identification_image ? asset('storage/' . $emp->identification_image) : null,
+                'rating' => RatingHelper::forEmployee($emp->id),
             ];
         });
         return $map;
