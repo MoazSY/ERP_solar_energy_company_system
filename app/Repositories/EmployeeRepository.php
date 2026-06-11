@@ -1173,7 +1173,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         }
 
         if (!empty($filters['task_type'])) {
-            $query->where('task_type', $filters['task_type']);
+            $query->where('task_type_new', $filters['task_type']);
         }
 
         if (!empty($filters['task_status'])) {

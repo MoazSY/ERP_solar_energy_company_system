@@ -161,7 +161,7 @@ Route::middleware('check_employee')->group(function () {
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'delivery_task_start']);
-    Route::post('filter_installation_tasks', [EmployeeController::class, 'filter_installation_tasks']);
+    Route::post('employee_filter_installation_tasks', [EmployeeController::class, 'filter_installation_tasks']);
     Route::post('proccess_installation_task', [EmployeeController::class, 'proccess_installation_task']);
     Route::post('installation_task_start', [EmployeeController::class, 'installation_task_start']);
     Route::post('define_solar_system_for_customer', [EmployeeController::class, 'define_solar_system_for_customer']);

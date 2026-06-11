@@ -21,6 +21,7 @@ class Project_task extends Model
         'accepted_at',
         'rejected_at',
         'task_type',
+        'task_type_new',
         'delivery_id',
         'task_fee',
         'manager_payed',

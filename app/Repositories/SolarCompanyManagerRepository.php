@@ -632,13 +632,17 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ->map(fn($n) => trim((string) $n))
                 ->unique()
                 ->values();
-
+            if($request->input('task_type')==='technical_inspection'){
+                $task_type='installation';
+            }else{
+                $task_type=$request->input('task_type', 'installation');
+            }
             $task = $company->projectTasks()->create([
                 'employee_id' => $primaryTechnician->id,
                 'taskable_type' => get_class($invoice),
                 'taskable_id' => $invoice->id,
                 'task_accepted' => false,
-                'task_type' => $request->input('task_type', 'installation'),
+                'task_type' => $task_type,
                 'task_type_new' => $request->input('task_type', 'installation'),
                 'task_fee' => $invoice->installation_fee,
                 'manager_payed' => false,
@@ -715,7 +719,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
 
         if (!empty($filters['task_type'])) {
-            $query->where('task_type', $filters['task_type']);
+            $query->where('task_type_new', $filters['task_type']);
         }
 
         if (!empty($filters['employee_id'])) {

@@ -47,7 +47,7 @@ class RatingHelper
         return self::summarize($feedbacks, function ($feedback) {
             return [
                 'task_id' => $feedback->task_id,
-                'task_type' => $feedback->task?->task_type ?? $feedback->task?->task_type_new,
+                'task_type' => $feedback->task?->task_type_new ?? $feedback->task?->task_type,
                 'customer' => $feedback->customer ? [
                     'id' => $feedback->customer->id,
                     'first_name' => $feedback->customer->first_name,
