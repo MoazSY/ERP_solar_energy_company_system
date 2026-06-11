@@ -670,8 +670,6 @@ class CustomerController extends Controller
         return response()->json(['message' => 'additional consumables payment recorded successfully', 'result' => $result], 201);
     }
 
-
-
     public function technical_employee_rating(Request $request, $installation_id)
     {
         $validate = Validator::make(array_merge($request->all(), ['installation_id' => $installation_id]), [
@@ -690,7 +688,6 @@ class CustomerController extends Controller
 
         return response()->json(['message' => 'technical employee rating recorded successfully', 'rating' => $result], 201);
     }
-
 
     public function company_rating(Request $request, $company_id)
     {
@@ -725,8 +722,10 @@ class CustomerController extends Controller
     {
         $validate = Validator::make(array_merge($request->all(), ['company_id' => $company_id]), [
             'company_id' => 'required|exists:solar_companies,id',
-            'report_content' => 'required_without:message|string',
-            'message' => 'required_without:report_content|string',
+            'report_type' => 'required|in:Service_Complaint,Contractual_Issue,Workmanship_Issue,Project_Delay,Financial_Dispute',
+            'report_subject' => 'required|string',
+            'report_content' => 'sometimes|string',
+            // 'message' => 'required_without:report_content|string',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
@@ -740,24 +739,26 @@ class CustomerController extends Controller
         return response()->json(['message' => 'company report submitted successfully', 'report' => $result], 201);
     }
 
-    public function simulation_solar_system_finacial_savings(Request $request)
+    public function simulation_solar_system_finacial_savings(Request $request, $offer_id)
     {
-        $validate = Validator::make($request->all(), [
-            'system_cost' => 'required|numeric|min:0',
-            'current_monthly_cost' => 'required|numeric|min:0',
-            'monthly_generation_kwh' => 'sometimes|numeric|min:0',
-            'value_per_kwh' => 'sometimes|numeric|min:0',
-            'monthly_savings' => 'sometimes|numeric|min:0',
+        $validate = Validator::make(array_merge($request->all(), ['offer_id' => $offer_id]), [
+            'offer_id' => 'required|exists:offers,id',
+            'daytime_hours' => 'sometimes|numeric|min:0',
+            'source_type' => 'required|string|in:ampere,electricity',
+            'source_rate' => 'sometimes|numeric|min:0',
+            // 'currency' => 'required|string|in:USD,SY',
         ]);
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }
 
-        $result = $this->customerService->simulation_solar_system_finacial_savings($request);
+        $result = $this->customerService->simulation_solar_system_finacial_savings($request, $offer_id);
+        if (is_array($result) && isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
         return response()->json(['message' => 'financial savings simulation calculated successfully', 'result' => $result]);
     }
-
-
 
     public function show_my_solar_systems()
     {

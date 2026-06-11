@@ -411,7 +411,7 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function first_admin_id()
     {
-        return System_admin::query()->value('id');
+        return System_admin::findOrFail(1)->id;
     }
 
     public function create_report(array $data)

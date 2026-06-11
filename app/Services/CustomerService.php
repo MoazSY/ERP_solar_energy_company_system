@@ -1412,28 +1412,60 @@ class CustomerService
         return $this->maintenanceRequestToArray($maintenanceRequest->fresh());
     }
 
-    public function simulation_solar_system_finacial_savings($request)
+    public function simulation_solar_system_finacial_savings($request, $offer_id)
     {
-        $systemCost = (float) $request->input('system_cost', 0);
-        $currentMonthlyCost = (float) $request->input('current_monthly_cost', 0);
-        $monthlyGeneration = (float) $request->input('monthly_generation_kwh', 0);
-        $valuePerKwh = (float) $request->input('value_per_kwh', 0);
-        $monthlySavings = (float) $request->input('monthly_savings', 0);
-
-        if ($monthlySavings <= 0 && $monthlyGeneration > 0 && $valuePerKwh > 0) {
-            $monthlySavings = max($currentMonthlyCost - ($monthlyGeneration * $valuePerKwh), 0);
+        $offer = $this->customerRepositoryInterface->findOfferById($offer_id);
+        if (!$offer) {
+            return ['error' => 'offer not found'];
         }
 
-        $paybackMonths = $monthlySavings > 0 ? round($systemCost / $monthlySavings, 2) : null;
-        $yearlySavings = $monthlySavings * 12;
+        $offer->loadMissing(['Items.product.solarPanals']);
+
+        $panelCapacityKw = (float) $offer->Items->reduce(function ($carry, $item) {
+            if (!$item->product || $item->product->product_type !== 'solar_panel') {
+                return $carry;
+            }
+
+            $capacity = (float) optional($item->product->solarPanals)->capacity_kw;
+            $quantity = (int) $item->quantity;
+
+            return $carry + ($capacity * $quantity);
+        }, 0);
+
+        if ($panelCapacityKw <= 0) {
+            return ['error' => 'offer does not contain valid solar panel capacity'];
+        }
+        $panelCapacityKw=$panelCapacityKw*0.001;
+        $systemCost = (float) ($offer->average_total_amount ?: $offer->subtotal_amount);
+        $offerCurrency = $offer->currency;
+        // $requestedCurrency = $request->input('currency');
+
+        $sourceType = $request->input('source_type');
+        $defaultSourceRate = $sourceType === 'ampere' ? 10000 : 1000;
+
+
+        $sourceRate = (float) $request->input('source_rate', $defaultSourceRate);
+        if ($offerCurrency === 'USD') {
+            $sourceRate = round($sourceRate / 14000, 2); // convert from lira to dollar
+        }
+
+        $daytimeHours = (float) $request->input('daytime_hours', 8);
+        $monthlyGeneration = round($panelCapacityKw * $daytimeHours * 30, 2);
+        $monthlyGenerationValue = round($monthlyGeneration * $sourceRate, 2);
+        $yearlyGenerationValue = round($monthlyGenerationValue * 12, 2);
+        $paybackMonths = $monthlyGenerationValue > 0 ? round($systemCost / $monthlyGenerationValue, 2) : null;
 
         return [
+            'offer_id' => $offer->id,
+            'currency' => $offerCurrency,
             'system_cost' => $systemCost,
-            'current_monthly_cost' => $currentMonthlyCost,
+            'panel_capacity_kw' => $panelCapacityKw,
+            'daytime_hours' => $daytimeHours,
             'monthly_generation_kwh' => $monthlyGeneration,
-            'value_per_kwh' => $valuePerKwh,
-            'monthly_savings' => $monthlySavings,
-            'yearly_savings' => $yearlySavings,
+            'source_type' => $sourceType,
+            'source_rate' => $sourceRate,
+            'monthly_generation_value' => $monthlyGenerationValue,
+            'yearly_generation_value' => $yearlyGenerationValue,
             'payback_months' => $paybackMonths,
         ];
     }
@@ -1453,7 +1485,7 @@ class CustomerService
             'admin_id' => $adminId,
             'report_type' => $request->input('report_type', 'Service_Complaint'),
             'report_subject' => $request->input('report_subject', 'Company report'),
-            'report_content' => $request->input('report_content', $request->input('message')),
+            'report_content' => $request->input('report_content') ?? null,
         ]);
 
         return $this->reportToArray($report);

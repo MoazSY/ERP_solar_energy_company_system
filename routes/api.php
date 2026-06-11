@@ -161,18 +161,18 @@ Route::middleware('check_employee')->group(function () {
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'delivery_task_start']);
-    Route::post('filter_installation_tasks',[EmployeeController::class,'filter_installation_tasks']);
-    Route::post('proccess_installation_task',[EmployeeController::class,'proccess_installation_task']);
-    Route::post('installation_task_start',[EmployeeController::class,'installation_task_start']);
-    Route::post('define_solar_system_for_customer',[EmployeeController::class,'define_solar_system_for_customer']);
-    Route::post('installation_task_complete',[EmployeeController::class,'installation_task_complete']);
+    Route::post('filter_installation_tasks', [EmployeeController::class, 'filter_installation_tasks']);
+    Route::post('proccess_installation_task', [EmployeeController::class, 'proccess_installation_task']);
+    Route::post('installation_task_start', [EmployeeController::class, 'installation_task_start']);
+    Route::post('define_solar_system_for_customer', [EmployeeController::class, 'define_solar_system_for_customer']);
+    Route::post('installation_task_complete', [EmployeeController::class, 'installation_task_complete']);
     Route::post('show_system_attachments_for_technician', [EmployeeController::class, 'show_system_attachments_for_technician']);
-    Route::post('filter_profits_from_installation_tasks',[EmployeeController::class,'filter_profits_from_installation_tasks']);
+    Route::post('filter_profits_from_installation_tasks', [EmployeeController::class, 'filter_profits_from_installation_tasks']);
     Route::post('define_system_attachments', [EmployeeController::class, 'define_system_attachments']);
-    Route::post('register_consumable_material',[EmployeeController::class,'register_consumable_material']);
-    Route::post('update_consumable_material',[EmployeeController::class,'update_consumable_material']);
-    Route::post('recieve_cash_from_customer',[EmployeeController::class,'recieve_cash_from_customer']);
-    
+    Route::post('register_consumable_material', [EmployeeController::class, 'register_consumable_material']);
+    Route::post('update_consumable_material', [EmployeeController::class, 'update_consumable_material']);
+    Route::post('recieve_cash_from_customer', [EmployeeController::class, 'recieve_cash_from_customer']);
+
     // Inventory Management Routes
     Route::post('insert_product_to_stock', [EmployeeController::class, 'insert_product_to_stock']);
     Route::get('show_inventory_products', [EmployeeController::class, 'show_inventory_products']);
@@ -189,7 +189,7 @@ Route::middleware('check_employee')->group(function () {
     Route::get('show_output_orderList_for_inventory_manager', [EmployeeController::class, 'show_output_orderList_for_inventory_manager']);
     Route::post('proccess_input_output_order_request', [EmployeeController::class, 'proccess_input_output_order_request']);
     Route::post('show_product_nearing_out_of_stock', [EmployeeController::class, 'show_product_nearing_out_of_stock']);
-    Route::post('extract_attachments',[EmployeeController::class,'extract_attachments']);
+    Route::post('extract_attachments', [EmployeeController::class, 'extract_attachments']);
 });
 
 Route::middleware('check_customer')->group(function () {
@@ -215,7 +215,7 @@ Route::middleware('check_customer')->group(function () {
     Route::get('invoices_details', [CustomerController::class, 'show_invoices_details']);
     Route::post('approve_pay_invoice/{invoice_id}', [CustomerController::class, 'approve_pay_invoice']);
     Route::post('recieve_invoice/{invoice_id}', [CustomerController::class, 'recieve_invoice']);
-   Route::post('recieve_project_task/{task_id}', [CustomerController::class, 'recieve_project_task']);
+    Route::post('recieve_project_task/{task_id}', [CustomerController::class, 'recieve_project_task']);
     Route::get('installations_services_status', [CustomerController::class, 'show_installations_services_status']);
     Route::post('pay_for_additional_consumables/{installation_id}', [CustomerController::class, 'pay_for_additional_consumables']);
     Route::post('technical_employee_rating/{installation_id}', [CustomerController::class, 'technical_employee_rating']);
@@ -228,7 +228,6 @@ Route::middleware('check_customer')->group(function () {
     Route::post('cancel_maintenance_request/{request_id}', [CustomerController::class, 'cancel_maintenance_request']);
     Route::post('update_maintenance_request/{request_id}', [CustomerController::class, 'update_maintenance_request']);
     Route::post('recieve_maintenance_service/{request_id}', [CustomerController::class, 'recieve_maintenance_service']);
-    Route::post('simulation_solar_system_finacial_savings', [CustomerController::class, 'simulation_solar_system_finacial_savings']);
+    Route::post('simulation_solar_system_finacial_savings/{offer_id}', [CustomerController::class, 'simulation_solar_system_finacial_savings']);
     Route::post('company_report/{company_id}', [CustomerController::class, 'company_report']);
-    Route::post('pay_for_additional_consumables/{installation_id}', [CustomerController::class, 'pay_for_additional_consumables']);
 });
