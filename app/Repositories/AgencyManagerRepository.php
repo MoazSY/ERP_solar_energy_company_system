@@ -11,6 +11,7 @@ use App\Models\Payment_transactions;
 use App\Models\Products;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
+use App\Support\CompanyBanHelper;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -624,6 +625,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         // }
 
         $query = Solar_company::query();
+        CompanyBanHelper::scopeNotBanned($query);
 
         if (isset($filters['company_name'])) {
             $query->where('company_name', 'like', '%' . $filters['company_name'] . '%');

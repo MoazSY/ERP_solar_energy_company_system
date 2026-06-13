@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Areas;
+use App\Models\Commision_polices;
 use App\Models\Governorates;
+use App\Models\Report;
 use App\Services\SystemAdminService;
 use Illuminate\Http\Request;
 // use Illuminate\Support\Facades\Auth;
@@ -235,6 +237,18 @@ class System_admin extends Controller
         return response()->json(['message' => 'all un active agency', 'agency' => $agency]);
     }
 
+    public function show_all_company_registerd()
+    {
+        $registerd_companies = $this->SystemAdminService->show_all_company_registerd();
+        return response()->json(['message' => 'all registerd companies', 'registerd_companies' => $registerd_companies]);
+    }
+
+    public function show_all_agency_registerd()
+    {
+        $registerd_agencies = $this->SystemAdminService->show_all_agency_registerd();
+        return response()->json(['message' => 'all registerd agencies', 'registerd_agencies' => $registerd_agencies]);
+    }
+
     public function proccess_company_register(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -295,16 +309,109 @@ class System_admin extends Controller
         return response()->json(['message' => 'subscription policy updated successfully', 'policy' => $policy]);
     }
 
-    public function show_all_company_registerd()
+    public function commision_policy(Request $request)
     {
-        $registerd_companies = $this->SystemAdminService->show_all_company_registerd();
-        return response()->json(['message' => 'all registerd companies', 'registerd_companies' => $registerd_companies]);
+        $validate = Validator::make($request->all(), [
+            'policy_name' => 'required|string',
+            'description' => 'sometimes|string',
+            'target_type' => 'required|in:app_sales,inner_sales,installation,maintenance,delivery,public',
+            'applies_to' => 'required|in:company,agency',
+            'commision_type' => 'required|in:percentage,fixed',
+            'commision_value' => 'required|numeric|min:0',
+            'is_active' => 'sometimes|boolean',
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date|after_or_equal:start_date',
+            'priority' => 'sometimes|integer|min:0',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+
+        $policy = $this->SystemAdminService->commision_policy($request);
+        return response()->json(['message' => 'commission policy created successfully', 'policy' => $policy]);
     }
 
-    public function show_all_agency_registerd()
+    public function update_commision_policy(Request $request, Commision_polices $commision_polices)
     {
-        $registerd_agencies = $this->SystemAdminService->show_all_agency_registerd();
-        return response()->json(['message' => 'all registerd agencies', 'registerd_agencies' => $registerd_agencies]);
+        $validate = Validator::make($request->all(), [
+            'policy_name' => 'sometimes|string',
+            'description' => 'sometimes|string',
+            'target_type' => 'sometimes|in:app_sales,inner_sales,installation,maintenance,delivery,public',
+            'applies_to' => 'sometimes|in:company,agency',
+            'commision_type' => 'sometimes|in:percentage,fixed',
+            'commision_value' => 'sometimes|numeric|min:0',
+            'is_active' => 'sometimes|boolean',
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date|after_or_equal:start_date',
+            'priority' => 'sometimes|integer|min:0',
+        ]);
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()]);
+        }
+
+        $data = $validate->validated();
+        $policy = $this->SystemAdminService->update_commision_policy($data, $commision_polices);
+        return response()->json(['message' => 'commission policy updated successfully', 'policy' => $policy]);
+    }
+
+    public function delete_commision_policy(Commision_polices $commision_polices)
+    {
+        $this->SystemAdminService->delete_commision_policy($commision_polices);
+        return response()->json(['message' => 'commission policy deleted successfully']);
+    }
+
+    public function show_commision_policies()
+    {
+        $policies = $this->SystemAdminService->show_commision_policies();
+        return response()->json(['message' => 'all commission policies for this admin', 'policies' => $policies]);
+    }
+
+    public function filter_reports(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'company_id' => 'sometimes|exists:solar_companies,id',
+            'report_type' => 'sometimes|in:Service_Complaint,Contractual_Issue,Workmanship_Issue,Project_Delay,Financial_Dispute',
+            'is_processed' => 'sometimes|boolean',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $reports = $this->SystemAdminService->filter_reports($request);
+        return response()->json(['message' => 'filtered reports retrieved successfully', 'reports' => $reports]);
+    }
+
+    public function proccess_report(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'report_id' => 'required|integer|exists:reports,id',
+            'proccess_method' => 'required|in:warning,fine,suspension,block,nothing',
+            'block_type' => 'required_if:proccess_method,block|nullable|in:hour,day,week',
+            'block_duaration_value' => 'required_if:proccess_method,block|nullable|integer|min:1',
+            'fine_amount' => 'required_if:proccess_method,fine|nullable|numeric|min:0',
+            'notes' => 'sometimes|nullable|string',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $data = $validate->validated();
+
+        try {
+            $process = $this->SystemAdminService->proccess_report($data);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
+
+        return response()->json([
+            'message' => 'report processed successfully',
+            'process' => $process,
+            'company_banned_until' => $process->proccess_method === 'block'
+                ? $process->report?->company?->fresh()?->banned_until
+                : null,
+        ]);
     }
 
     public function custom_subscribe_policy(Request $request)
@@ -321,16 +428,16 @@ class System_admin extends Controller
         return response()->json(['message' => 'custom subscribe policy created successfully', 'custom_policy' => $custom_policy['custom_subscribe'], 'entity' => $custom_policy['entity']]);
     }
 
-    public function show_subscribtions_policies()
-    {
-        $policies = $this->SystemAdminService->show_subscribtions_policies();
-        return response()->json(['message' => 'all subscription policies for this admin', 'policies' => $policies]);
-    }
-
     public function show_custom_subscribtions_policies()
     {
         $custom_policies = $this->SystemAdminService->show_custom_subscribtions_policies();
         return response()->json(['message' => 'all custom subscription policies for this admin', 'custom_policies' => $custom_policies]);
+    }
+
+    public function show_subscribtions_policies()
+    {
+        $policies = $this->SystemAdminService->show_subscribtions_policies();
+        return response()->json(['message' => 'all subscription policies for this admin', 'policies' => $policies]);
     }
 
     public function show_subscribers_of_policy(Subscribe_polices $policy)

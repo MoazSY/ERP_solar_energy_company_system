@@ -44,6 +44,12 @@ Route::middleware('check_admin')->group(function () {
     Route::post('proccess_company_register', [System_admin::class, 'proccess_company_register']);
     Route::post('subscriptions_policy', [System_admin::class, 'subscriptions_policy']);
     Route::post('update_subscriptions_policy/{subscribe_polices}', [System_admin::class, 'update_subscriptions_policy']);
+    Route::post('commision_policy', [System_admin::class, 'commision_policy']);
+    Route::post('update_commision_policy/{commision_polices}', [System_admin::class, 'update_commision_policy']);
+    Route::post('delete_commision_policy/{commision_polices}', [System_admin::class, 'delete_commision_policy']);
+    Route::get('show_commision_policies', [System_admin::class, 'show_commision_policies']);
+    Route::post('filter_reports', [System_admin::class, 'filter_reports']);
+    Route::post('proccess_report', [System_admin::class, 'proccess_report']);
     Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);
     Route::get('show_custom_subscribtions_policies', [System_admin::class, 'show_custom_subscribtions_policies']);
     Route::post('show_subscribtions_policies_for_entity', [System_admin::class, 'show_subscribtions_policies_for_entity']);

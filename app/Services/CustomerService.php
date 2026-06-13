@@ -20,6 +20,7 @@ use App\Models\Subscribe_offer;
 use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\CompanyBanHelper;
 use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -142,6 +143,21 @@ class CustomerService
     private function currentCustomer(): Customer
     {
         return Auth::guard('customer')->user();
+    }
+
+    private function ensureCompanyAcceptsRequests(int $companyId): ?array
+    {
+        $company = Solar_company::find($companyId);
+        if (!$company) {
+            return ['error' => 'company not found'];
+        }
+
+        $banMessage = CompanyBanHelper::assertAcceptsCustomerRequests($company);
+        if ($banMessage) {
+            return ['error' => $banMessage];
+        }
+
+        return null;
     }
 
     private function storageUrl($path)
@@ -327,6 +343,10 @@ class CustomerService
             return ['error' => 'offer is not assigned to this customer'];
         }
 
+        if ($banError = $this->ensureCompanyAcceptsRequests((int) $offer->company_id)) {
+            return $banError;
+        }
+
         $baseAmount = (float) ($offer->average_total_amount ?: max((float) $offer->subtotal_amount - (float) $offer->discount_amount, 0));
 
         // Calculate delivery cost using OSRM service (company -> customer)
@@ -468,6 +488,10 @@ class CustomerService
             $payload['additional_details'] = $request->input('additional_details');
         }
         if ($request->has('company_id')) {
+            if ($banError = $this->ensureCompanyAcceptsRequests((int) $request->input('company_id'))) {
+                return $banError;
+            }
+
             $requestSolarSystem = $customer
                 ->requestSolarSystems()
                 ->whereNull('company_id')
@@ -567,6 +591,11 @@ class CustomerService
     public function request_technical_inspection($request)
     {
         $customer = $this->currentCustomer();
+
+        if ($banError = $this->ensureCompanyAcceptsRequests((int) $request->input('company_id'))) {
+            return $banError;
+        }
+
         $payload = $request->only([
             'company_id',
             // 'priority',
@@ -1099,6 +1128,10 @@ class CustomerService
             return ['error' => 'company not found'];
         }
 
+        if ($banError = $this->ensureCompanyAcceptsRequests((int) $company_id)) {
+            return $banError;
+        }
+
         $companyManager = Solar_company_manager::find($company->solar_company_manager_id);
         if (!$companyManager) {
             return ['error' => 'company beneficiary manager is not configured'];
@@ -1273,6 +1306,11 @@ class CustomerService
     public function request_maintenance_service($request)
     {
         $customer = $this->currentCustomer();
+
+        if ($banError = $this->ensureCompanyAcceptsRequests((int) $request->input('company_id'))) {
+            return $banError;
+        }
+
         $payload = $request->only([
             'company_id',
             'metainence_type',

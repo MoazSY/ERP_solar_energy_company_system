@@ -11,6 +11,11 @@ class Solar_company extends Model
 {
     protected $table = 'solar_companies';
 
+    protected $casts = [
+        'banned_until' => 'datetime',
+        'verified_at' => 'datetime',
+    ];
+
     protected $fillable = [
         'solar_company_manager_id',
         'company_name',
@@ -21,6 +26,7 @@ class Solar_company extends Model
         'company_phone',
         'tax_number',
         'company_status',
+        'banned_until',
         'verified_at',
         'working_hours_start',
         'working_hours_end',

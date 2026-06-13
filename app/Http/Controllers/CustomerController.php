@@ -760,11 +760,11 @@ class CustomerController extends Controller
         return response()->json(['message' => 'financial savings simulation calculated successfully', 'result' => $result]);
     }
 
-    public function show_my_solar_systems()
-    {
-        $result = $this->customerService->show_my_solar_systems();
-        return response()->json(['message' => 'customer solar systems retrieved successfully', 'solar_systems' => $result]);
-    }
+    // public function show_my_solar_systems()
+    // {
+    //     $result = $this->customerService->show_my_solar_systems();
+    //     return response()->json(['message' => 'customer solar systems retrieved successfully', 'solar_systems' => $result]);
+    // }
 
     //     public function show_requested_products_orders()
     // {

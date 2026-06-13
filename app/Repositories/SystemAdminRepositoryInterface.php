@@ -18,5 +18,11 @@ interface SystemAdminRepositoryInterface
     public function proccess_company_register($request, $admin, $entity);
     public function subscriptions_policy($request, $admin);
     public function update_subscriptions_policy($request, $admin, $policy);
+    public function commision_policy($request, $admin);
+    public function update_commision_policy($request, $admin, $policy);
+    public function delete_commision_policy($policy);
+    public function show_commision_policies($admin);
+    public function filter_reports(array $filters);
+    public function proccess_report(array $data, $admin, $report);
     public function custom_subscribe_policy($request, $company);
 }

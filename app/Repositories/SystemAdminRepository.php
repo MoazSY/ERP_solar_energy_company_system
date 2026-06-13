@@ -5,8 +5,12 @@ use App\Models\Agency;
 use App\Models\Areas;
 use App\Models\Governorates;
 use App\Models\Neighborhood;
+use App\Models\Proccess_report;
+use App\Models\Report;
 use App\Models\Solar_company;
 use App\Models\System_admin;
+use App\Support\CompanyBanHelper;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class SystemAdminRepository implements SystemAdminRepositoryInterface
@@ -161,6 +165,130 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
         $policy->save();
 
         return $policy;
+    }
+
+    public function commision_policy($request, $admin)
+    {
+        $commissionPolicy = $admin->commisionPolices()->create([
+            'policy_name' => $request->policy_name,
+            'description' => $request->description,
+            'target_type' => $request->target_type,
+            'applies_to' => $request->applies_to,
+            'commision_type' => $request->commision_type,
+            'commision_value' => $request->commision_value,
+            'is_active' => $request->is_active ?? true,
+            'start_date' => $request->start_date??null,
+            'end_date' => $request->end_date??null,
+            'priority' => $request->priority ?? 0,
+        ]);
+
+        return $commissionPolicy;
+    }
+
+    public function update_commision_policy($request, $admin, $policy)
+    {
+        if ($policy->admin_id !== $admin->id) {
+            abort(403, 'Unauthorized action');
+        }
+
+        $policy->update($request);
+        $policy->fresh();
+        $policy->save();
+
+        return $policy;
+    }
+
+    public function delete_commision_policy($policy)
+    {
+        return $policy->delete();
+    }
+
+    public function show_commision_policies($admin)
+    {
+        return $admin->commisionPolices()->get();
+    }
+
+    public function filter_reports(array $filters)
+    {
+        $query = Report::with(['company', 'customer', 'proccessReports']);
+
+        if (!empty($filters['company_id'])) {
+            $query->where('company_id', $filters['company_id']);
+        }
+
+        if (!empty($filters['report_type'])) {
+            $query->where('report_type', $filters['report_type']);
+        }
+
+        if (array_key_exists('is_processed', $filters)) {
+            if ($filters['is_processed']) {
+                $query->whereHas('proccessReports');
+            } else {
+                $query->whereDoesntHave('proccessReports');
+            }
+        }
+
+        return $query->get()->map(function (Report $report) {
+            $latestProcess = $report->proccessReports->sortByDesc('created_at')->first();
+            return [
+                'id' => $report->id,
+                'company_id' => $report->company_id,
+                'company_name' => $report->company?->company_name ?? null,
+                'customer_id' => $report->customer_id,
+                'customer_name' => $report->customer?->first_name . ' ' . $report->customer?->last_name,
+                'report_type' => $report->report_type,
+                'report_subject' => $report->report_subject,
+                'report_content' => $report->report_content,
+                'created_at' => $report->created_at,
+                'is_processed' => $report->proccessReports->isNotEmpty(),
+                'latest_process' => $latestProcess ? [
+                    'process_method' => $latestProcess->proccess_method,
+                    'block_type' => $latestProcess->block_type,
+                    'block_duaration_value' => $latestProcess->block_duaration_value,
+                    'compensation_amount' => $latestProcess->compensation_amount,
+                    'fine_amount' => $latestProcess->fine_amount,
+                    'notes' => $latestProcess->notes,
+                    'proccess_datetime' => $latestProcess->proccess_datetime,
+                ] : null,
+            ];
+        });
+    }
+
+    public function proccess_report(array $data, $admin, $report)
+    {
+        return DB::transaction(function () use ($data, $admin, $report) {
+            if ($report->proccessReports()->exists()) {
+                throw new \RuntimeException('Report has already been processed');
+            }
+
+            $proccessDatetime = now();
+            $company = $report->company;
+
+            if (!$company) {
+                throw new \RuntimeException('Report company not found');
+            }
+
+            if ($data['proccess_method'] === 'block') {
+                $bannedUntil = CompanyBanHelper::calculateBanEnd(
+                    $data['block_type'],
+                    (int) $data['block_duaration_value'],
+                    $proccessDatetime
+                );
+
+                $company->update(['banned_until' => $bannedUntil]);
+            }
+
+            return Proccess_report::create([
+                'report_id' => $report->id,
+                'admin_id' => $admin->id,
+                'proccess_method' => $data['proccess_method'],
+                'block_type' => $data['block_type'] ?? null,
+                'block_duaration_value' => $data['block_duaration_value'] ?? null,
+                'fine_amount' => $data['fine_amount'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'proccess_datetime' => $proccessDatetime,
+            ])->load(['report.company', 'admin']);
+        });
     }
 
     public function custom_subscribe_policy($request, $company)

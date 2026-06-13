@@ -7,8 +7,10 @@ use App\Models\Company_agency_subscribe;
 use App\Models\Neighborhood;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
+use App\Models\Report;
 use App\Models\System_admin;
 use App\Repositories\SystemAdminRepositoryInterface;
+use App\Support\CompanyBanHelper;
 use App\Repositories\TokenRepositoryInterface;
 use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
@@ -163,6 +165,7 @@ class SystemAdminService
         $all_company = Solar_company::whereHas('proccess_register', function ($q) {
             $q->where('status', 'approved');
         })
+            ->tap(fn ($query) => CompanyBanHelper::scopeNotBanned($query))
             ->with('proccess_register')
             ->get();
 
@@ -225,6 +228,51 @@ class SystemAdminService
     {
         $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
         return $this->SystemAdminRepositoryInterface->update_subscriptions_policy($request, $admin, $policy);
+    }
+
+    public function commision_policy($request)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->commision_policy($request, $admin);
+    }
+
+    public function update_commision_policy($request, $policy)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->update_commision_policy($request, $admin, $policy);
+    }
+
+    public function delete_commision_policy($policy)
+    {
+        return $this->SystemAdminRepositoryInterface->delete_commision_policy($policy);
+    }
+
+    public function show_commision_policies()
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->show_commision_policies($admin);
+    }
+
+    public function filter_reports($request)
+    {
+        $filters = [
+            'company_id' => $request->input('company_id'),
+            'report_type' => $request->input('report_type'),
+        ];
+
+        if ($request->has('is_processed')) {
+            $filters['is_processed'] = filter_var($request->input('is_processed'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        return $this->SystemAdminRepositoryInterface->filter_reports($filters);
+    }
+
+    public function proccess_report(array $data)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        $report = Report::with('company')->findOrFail($data['report_id']);
+
+        return $this->SystemAdminRepositoryInterface->proccess_report($data, $admin, $report);
     }
 
     public function custom_subscribe_policy($request)
