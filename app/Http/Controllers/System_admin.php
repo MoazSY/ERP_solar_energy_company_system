@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Areas;
+use App\Models\Commision_charges;
 use App\Models\Commision_polices;
 use App\Models\Governorates;
-use App\Models\Report;
 use App\Services\SystemAdminService;
 use Illuminate\Http\Request;
 // use Illuminate\Support\Facades\Auth;
@@ -364,6 +364,52 @@ class System_admin extends Controller
     {
         $policies = $this->SystemAdminService->show_commision_policies();
         return response()->json(['message' => 'all commission policies for this admin', 'policies' => $policies]);
+    }
+
+    public function show_unpaid_commission_charges(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'company_id' => 'sometimes|exists:solar_companies,id',
+            'paid_status' => 'sometimes|in:paid,unpaid,all',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $commissions = $this->SystemAdminService->show_unpaid_commission_charges($validate->validated());
+        return response()->json(['message' => 'commission charges retrieved successfully', 'commissions' => $commissions]);
+    }
+
+    public function show_commission_profits(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'company_id' => 'sometimes|exists:solar_companies,id',
+            'paid_status' => 'sometimes|in:paid,unpaid,all',
+            'date_type' => 'sometimes|in:daily,monthly,yearly',
+            'date' => 'sometimes|date|required_with:date_type',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $profits = $this->SystemAdminService->get_commission_profits($validate->validated());
+        return response()->json([
+            'message' => 'commission profit summary retrieved successfully',
+            'profits' => $profits,
+        ]);
+    }
+
+    public function mark_commission_paid(Commision_charges $commision_charge)
+    {
+        $commission = $this->SystemAdminService->mark_commission_paid($commision_charge);
+        if (isset($commission['error'])) {
+            return response()->json(['message' => $commission['error']], 400);
+        }
+        return response()->json(['message' => 'commission marked as paid successfully', 'commission' => $commission]);
     }
 
     public function filter_reports(Request $request)

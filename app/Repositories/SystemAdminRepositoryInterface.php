@@ -22,6 +22,9 @@ interface SystemAdminRepositoryInterface
     public function update_commision_policy($request, $admin, $policy);
     public function delete_commision_policy($policy);
     public function show_commision_policies($admin);
+    public function show_unpaid_commission_charges($admin, array $filters = []);
+    public function get_commission_profits($admin, array $filters = []);
+    public function mark_commission_paid($admin, $commision_charge);
     public function filter_reports(array $filters);
     public function proccess_report(array $data, $admin, $report);
     public function custom_subscribe_policy($request, $company);

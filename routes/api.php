@@ -48,6 +48,9 @@ Route::middleware('check_admin')->group(function () {
     Route::post('update_commision_policy/{commision_polices}', [System_admin::class, 'update_commision_policy']);
     Route::post('delete_commision_policy/{commision_polices}', [System_admin::class, 'delete_commision_policy']);
     Route::get('show_commision_policies', [System_admin::class, 'show_commision_policies']);
+    Route::post('show_unpaid_commission_charges', [System_admin::class, 'show_unpaid_commission_charges']);
+    Route::post('show_commission_profits', [System_admin::class, 'show_commission_profits']);
+    Route::post('mark_commission_paid/{commision_charge}', [System_admin::class, 'mark_commission_paid']);
     Route::post('filter_reports', [System_admin::class, 'filter_reports']);
     Route::post('proccess_report', [System_admin::class, 'proccess_report']);
     Route::post('custom_subscribe_policy', [System_admin::class, 'custom_subscribe_policy']);

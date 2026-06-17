@@ -5,13 +5,13 @@ use App\Models\Agency;
 use App\Models\Areas;
 use App\Models\Company_agency_subscribe;
 use App\Models\Neighborhood;
+use App\Models\Report;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
-use App\Models\Report;
 use App\Models\System_admin;
 use App\Repositories\SystemAdminRepositoryInterface;
-use App\Support\CompanyBanHelper;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\CompanyBanHelper;
 use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -165,7 +165,7 @@ class SystemAdminService
         $all_company = Solar_company::whereHas('proccess_register', function ($q) {
             $q->where('status', 'approved');
         })
-            ->tap(fn ($query) => CompanyBanHelper::scopeNotBanned($query))
+            ->tap(fn($query) => CompanyBanHelper::scopeNotBanned($query))
             ->with('proccess_register')
             ->get();
 
@@ -251,6 +251,24 @@ class SystemAdminService
     {
         $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
         return $this->SystemAdminRepositoryInterface->show_commision_policies($admin);
+    }
+
+    public function show_unpaid_commission_charges(array $filters = [])
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->show_unpaid_commission_charges($admin, $filters);
+    }
+
+    public function get_commission_profits(array $filters = [])
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->get_commission_profits($admin, $filters);
+    }
+
+    public function mark_commission_paid($commision_charge)
+    {
+        $admin = System_admin::findOrFail(Auth::guard('admin')->user()->id);
+        return $this->SystemAdminRepositoryInterface->mark_commission_paid($admin, $commision_charge);
     }
 
     public function filter_reports($request)

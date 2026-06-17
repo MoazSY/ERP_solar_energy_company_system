@@ -3,6 +3,7 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Areas;
+use App\Models\Commision_charges;
 use App\Models\Governorates;
 use App\Models\Neighborhood;
 use App\Models\Proccess_report;
@@ -10,6 +11,7 @@ use App\Models\Report;
 use App\Models\Solar_company;
 use App\Models\System_admin;
 use App\Support\CompanyBanHelper;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -177,8 +179,8 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
             'commision_type' => $request->commision_type,
             'commision_value' => $request->commision_value,
             'is_active' => $request->is_active ?? true,
-            'start_date' => $request->start_date??null,
-            'end_date' => $request->end_date??null,
+            'start_date' => $request->start_date ?? null,
+            'end_date' => $request->end_date ?? null,
             'priority' => $request->priority ?? 0,
         ]);
 
@@ -206,6 +208,110 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
     public function show_commision_policies($admin)
     {
         return $admin->commisionPolices()->get();
+    }
+
+    public function show_unpaid_commission_charges($admin, array $filters = [])
+    {
+        $query = Commision_charges::with(['invoice', 'commisionPolice', 'admin'])
+            ->where('admin_id', $admin->id)
+            ->orderByDesc('created_at');
+
+        if (empty($filters['paid_status']) || $filters['paid_status'] === 'unpaid') {
+            $query->whereNull('paid_at');
+        } elseif ($filters['paid_status'] === 'paid') {
+            $query->whereNotNull('paid_at');
+        }
+
+        if (!empty($filters['company_id'])) {
+            $query->whereHas('invoice', function ($query) use ($filters) {
+                $query->where(function ($query) use ($filters) {
+                    $query
+                        ->where('seller_entity_type', Solar_company::class)
+                        ->where('seller_entity_id', $filters['company_id']);
+                })->orWhere(function ($query) use ($filters) {
+                    $query
+                        ->where('buyer_entity_type', Solar_company::class)
+                        ->where('buyer_entity_id', $filters['company_id']);
+                });
+            });
+        }
+
+        return $query->get();
+    }
+
+    public function get_commission_profits($admin, array $filters = [])
+    {
+        $query = Commision_charges::with(['invoice', 'commisionPolice', 'admin'])
+            ->where('admin_id', $admin->id);
+
+        if (!empty($filters['company_id'])) {
+            $query->whereHas('invoice', function ($query) use ($filters) {
+                $query->where(function ($query) use ($filters) {
+                    $query
+                        ->where('seller_entity_type', Solar_company::class)
+                        ->where('seller_entity_id', $filters['company_id']);
+                })->orWhere(function ($query) use ($filters) {
+                    $query
+                        ->where('buyer_entity_type', Solar_company::class)
+                        ->where('buyer_entity_id', $filters['company_id']);
+                });
+            });
+        }
+
+        if (!empty($filters['paid_status'])) {
+            if ($filters['paid_status'] === 'paid') {
+                $query->whereNotNull('paid_at');
+            } elseif ($filters['paid_status'] === 'unpaid') {
+                $query->whereNull('paid_at');
+            }
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['date']) && !empty($filters['date_type'])) {
+            $date = Carbon::parse($filters['date']);
+
+            if ($filters['date_type'] === 'daily') {
+                $query->whereDate('created_at', $date->toDateString());
+            } elseif ($filters['date_type'] === 'monthly') {
+                $query
+                    ->whereYear('created_at', $date->year)
+                    ->whereMonth('created_at', $date->month);
+            } elseif ($filters['date_type'] === 'yearly') {
+                $query->whereYear('created_at', $date->year);
+            }
+        }
+
+        $charges = $query->get();
+
+        return [
+            'commission_charges' => $charges,
+            'total_commission' => $charges->sum('commision_amount'),
+            'paid_commission' => $charges->whereNotNull('paid_at')->sum('commision_amount'),
+            'unpaid_commission' => $charges->whereNull('paid_at')->sum('commision_amount'),
+        ];
+    }
+
+    public function mark_commission_paid($admin, $commision_charge)
+    {
+        if ($commision_charge->admin_id !== $admin->id) {
+            abort(403, 'Unauthorized action');
+        }
+
+        if (!is_null($commision_charge->paid_at)) {
+            return ['error' => 'Commission is already marked as paid'];
+        }
+
+        $commision_charge->paid_at = now();
+        $commision_charge->save();
+
+        return $commision_charge->fresh();
     }
 
     public function filter_reports(array $filters)

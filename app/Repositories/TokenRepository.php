@@ -17,7 +17,7 @@ class TokenRepository implements TokenRepositoryInterface{
     {
         [$id, $token] = explode('|', $plainTextToken);
         PersonalAccessToken::find($id)->update([
-            'expires_at' => now()->addHours(100)
+            'expires_at' => now()->addHours(1000)
         ]);
     }
     public function Refresh_token($refresh_token)

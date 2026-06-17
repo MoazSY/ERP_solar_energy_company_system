@@ -3,15 +3,17 @@ namespace App\Repositories;
 
 use App\Models\Agency;
 use App\Models\Agency_rate_feedback;
-use App\Support\RatingHelper;
 use App\Models\Company_agency_employee;
 use App\Models\Customer;
+use App\Support\RatingHelper;
 // use App\Models\Deliveries;
 use App\Models\Conflict_invoice;
 use App\Models\Employee;
 use App\Models\Metainence_request;
 use App\Models\Order_list;
 // use App\Models\Items;
+use App\Models\Commision_charges;
+use App\Models\Commision_polices;
 use App\Models\Company_protofolio;
 use App\Models\Payment_transactions;
 use App\Models\Products;
@@ -23,6 +25,7 @@ use App\Models\Solar_company_manager;
 use App\Models\Specific_disscount;
 use App\Models\Subscribe_offer;
 use App\Models\Subscribe_polices;
+use App\Models\System_admin;
 use App\Models\Technical_inspection_request;
 use App\Services\OsrmService;
 use Illuminate\Support\Facades\DB;
@@ -155,7 +158,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
     public function filter_agency($filters)
     {
-        $query = Agency::query()->withAvg('agencyRateFeedbacks as agency_rating', 'rate')
+        $query = Agency::query()
+            ->withAvg('agencyRateFeedbacks as agency_rating', 'rate')
             ->with(['agencyRateFeedbacks.company:id,company_name']);
 
         // فلتر اسم الوكالة
@@ -327,6 +331,9 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return DB::transaction(function () use ($invoiceData) {
             $invoice = Purchase_invoice::create($invoiceData);
 
+            $commision=$this->createCommissionChargeForInvoice($invoice);
+            $invoice->net_profit-=$commision->commision_amount;
+            $invoice->save();
             return $invoice->fresh([
                 // 'orderList.Items.product',
                 'seller_entity',
@@ -334,6 +341,85 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'object_entity',
             ]);
         });
+    }
+
+    private function getCommissionTargetTypeForInvoice(Purchase_invoice $invoice): string
+    {
+        return match ($invoice->object_entity_type) {
+            Subscribe_offer::class, Order_list::class => 'app_sales',
+            Technical_inspection_request::class => 'installation',
+            Metainence_request::class => 'maintenance',
+            default => 'public',
+        };
+    }
+
+    private function findActiveCommissionPolicy(string $targetType): ?Commision_polices
+    {
+        $today = Carbon::today()->toDateString();
+
+        return Commision_polices::query()
+            ->where('is_active', true)
+            ->where('target_type', $targetType)
+            ->where(function ($query) use ($today) {
+                $query
+                    ->whereNull('start_date')
+                    ->orWhere('start_date', '<=', $today);
+            })
+            ->where(function ($query) use ($today) {
+                $query
+                    ->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $today);
+            })
+            ->orderByDesc('priority')
+            ->first();
+    }
+
+    private function createCommissionChargeForInvoice(Purchase_invoice $invoice): ?Commision_charges
+    {
+        $targetType = $this->getCommissionTargetTypeForInvoice($invoice);
+        $policy = $this->findActiveCommissionPolicy($targetType)
+            ?? $this->findActiveCommissionPolicy('public');
+
+        $adminId = $policy?->admin_id ?? System_admin::query()->value('id');
+        if (!$adminId) {
+            return null;
+        }
+
+        $commissionAmount = 0;
+        if ($policy) {
+            if($invoice->currency=='USD'){
+            $totalamount=$invoice->total_amount*14200;
+            }else{
+               $totalamount=$invoice->total_amount ;
+            }
+            if ($policy->commision_type === 'percentage') {
+                $commissionAmount = round((float) $totalamount * ((float) $policy->commision_value / 100), 2);
+            } else {
+                $commissionAmount = round((float) $policy->commision_value, 2);
+            }
+        }
+
+
+        // $shouldMarkPaid = $invoice->payment_method !== 'cash' && $invoice->payment_status === 'paid';
+
+        return Commision_charges::create([
+            'admin_id' => $adminId,
+            'commision_police_id' => $policy?->id,
+            'target_table_type' => Purchase_invoice::class,
+            'target_table_id' => $invoice->id,
+            'invoice_id' => $invoice->id,
+            'sales_amount' => (float) $invoice->total_amount,
+            'commision_amount' => $commissionAmount,
+            'paid_at' =>null,
+        ]);
+    }
+
+    private function markInvoiceCommissionPaid(Purchase_invoice $invoice): void
+    {
+        $invoice
+            ->commisionCharges()
+            ->whereNull('paid_at')
+            ->update(['paid_at' => Carbon::now()]);
     }
 
     public function get_purchase_requests_from_agencies($company)
@@ -632,10 +718,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 ->map(fn($n) => trim((string) $n))
                 ->unique()
                 ->values();
-            if($request->input('task_type')==='technical_inspection'){
-                $task_type='installation';
-            }else{
-                $task_type=$request->input('task_type', 'installation');
+            if ($request->input('task_type') === 'technical_inspection') {
+                $task_type = 'installation';
+            } else {
+                $task_type = $request->input('task_type', 'installation');
             }
             $task = $company->projectTasks()->create([
                 'employee_id' => $primaryTechnician->id,
@@ -773,7 +859,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $delivery->save();
             }
         }
-        $invoice=$orderList->purchaseInvoices()->latest('id')->first();
+        $invoice = $orderList->purchaseInvoices()->latest('id')->first();
         $company->input_output_requests()->create([
             'request_type' => 'input',
             'inventory_manager_id' => $inventory_manager->id,
@@ -1147,7 +1233,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
     {
         return Metainence_request::query()
             ->where('company_id', $company->id)
-            ->with(['customer', 'company'])->where('metainence_status','!=','cancelled')
+            ->with(['customer', 'company'])
+            ->where('metainence_status', '!=', 'cancelled')
             ->latest('id')
             ->get()
             ->map(function (Metainence_request $request) use ($company) {
@@ -1908,7 +1995,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             return ['error' => 'Invoice not found or does not belong to your company'];
         }
 
-        if ($invoice->manager_received_cash && $invoice->payment_status=='paid') {
+        if ($invoice->manager_received_cash && $invoice->payment_status == 'paid') {
             return ['error' => 'Cash for this invoice has already been received by the manager'];
         }
 
@@ -1981,6 +2068,9 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             }
             if ($invoice->input_output_requests()->exists()) {
                 $invoice->input_output_requests()->delete();
+            }
+            if ($invoice->commisionCharges()->exists()) {
+                $invoice->commisionCharges()->delete();
             }
             $invoice->delete();
             return ['success' => true];
