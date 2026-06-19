@@ -331,8 +331,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         return DB::transaction(function () use ($invoiceData) {
             $invoice = Purchase_invoice::create($invoiceData);
 
-            $commision=$this->createCommissionChargeForInvoice($invoice);
-            $invoice->net_profit-=$commision->commision_amount;
+            $commision = $this->createCommissionChargeForInvoice($invoice);
+            $invoice->net_profit -= $commision->commision_amount;
             $invoice->save();
             return $invoice->fresh([
                 // 'orderList.Items.product',
@@ -387,10 +387,10 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
 
         $commissionAmount = 0;
         if ($policy) {
-            if($invoice->currency=='USD'){
-            $totalamount=$invoice->total_amount*14200;
-            }else{
-               $totalamount=$invoice->total_amount ;
+            if ($invoice->currency == 'USD') {
+                $totalamount = $invoice->total_amount * 14200;
+            } else {
+                $totalamount = $invoice->total_amount;
             }
             if ($policy->commision_type === 'percentage') {
                 $commissionAmount = round((float) $totalamount * ((float) $policy->commision_value / 100), 2);
@@ -398,7 +398,6 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $commissionAmount = round((float) $policy->commision_value, 2);
             }
         }
-
 
         // $shouldMarkPaid = $invoice->payment_method !== 'cash' && $invoice->payment_status === 'paid';
 
@@ -410,7 +409,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'invoice_id' => $invoice->id,
             'sales_amount' => (float) $invoice->total_amount,
             'commision_amount' => $commissionAmount,
-            'paid_at' =>null,
+            'paid_at' => null,
         ]);
     }
 
@@ -1618,6 +1617,8 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'net_profit' => $invoice->net_profit,
                 'payments_count' => $invoice->payments->count(),
                 'total_paid' => $invoice->payments->where('status', 'paid')->sum('amount'),
+                // whether a delivery record exists for this invoice
+                'has_delivery' => \App\Models\Deliveries::query()->where('deliverable_object_type','App\Models\Purchase_invoice')->where('deliverable_object_id', $invoice->id)->exists(),
                 'created_at' => $invoice->created_at,
                 'updated_at' => $invoice->updated_at,
             ];

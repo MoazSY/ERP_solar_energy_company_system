@@ -273,7 +273,18 @@ class CustomerService
         $payload = ['invoice' => $invoice];
 
         if ($invoice->projectTask) {
-            $payload['project_task_rating'] = RatingHelper::forTask($invoice->projectTask);
+            $tasks = $invoice->projectTask;
+
+            // If a single model was loaded, wrap it to keep processing uniform
+            if ($tasks instanceof \App\Models\Project_task) {
+                $tasks = collect([$tasks]);
+            }
+
+            if ($tasks instanceof \Illuminate\Database\Eloquent\Collection || $tasks instanceof \Illuminate\Support\Collection) {
+                $payload['project_task_ratings'] = $tasks->map(function ($task) {
+                    return RatingHelper::forTask($task);
+                })->filter()->values()->all();
+            }
         }
 
         return $payload;
@@ -802,7 +813,8 @@ class CustomerService
                     $invoice->loadMissing(['object_entity']);
                 }
                 $invoice->loadMissing(['payments', 'seller_entity', 'buyer_entity', 'projectTask.customerRateFeedbacks.customer', 'delivery_tasks', 'project_warranties.componentWarranties']);
-                return $this->invoiceToArray($invoice);
+                // return $this->invoiceToArray($invoice);
+                return $invoice;
             });
     }
 
@@ -930,7 +942,8 @@ class CustomerService
             // return $invoice->object_entity;
             return ['error' => 'invoice object entity type is not supported for receiving'];
         }
-        return $this->invoiceToArray($invoice->fresh(['orderList.Items.product', 'payments']));
+        // return $this->invoiceToArray($invoice->fresh(['orderList.Items.product', 'payments']));
+        return $invoice->fresh(['orderList.Items.product', 'payments']);
     }
 
     public function recieve_project_task($request, $task_id)
@@ -1473,7 +1486,7 @@ class CustomerService
         if ($panelCapacityKw <= 0) {
             return ['error' => 'offer does not contain valid solar panel capacity'];
         }
-        $panelCapacityKw=$panelCapacityKw*0.001;
+        $panelCapacityKw = $panelCapacityKw * 0.001;
         $systemCost = (float) ($offer->average_total_amount ?: $offer->subtotal_amount);
         $offerCurrency = $offer->currency;
         // $requestedCurrency = $request->input('currency');
@@ -1481,10 +1494,9 @@ class CustomerService
         $sourceType = $request->input('source_type');
         $defaultSourceRate = $sourceType === 'ampere' ? 10000 : 1000;
 
-
         $sourceRate = (float) $request->input('source_rate', $defaultSourceRate);
         if ($offerCurrency === 'USD') {
-            $sourceRate = round($sourceRate / 14000, 2); // convert from lira to dollar
+            $sourceRate = round($sourceRate / 14000, 2);  // convert from lira to dollar
         }
 
         $daytimeHours = (float) $request->input('daytime_hours', 8);

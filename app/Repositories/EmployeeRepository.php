@@ -684,6 +684,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                     $existingQuantity = (int) ($existingProduct->quentity ?? 0);
                     $incomingQuantity = (int) ($data['quentity'] ?? 0);
                     $existingProduct->quentity = $existingQuantity + $incomingQuantity;
+                    $existingProduct->price = $data['price'] ?? $existingProduct->price;
                     $existingProduct->save();
 
                     $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
@@ -701,6 +702,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 $existingQuantity = (int) ($existingProduct->quentity ?? 0);
                 $incomingQuantity = (int) ($data['quentity'] ?? 0);
                 $existingProduct->quentity = $existingQuantity + $incomingQuantity;
+                $existingProduct->price = $data['price'] ?? $existingProduct->price;
                 $existingProduct->save();
 
                 $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
@@ -1747,7 +1749,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             }
             $invoice->save();
             $task->client_additional_cost_amount = $totalAmount;
-            $task->save();  
+            $task->save();
             return [
                 'consumables' => $consumableItems,
                 'invoice' => $invoice,

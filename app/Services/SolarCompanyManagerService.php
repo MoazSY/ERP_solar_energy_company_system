@@ -1624,6 +1624,7 @@ class SolarCompanyManagerService
             return [
                 'request' => $requestSolarSystem,
                 'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
+                // هنا انشاء عرض وليس قاتورة 
             ];
         });
 
