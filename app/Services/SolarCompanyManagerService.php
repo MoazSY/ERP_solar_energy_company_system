@@ -24,8 +24,9 @@ use App\Models\Technical_inspection_request;
 use App\Repositories\CustomerRepositoryInterface;
 use App\Repositories\SolarCompanyManagerRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
-use App\Support\RatingHelper;
 use App\Services\ApiSyriaService;
+use App\Support\RatingHelper;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -1621,10 +1622,20 @@ class SolarCompanyManagerService
         $requests = $this->solarCompanyManagerRepositoryInterface->show_customer_requests($company);
 
         $requests['solar_system_requests'] = $requests['solar_system_requests']->map(function (Request_solar_system $requestSolarSystem) {
+
+             $offerExists = false;
+            if (!empty($requestSolarSystem->created_at)) {
+                $date = Carbon::parse($requestSolarSystem->created_at);
+                $offerExists = Offers::where('customer_id', $requestSolarSystem->customer_id)
+                    ->where('offer_date', '>=', $date)
+                    ->exists();
+            }
+
             return [
                 'request' => $requestSolarSystem,
-                'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
-                // هنا انشاء عرض وليس قاتورة 
+                    'offer_created' => $offerExists,
+                // 'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
+                // هنا انشاء عرض وليس قاتورة
             ];
         });
 
@@ -1745,8 +1756,17 @@ class SolarCompanyManagerService
             $address = $customer->addresses()->latest('id')->first();
             $distance = $this->osrmService->distanceKmBetween((float) $companyAddress->latitude, (float) $companyAddress->longitude, (float) $address->latitude, (float) $address->longitude);
 
+            $offerExists = false;
+            if (!empty($request->created_at)) {
+                $date = Carbon::parse($request->created_at);
+                $offerExists = Offers::where('customer_id', $customer->id)
+                    ->where('offer_date', '>=', $date)
+                    ->exists();
+            }
+
             return [
                 'request' => $request,
+                'offer_created' => $offerExists,
                 'customer' => $customer,
                 'customer_address' => $address,
                 'distance_km' => $distance,
