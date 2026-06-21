@@ -1367,7 +1367,7 @@ class CustomerService
         }
 
         $maintenanceRequest = $this->customerRepositoryInterface->create_maintenance_request($payload);
-
+        
         return $this->maintenanceRequestToArray($maintenanceRequest->fresh());
     }
 

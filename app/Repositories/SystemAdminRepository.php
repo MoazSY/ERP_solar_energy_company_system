@@ -10,6 +10,7 @@ use App\Models\Proccess_report;
 use App\Models\Report;
 use App\Models\Solar_company;
 use App\Models\System_admin;
+use App\Notifications\RegistrationStatusNotification;
 use App\Support\CompanyBanHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -117,12 +118,19 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 $manager = $entity->solarCompanyManager;
                 $manager->Activate_Account = false;
                 $manager->save();
+                // notify manager
+                if ($manager) {
+                    $manager->notify(new RegistrationStatusNotification('rejected', 'company', $proccess_result));
+                }
             } elseif ($request->status == 'approved') {
                 $entity->company_status = 'active';
                 $entity->save();
                 $manager = $entity->solarCompanyManager;
                 $manager->Activate_Account = true;
                 $manager->save();
+                if ($manager) {
+                    $manager->notify(new RegistrationStatusNotification('approved', 'company', $proccess_result));
+                }
             }
         } else {
             if ($request->status == 'rejected') {
@@ -131,12 +139,18 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 $manager = $entity->agencyManager;
                 $manager->Activate_Account = false;
                 $manager->save();
+                if ($manager) {
+                    $manager->notify(new RegistrationStatusNotification('rejected', 'agency', $proccess_result));
+                }
             } elseif ($request->status == 'approved') {
                 $entity->agency_status = 'active';
                 $entity->save();
                 $manager = $entity->agencyManager;
                 $manager->Activate_Account = true;
                 $manager->save();
+                if ($manager) {
+                    $manager->notify(new RegistrationStatusNotification('approved', 'agency', $proccess_result));
+                }
             }
         }
         return $proccess_result;
@@ -384,7 +398,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 $company->update(['banned_until' => $bannedUntil]);
             }
 
-            return Proccess_report::create([
+            $process = Proccess_report::create([
                 'report_id' => $report->id,
                 'admin_id' => $admin->id,
                 'proccess_method' => $data['proccess_method'],
@@ -394,6 +408,18 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 'notes' => $data['notes'] ?? null,
                 'proccess_datetime' => $proccessDatetime,
             ])->load(['report.company', 'admin']);
+
+            // notify company manager that admin processed the report
+            try {
+                $companyManager = $company->solarCompanyManager ?? null;
+                if ($companyManager) {
+                    $companyManager->notify(new \App\Notifications\ReportProcessedNotification($process));
+                }
+            } catch (\Throwable $e) {
+                // ignore notification errors
+            }
+
+            return $process;
         });
     }
 

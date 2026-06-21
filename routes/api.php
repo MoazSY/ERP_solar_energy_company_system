@@ -128,6 +128,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('register_employee_company_agency', [EmployeeController::class, 'register_employee_company_agency']);
     Route::post('register_employee', [EmployeeController::class, 'register_employee']);
     Route::get('show_entity_employees', [EmployeeController::class, 'show_entity_employees']);
+
+    // Notifications
+    Route::get('notifications', [\App\Http\Controllers\NotificationsController::class, 'index']);
+    Route::get('notifications/unread_count', [\App\Http\Controllers\NotificationsController::class, 'unreadCount']);
+    Route::post('notifications/{id}/read', [\App\Http\Controllers\NotificationsController::class, 'markAsRead']);
+    Route::post('notifications/mark-all-read', [\App\Http\Controllers\NotificationsController::class, 'markAllRead']);
 });
 
 Route::middleware('check_Agency_manager')->group(function () {

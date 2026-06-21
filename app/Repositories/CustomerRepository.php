@@ -2,9 +2,9 @@
 namespace App\Repositories;
 
 use App\Models\Company_protofolio;
+use App\Models\Company_rate_feedback;
 use App\Models\Customer;
 use App\Models\Customer_electrical_device_characteristic;
-use App\Models\Company_rate_feedback;
 use App\Models\Customer_rate_feedback;
 use App\Models\Metainence_request;
 use App\Models\Offers;
@@ -142,7 +142,24 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function create_request_solar_system(array $data)
     {
-        return Request_solar_system::create($data);
+        $solar_system_request=Request_solar_system::create($data);
+        // notify all companies if company_id not provided, otherwise notify specific company
+        try {
+            if (!empty($data['company_id'])) {
+                $company = \App\Models\Solar_company::find($data['company_id']);
+                if ($company) {
+                    $company->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
+                }
+            } else {
+                $companies = \App\Models\Solar_company::all();
+                foreach ($companies as $c) {
+                    $c->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore notification errors
+        }
+        return $solar_system_request;
     }
 
     public function create_customer_electrical_device_characteristic(array $data)
@@ -201,7 +218,20 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function create_maintenance_request(array $data)
     {
-        return Metainence_request::create($data);
+        $mr = Metainence_request::create($data);
+        // notify company manager if company_id provided
+        try {
+            if (!empty($mr->company_id)) {
+                $company = \App\Models\Solar_company::find($mr->company_id);
+                if ($company && $company->solarCompanyManager) {
+                    $company->solarCompanyManager->notify(new \App\Notifications\MaintenanceRequestNotification($mr));
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore notification errors
+        }
+
+        return $mr;
     }
 
     public function find_maintenance_request($customer_id, $request_id)
@@ -407,8 +437,6 @@ class CustomerRepository implements CustomerRepositoryInterface
         );
     }
 
-
-
     public function first_admin_id()
     {
         return System_admin::findOrFail(1)->id;
@@ -416,7 +444,26 @@ class CustomerRepository implements CustomerRepositoryInterface
 
     public function create_report(array $data)
     {
-        return Report::create($data);
+        $report = Report::create($data);
+
+        // notify configured admin or all admins
+        try {
+            if (!empty($data['admin_id'])) {
+                $admin = System_admin::find($data['admin_id']);
+                if ($admin) {
+                    $admin->notify(new \App\Notifications\ReportCreatedNotification($report));
+                }
+            } else {
+                $admins = System_admin::all();
+                foreach ($admins as $a) {
+                    $a->notify(new \App\Notifications\ReportCreatedNotification($report));
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore notification errors
+        }
+
+        return $report;
     }
 
     public function show_company_gallary($company_id)

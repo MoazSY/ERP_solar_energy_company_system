@@ -518,6 +518,13 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'image_related' => $data['image_related'] ?? null,
                 'conflict_state' => $data['conflict_state'] ?? 'pending',
             ]);
+            $companymanager = $company->solarCompanyManager;
+            // notify system admins about conflict invoice
+            try {
+                $companymanager->notify(new \App\Notifications\ConflictInvoiceNotification($conflictInvoice));
+            } catch (\Throwable $e) {
+                // ignore notification failures
+            }
 
             return $conflictInvoice->load('invoice', 'agency')->setAttribute('imageUrl', $conflictInvoice->image_related ? asset('storage/' . $conflictInvoice->image_related) : null);
         });
@@ -559,6 +566,18 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             $inputOutputRequest->status = $status;
             $inputOutputRequest->notes = $data['notes'] ?? $inputOutputRequest->notes;
             $inputOutputRequest->save();
+
+            // If an output request was processed (extracted), notify the company manager
+            try {
+                if ($status === 'ready' && ($inputOutputRequest->request_type ?? '') === 'output') {
+                    $companyManager = $company->solarCompanyManager ?? null;
+                    if ($companyManager) {
+                        $companyManager->notify(new \App\Notifications\InputOutputRequestNotification($inputOutputRequest));
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore notification errors
+            }
 
             $invoiceItems = $inputOutputRequest->invoice?->object_entity_type === Subscribe_offer::class
                 ? ($inputOutputRequest->invoice?->object_entity?->Items()->with(['product', 'product.inverters', 'product.batteries', 'product.solarPanals'])->get() ?? collect())
@@ -1642,7 +1661,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             ];
         }
 
-        return DB::transaction(function () use ($employee, $task_id,$task, $payload, $invoice) {
+        return DB::transaction(function () use ($employee, $task_id, $task, $payload, $invoice) {
             foreach ($payload as $entry) {
                 Consumables::create([
                     'technician_id' => $employee->id,
@@ -1666,7 +1685,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 $invoice->total_amount = max(0, (float) $invoice->total_amount + ($totalAmount - $originalAmount));
             }
             $invoice->save();
-            $task->client_additional_cost_amount=$totalAmount;
+            $task->client_additional_cost_amount = $totalAmount;
             $task->save();
             return [
                 'consumables' => $consumableItems,

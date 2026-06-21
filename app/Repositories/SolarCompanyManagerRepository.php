@@ -601,6 +601,18 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'driver_approved_delivery_task' => 'pending',
             ]);
 
+            // notify assigned driver
+            try {
+                if (!empty($delivery_task->driver_id)) {
+                    $driverModel = \App\Models\Employee::find($delivery_task->driver_id);
+                    if ($driverModel) {
+                        $driverModel->notify(new \App\Notifications\TaskAssignedNotification($delivery_task, 'delivery'));
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore notification errors
+            }
+
             return $delivery_task;
         });
     }
@@ -653,6 +665,18 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'weight_kg' => $weightKg,
                 'driver_approved_delivery_task' => 'pending',
             ]);
+
+            // notify assigned driver
+            try {
+                if (!empty($delivery_task->driver_id)) {
+                    $driverModel = \App\Models\Employee::find($delivery_task->driver_id);
+                    if ($driverModel) {
+                        $driverModel->notify(new \App\Notifications\TaskAssignedNotification($delivery_task, 'delivery'));
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore notification errors
+            }
 
             return $delivery_task;
         });
@@ -753,6 +777,18 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'employee',
                 'taskable',
             ]);
+
+            // notify assigned primary technician
+            try {
+                if (!empty($task->employee_id)) {
+                    $technician = \App\Models\Employee::find($task->employee_id);
+                    if ($technician) {
+                        $technician->notify(new \App\Notifications\TaskAssignedNotification($task, 'installation'));
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore notification errors
+            }
 
             $related = null;
             $taskType = $task->task_type_new;
@@ -859,7 +895,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             }
         }
         $invoice = $orderList->purchaseInvoices()->latest('id')->first();
-        $company->input_output_requests()->create([
+        $ioRequest = $company->input_output_requests()->create([
             'request_type' => 'input',
             'inventory_manager_id' => $inventory_manager->id,
             'order_id' => $orderList->id,
@@ -867,6 +903,17 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'request_datetime' => $invoice->due_date ?? now(),
             'invoice_id' => $invoice->id ?? null,
         ]);
+
+        // notify inventory manager and company manager
+        try {
+            $inventoryManagerUser = \App\Models\Employee::find($inventory_manager->id);
+            if ($inventoryManagerUser) {
+                $inventoryManagerUser->notify(new \App\Notifications\InputOutputRequestNotification($ioRequest));
+            }
+        } catch (\Throwable $e) {
+            // ignore notification errors
+        }
+
         // notify inventory to enter the products in stock and update the inventory
         $result = $orderList->load('input_output_request');
         return $result;
@@ -880,7 +927,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         }
 
         // create output request for invoice
-        $company->input_output_requests()->create([
+        $ioRequest = $company->input_output_requests()->create([
             'request_type' => 'output',
             'inventory_manager_id' => $inventory_manager->id,
             'order_id' => $invoice->order_list_id ?? null,
@@ -888,6 +935,16 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
             'notes' => $request->notes ?? null,
             'request_datetime' => $invoice->due_date ?? null,
         ]);
+
+        // notify inventory manager and company manager
+        try {
+            $inventoryManagerUser = \App\Models\Employee::find($inventory_manager->id);
+            if ($inventoryManagerUser) {
+                $inventoryManagerUser->notify(new \App\Notifications\InputOutputRequestNotification($ioRequest));
+            }
+        } catch (\Throwable $e) {
+            // ignore notification errors
+        }
 
         $result = $company->input_output_requests()->latest('id')->first();
         return $result;
@@ -1618,7 +1675,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'payments_count' => $invoice->payments->count(),
                 'total_paid' => $invoice->payments->where('status', 'paid')->sum('amount'),
                 // whether a delivery record exists for this invoice
-                'has_delivery' => \App\Models\Deliveries::query()->where('deliverable_object_type','App\Models\Purchase_invoice')->where('deliverable_object_id', $invoice->id)->exists(),
+                'has_delivery' => \App\Models\Deliveries::query()->where('deliverable_object_type', 'App\Models\Purchase_invoice')->where('deliverable_object_id', $invoice->id)->exists(),
                 'created_at' => $invoice->created_at,
                 'updated_at' => $invoice->updated_at,
             ];

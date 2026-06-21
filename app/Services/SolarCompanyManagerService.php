@@ -1368,6 +1368,17 @@ class SolarCompanyManagerService
             $panarImagesUrl = array_map(function ($path) {
                 return asset('storage/' . $path);
             }, $panarImages);
+            // notify customer if exists
+            if (!empty($offer->customer_id)) {
+                try {
+                    $customer = \App\Models\Customer::find($offer->customer_id);
+                    if ($customer) {
+                        $customer->notify(new \App\Notifications\OfferCreatedNotification($offer));
+                    }
+                } catch (\Throwable $e) {
+                    // ignore notification errors
+                }
+            }
             $videoUrl = $videoPath ? asset('storage/' . $videoPath) : null;
             return [
                 $offer->load('Items', 'Items.product'),
@@ -1622,8 +1633,7 @@ class SolarCompanyManagerService
         $requests = $this->solarCompanyManagerRepositoryInterface->show_customer_requests($company);
 
         $requests['solar_system_requests'] = $requests['solar_system_requests']->map(function (Request_solar_system $requestSolarSystem) {
-
-             $offerExists = false;
+            $offerExists = false;
             if (!empty($requestSolarSystem->created_at)) {
                 $date = Carbon::parse($requestSolarSystem->created_at);
                 $offerExists = Offers::where('customer_id', $requestSolarSystem->customer_id)
@@ -1633,7 +1643,7 @@ class SolarCompanyManagerService
 
             return [
                 'request' => $requestSolarSystem,
-                    'offer_created' => $offerExists,
+                'offer_created' => $offerExists,
                 // 'invoice_created' => $this->requestHasInvoice(Request_solar_system::class, $requestSolarSystem->id),
                 // هنا انشاء عرض وليس قاتورة
             ];

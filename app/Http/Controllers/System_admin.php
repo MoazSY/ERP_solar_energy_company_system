@@ -391,7 +391,7 @@ class System_admin extends Controller
             'date_from' => 'sometimes|date',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
         ]);
-
+            
         if ($validate->fails()) {
             return response()->json(['message' => $validate->errors()], 422);
         }

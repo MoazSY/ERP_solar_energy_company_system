@@ -31,7 +31,7 @@ class Solar_company extends Model
         'working_hours_start',
         'working_hours_end',
     ];
-
+    
     public function proccess_register()
     {
         return $this->morphMany(Company_Agency_rigester::class, 'registerable');
