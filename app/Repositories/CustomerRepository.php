@@ -148,12 +148,12 @@ class CustomerRepository implements CustomerRepositoryInterface
             if (!empty($data['company_id'])) {
                 $company = \App\Models\Solar_company::find($data['company_id']);
                 if ($company) {
-                    $company->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
+                    $company->solarCompanyManager->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
                 }
             } else {
                 $companies = \App\Models\Solar_company::all();
                 foreach ($companies as $c) {
-                    $c->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
+                    $c->solarCompanyManager->notify(new \App\Notifications\SolarSystemRequestNotification($solar_system_request));
                 }
             }
         } catch (\Throwable $e) {
