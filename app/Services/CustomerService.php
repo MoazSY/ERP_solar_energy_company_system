@@ -840,6 +840,13 @@ class CustomerService
             return ['error' => 'Unsupported payment method'];
         }
 
+        $invoiceCurrency = strtoupper((string) ($invoice->currency ?? 'SY'));
+        if (!in_array($invoiceCurrency, ['USD', 'SY'], true)) {
+            return ['error' => 'Unsupported invoice currency'];
+        }
+
+        $paymentAmount = $this->apiSyriaService->convertAmountToSyp((float) $amount, $invoiceCurrency);
+
         $invoice->loadMissing('seller_entity');
         $seller = $invoice->seller_entity;
 
@@ -851,7 +858,7 @@ class CustomerService
             $paymentResponse = $this->apiSyriaService->transferCash(
                 $request->gsm,
                 $seller->syriatel_cash_phone,
-                $amount,
+                $paymentAmount,
                 $request->pin_code
             );
         } elseif ($request->payment_method === 'shamcash') {
@@ -861,7 +868,7 @@ class CustomerService
 
             $verificationResult = $this->apiSyriaService->verifyShamcashPaymentFromLogs(
                 $seller->account_number,
-                $amount,
+                $paymentAmount,
                 $request->account_address
             );
 
@@ -895,7 +902,7 @@ class CustomerService
             'payment_object_table_type' => Purchase_invoice::class,
             'payment_object_table_id' => $invoice->id,
             'payment_object_type_name' => 'invoice',
-            'amount' => $amount,
+            'amount' => $paymentAmount,
             'currency' => $invoice->currency,
             'paid_at' => now(),
             'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
@@ -1170,12 +1177,7 @@ class CustomerService
                 continue;
             }
 
-            $unitPrice = (float) $product->price;
-            if ($product->currency === 'USD') {
-                $unitPrice *= 1.35;
-            } else {
-                $unitPrice /= 100;
-            }
+            $unitPrice = $this->apiSyriaService->convertAmountToSyp((float) $product->price, (string) $product->currency);
 
             $quantity = (int) $item['quantity'];
             $lineSubTotal = $unitPrice * $quantity;
@@ -1367,7 +1369,7 @@ class CustomerService
         }
 
         $maintenanceRequest = $this->customerRepositoryInterface->create_maintenance_request($payload);
-        
+
         return $this->maintenanceRequestToArray($maintenanceRequest->fresh());
     }
 

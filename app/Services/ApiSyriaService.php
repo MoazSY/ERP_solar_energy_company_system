@@ -12,6 +12,8 @@ class ApiSyriaService
     protected ?string $apiKey;
     protected ?string $beneficiaryGsm;
     protected ?string $beneficiaryShamcashAccount;
+    protected ?float $usdToSypRate = null;
+    protected float $fallbackUsdToSypRate = 13000.0;
 
     public function __construct()
     {
@@ -250,6 +252,51 @@ class ApiSyriaService
             ]);
             return ['success' => false, 'message' => 'ShamCash transaction lookup request failed', 'data' => null];
         }
+    }
+
+    public function getLatestUsdToSypRate(): float
+    {
+        if ($this->usdToSypRate !== null) {
+            return $this->usdToSypRate;
+        }
+
+        try {
+            $response = Http::timeout(10)->get('https://lirascope.syria-cloud.sy/api/v1/rates/latest', [
+                'currencies' => 'USD',
+                'lang' => 'en',
+            ]);
+
+            if (!$response->successful()) {
+                Log::warning('ApiSyriaService: failed to fetch latest USD exchange rate', ['status' => $response->status()]);
+                return $this->fallbackUsdToSypRate;
+            }
+
+            $payload = $response->json();
+            $effectiveRates = $payload['effectiveRates'] ?? $payload['marketRates'] ?? [];
+
+            $usdRate = collect($effectiveRates)
+                ->firstWhere('currency', 'USD');
+
+            if (!$usdRate) {
+                Log::warning('ApiSyriaService: USD exchange rate not found in LiraScope response', ['payload' => $payload]);
+                return $this->fallbackUsdToSypRate;
+            }
+
+            $this->usdToSypRate = (float) ($usdRate['mid'] ?? $usdRate['sell'] ?? $usdRate['buy'] ?? 1.0);
+            return $this->usdToSypRate;
+        } catch (Exception $e) {
+            Log::warning('ApiSyriaService: LiraScope USD rate lookup failed', ['message' => $e->getMessage()]);
+            return $this->fallbackUsdToSypRate;
+        }
+    }
+
+    public function convertAmountToSyp(float $amount, string $currency): float
+    {
+        if (strtoupper($currency) !== 'USD') {
+            return $amount / 100;
+        }
+
+        return round($amount * $this->getLatestUsdToSypRate(), 2);
     }
 
     public function verifyShamcashPaymentFromLogs(string $targetAccountAddress, float $requiredAmount, ?string $expectedSenderAccountAddress = null): array

@@ -140,9 +140,7 @@ class OsrmService
 
         $deliveryFee = $baseFee + $distanceFee + $extraWeightFee;
 
-        if (strtoupper((string) $rule->currency) === 'USD') {
-            $deliveryFee *= 1.35;
-        }
+        $deliveryFee = app(ApiSyriaService::class)->convertAmountToSyp($deliveryFee, (string) $rule->currency);
         // في الداتا بيز اريد العملة القديمة كما هي بينما عند الدفع احول فقط
         return [
             'rule_id' => $rule->id,
@@ -230,11 +228,7 @@ class OsrmService
 
         $deliveryFee = $baseFee + $distanceFee + $extraWeightFee;
 
-        if (strtoupper((string) $rule->currency) === 'USD') {
-            $deliveryFee *= 1.35;
-        } else {
-            $deliveryFee /= 100;  // convert from old SYP to new SYP
-        }
+        $deliveryFee = app(ApiSyriaService::class)->convertAmountToSyp($deliveryFee, (string) $rule->currency);
 
         return [
             'rule_id' => $rule->id,
@@ -331,9 +325,7 @@ class OsrmService
 
         $deliveryFee = $baseFee + $distanceFee + $extraWeightFee;
 
-        if (strtoupper((string) $rule->currency) === 'USD') {
-            $deliveryFee *= 1.35;
-        }
+        $deliveryFee = app(ApiSyriaService::class)->convertAmountToSyp($deliveryFee, (string) $rule->currency);
 
         return [
             'rule_id' => $rule->id,

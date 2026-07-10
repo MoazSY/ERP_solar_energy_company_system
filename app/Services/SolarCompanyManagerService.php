@@ -250,11 +250,7 @@ class SolarCompanyManagerService
             return ['error' => 'Unsupported payment method'];
         }
 
-        if ($subscribePolicy->currency == 'USD') {
-            $amount = (float) $subscribePolicy->subscription_fee * 1.35;  // Convert USD to  new SYP
-        } else {
-            $amount = (float) $subscribePolicy->subscription_fee / 100;  // Convert from old SYP to new SYP
-        }
+        $amount = $this->apiSyriaService->convertAmountToSyp((float) $subscribePolicy->subscription_fee, (string) $subscribePolicy->currency);
 
         if ($request->payment_method === 'syriatel_cash') {
             $toGsm = $beneficiaryAdmin->syriatel_cash_phone;
@@ -470,12 +466,7 @@ class SolarCompanyManagerService
                 continue;
             }
 
-            $unitPrice = (float) $product->price;
-            if ($product->currency === 'USD') {
-                $unitPrice *= 1.35;
-            } else {
-                $unitPrice /= 100;  // convert from old SYP to new SYP
-            }
+            $unitPrice = $this->apiSyriaService->convertAmountToSyp((float) $product->price, (string) $product->currency);
 
             $quantity = (int) $item['quantity'];  //
             $lineSubTotal = $unitPrice * $quantity;
@@ -1159,11 +1150,7 @@ class SolarCompanyManagerService
             if ($amount <= 0) {
                 return ['error' => 'This delivery task does not have a delivery fee set, payment cannot be processed'];
             }
-            if ($delivery_task->currency === 'USD') {
-                $amount = $amount * 1.35;  // convert to new syria pounds
-            } else {
-                $amount = $amount / 100;  // convert to new syria pounds
-            }
+            $amount = $this->apiSyriaService->convertAmountToSyp($amount, (string) $delivery_task->currency);
         } elseif ($request->task_type == 'project_task') {
             $project_task = \App\Models\Project_task::findOrFail($task_id);
             $task = $project_task;
@@ -1182,11 +1169,7 @@ class SolarCompanyManagerService
             if ($amount <= 0) {
                 return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
             }
-            if ($project_task->currency === 'USD') {
-                $amount = $amount * 1.35;  // convert to new syria pounds
-            } else {
-                $amount = $amount / 100;  // convert to new syria pounds
-            }
+            $amount = $this->apiSyriaService->convertAmountToSyp($amount, (string) $project_task->currency);
         }
         if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {
             return ['error' => 'Unsupported payment method'];
