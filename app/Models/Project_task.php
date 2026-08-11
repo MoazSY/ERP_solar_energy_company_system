@@ -24,6 +24,7 @@ class Project_task extends Model
         'task_type_new',
         'delivery_id',
         'task_fee',
+        'net_profit',
         'manager_payed',
         'manager_payed_at',
         'task_status',

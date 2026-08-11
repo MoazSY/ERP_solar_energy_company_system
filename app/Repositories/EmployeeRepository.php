@@ -704,6 +704,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                     $incomingQuantity = (int) ($data['quentity'] ?? 0);
                     $existingProduct->quentity = $existingQuantity + $incomingQuantity;
                     $existingProduct->price = $data['price'] ?? $existingProduct->price;
+                    $existingProduct->currency=$data['currency']?? $existingProduct->currency;
                     $existingProduct->save();
 
                     $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
@@ -1229,6 +1230,9 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         if (array_key_exists('payment_received', $filters)) {
             $query->where('payment_received', (bool) $filters['payment_received']);
         }
+        if (array_key_exists('manager_payed', $filters)) {
+        $query->where('manager_payed', (bool) $filters['manager_payed']);
+        }
 
         if (!empty($filters['min_fee'])) {
             $query->where('task_fee', '>=', $filters['min_fee']);
@@ -1369,7 +1373,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $totalProfit = 0;
 
         $tasks = $tasks->map(function ($task) use (&$totalProfit) {
-            $profit = $task->task_fee ?? 0;
+            $profit = $task->net_profit ?? 0;
             $totalProfit += $profit;
             $task->loadMissing('customerRateFeedbacks.customer');
 
@@ -1377,7 +1381,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'task' => $task->load('company'),
                 'task_type' => $task->task_type ?? $task->task_type_new,
                 'completed_at' => $task->completed_at,
-                'profit' => $task->task_fee,
+                'profit' => $task->net_profit,
             ], $task);
         });
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\Payment_transactions;
 use Exception;
 
 class ApiSyriaService
@@ -298,9 +299,181 @@ class ApiSyriaService
 
         return round($amount * $this->getLatestUsdToSypRate(), 2);
     }
-
-    public function verifyShamcashPaymentFromLogs(string $targetAccountAddress, float $requiredAmount, ?string $expectedSenderAccountAddress = null): array
+       private function extractExternalIdFromEntry(array $entry): ?string
     {
+        $possibleKeys = [
+            'transaction_no',
+            'billcode', 
+            'transaction_id',
+            'tx_id',
+            'txn_id',
+            'reference_id',
+            'payment_id',
+            'id',
+            'external_id'
+        ];
+        
+        foreach ($possibleKeys as $key) {
+            if (isset($entry[$key]) && !empty($entry[$key])) {
+                return trim(strtolower((string) $entry[$key]));
+            }
+        }
+        
+        // Fallback: استخدام hash من البيانات
+        return 'tx_' . md5(json_encode($entry));
+    }
+
+    /**
+     * التحقق من أن المعاملة لم تُستخدم من قبل
+     */
+    private function isTransactionAlreadyUsed(string $externalId): bool
+    {
+        if (empty($externalId)) {
+            return false;
+        }
+
+        try {
+            return Payment_transactions::where('external_id', $externalId)
+                ->where('status', 'paid')
+                ->exists();
+        } catch (\Exception $e) {
+            Log::error('Error checking transaction usage', [
+                'external_id' => $externalId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    // public function verifyShamcashPaymentFromLogs(string $targetAccountAddress, float $requiredAmount, ?string $expectedSenderAccountAddress = null): array
+    // {
+    //     $normalizedTarget = trim(strtolower($targetAccountAddress));
+    //     $normalizedExpectedSender = $expectedSenderAccountAddress !== null
+    //         ? trim(strtolower($expectedSenderAccountAddress))
+    //         : null;
+
+    //     $accountsToCheck = [];
+    //     if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
+    //         $accountsToCheck[] = $expectedSenderAccountAddress;
+    //     }
+    //     $accountsToCheck[] = $targetAccountAddress;
+    //     $accountsToCheck = array_values(array_unique(array_filter($accountsToCheck)));
+
+    //     $lastErrorMessage = null;
+    //     $hadSuccessfulLogsCall = false;
+
+    //     foreach ($accountsToCheck as $logsAccount) {
+    //         $logsResponse = $this->getShamcashLogs($logsAccount);
+    //         if (!($logsResponse['success'] ?? false)) {
+    //             $lastErrorMessage = $logsResponse['message'] ?? 'Unable to verify ShamCash logs';
+    //             continue;
+    //         }
+
+    //         $hadSuccessfulLogsCall = true;
+    //         $normalizedLogsAccount = trim(strtolower((string) $logsAccount));
+    //         $entries = $this->flattenShamcashLogEntries($logsResponse['data'] ?? []);
+    //         $debugLoggedEntries = 0;
+
+    //         foreach ($entries as $entry) {
+    //             if (!is_array($entry)) {
+    //                 continue;
+    //             }
+
+    //             $entryTargetAccount = trim(strtolower((string) (
+    //                 $entry['to_account_address']
+    //                     ?? $entry['target_account']
+    //                     ?? $entry['destination_account']
+    //                     ?? $entry['account_to']
+    //                     ?? $entry['to']
+    //                     ?? ''
+    //             )));
+
+    //             $entrySenderAccount = trim(strtolower((string) (
+    //                 $entry['from_account_address']
+    //                     ?? $entry['source_account']
+    //                     ?? $entry['sender_account']
+    //                     ?? $entry['account_from']
+    //                     ?? $entry['from']
+    //                     ?? ''
+    //             )));
+
+    //             $entryAmountRaw = $entry['amount']
+    //                 ?? $entry['value']
+    //                 ?? $entry['sum']
+    //                 ?? 0;
+    //             $entryAmount = $this->extractNumericAmount($entryAmountRaw) ?? 0.0;
+
+    //             $entryStatus = strtolower((string) (
+    //                 $entry['status']
+    //                     ?? $entry['state']
+    //                     ?? $entry['transaction_status']
+    //                     ?? ''
+    //             ));
+
+    //             $amountMatches = $entryAmount + 0.00001 >= $requiredAmount;
+    //             $statusMatches = $entryStatus === '' ||
+    //                 str_contains($entryStatus, 'success') ||
+    //                 str_contains($entryStatus, 'complete') ||
+    //                 str_contains($entryStatus, 'paid') ||
+    //                 str_contains($entryStatus, 'received') ||
+    //                 str_contains($entryStatus, 'done');
+
+    //             $accountContextMatches = $normalizedLogsAccount === $normalizedTarget ||
+    //                 ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '' && $normalizedLogsAccount === $normalizedExpectedSender);
+
+    //             $accountMatches = $entryTargetAccount === '' ||
+    //                 $entryTargetAccount === $normalizedTarget ||
+    //                 $accountContextMatches;
+
+    //             $senderMatches = $normalizedExpectedSender === null ||
+    //                 $normalizedExpectedSender === '' ||
+    //                 $entrySenderAccount === '' ||
+    //                 $entrySenderAccount === $normalizedExpectedSender;
+
+    //             if ($debugLoggedEntries < 5) {
+    //                 Log::info('ShamCash verify debug', [
+    //                     'logs_account' => $normalizedLogsAccount,
+    //                     'required_amount' => $requiredAmount,
+    //                     'entry_amount' => $entryAmount,
+    //                     'target_expected' => $normalizedTarget,
+    //                     'target_entry' => $entryTargetAccount,
+    //                     'sender_expected' => $normalizedExpectedSender,
+    //                     'sender_entry' => $entrySenderAccount,
+    //                     'entry_status' => $entryStatus,
+    //                     'amount_matches' => $amountMatches,
+    //                     'account_matches' => $accountMatches,
+    //                     'sender_matches' => $senderMatches,
+    //                     'status_matches' => $statusMatches,
+    //                 ]);
+    //                 $debugLoggedEntries++;
+    //             }
+
+    //             if ($amountMatches && $accountContextMatches && $accountMatches && $senderMatches && $statusMatches) {
+    //                 return [
+    //                     'success' => true,
+    //                     'matched_log' => $entry,
+    //                 ];
+    //             }
+    //         }
+    //     }
+
+    //     if (!$hadSuccessfulLogsCall) {
+    //         return [
+    //             'success' => false,
+    //             'message' => $lastErrorMessage ?? 'Unable to verify ShamCash logs',
+    //         ];
+    //     }
+
+    //     return [
+    //         'success' => false,
+    //         'message' => 'You did not complete the required ShamCash payment yet',
+    //     ];
+    // }
+        public function verifyShamcashPaymentFromLogs(
+        string $targetAccountAddress, 
+        float $requiredAmount, 
+        ?string $expectedSenderAccountAddress = null
+    ): array {
         $normalizedTarget = trim(strtolower($targetAccountAddress));
         $normalizedExpectedSender = $expectedSenderAccountAddress !== null
             ? trim(strtolower($expectedSenderAccountAddress))
@@ -384,6 +557,12 @@ class ApiSyriaService
                     $entrySenderAccount === '' ||
                     $entrySenderAccount === $normalizedExpectedSender;
 
+                //  استخراج معرف المعاملة
+                $externalId = $this->extractExternalIdFromEntry($entry);
+
+                //  التحقق من عدم استخدام المعاملة
+                $isTransactionUsed = $this->isTransactionAlreadyUsed($externalId);
+
                 if ($debugLoggedEntries < 5) {
                     Log::info('ShamCash verify debug', [
                         'logs_account' => $normalizedLogsAccount,
@@ -394,6 +573,8 @@ class ApiSyriaService
                         'sender_expected' => $normalizedExpectedSender,
                         'sender_entry' => $entrySenderAccount,
                         'entry_status' => $entryStatus,
+                        'external_id' => $externalId,
+                        'is_transaction_used' => $isTransactionUsed,
                         'amount_matches' => $amountMatches,
                         'account_matches' => $accountMatches,
                         'sender_matches' => $senderMatches,
@@ -402,10 +583,12 @@ class ApiSyriaService
                     $debugLoggedEntries++;
                 }
 
-                if ($amountMatches && $accountContextMatches && $accountMatches && $senderMatches && $statusMatches) {
+                //  إضافة شرط !$isTransactionUsed
+                if ($amountMatches && $accountContextMatches && $accountMatches && $senderMatches && $statusMatches && !$isTransactionUsed) {
                     return [
                         'success' => true,
                         'matched_log' => $entry,
+                        'external_id' => $externalId,
                     ];
                 }
             }

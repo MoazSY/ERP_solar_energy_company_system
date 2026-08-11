@@ -956,6 +956,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'deliverable_object_id' => $orderList->id,
             'order_list_id' => $orderList->id,
             'delivery_fee' => $orderList->purchaseInvoices->delivery_fee ?? 0,  // temporary, to be calculated based on delivery rules and order details
+            'net_profit' => 0.7 * ($orderList->purchaseInvoices->delivery_fee ?? 0),
             'currency' => 'SY',  // obtain from delivery rules or order details
             'delivery_status' => 'pending',
             'address_id' => $address->id ?? null,

@@ -12,9 +12,9 @@ use App\Models\Payment_transactions;
 use App\Models\Project_task;
 use App\Models\Solar_company;
 use App\Models\Solar_company_manager;
-use App\Support\RatingHelper;
 use App\Repositories\EmployeeRepositoryInterface;
 use App\Repositories\TokenRepositoryInterface;
+use App\Support\RatingHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -545,6 +545,10 @@ class EmployeeService
             }
             $paymentObjectType = Project_task::class;
             $paymentObjectId = $task->id;
+            if ($task->manager_payed_at != null && $task->manager_payed != true) {
+                $task->manager_payed = true;
+                $task->save();
+            }
         }
 
         $payment = Payment::query()
@@ -691,23 +695,14 @@ class EmployeeService
         // جلب المنتجات المسموحة للمهمة (من العقد/العرض)
         $taskItemIds = $this->resolveTaskItemIds($task);
 
-        // استخراج الـ IDs من المنتجات المرسلة
-        $submittedIds = array_column($item_ids, 'id');
+        // تحديد العناصر التي يجب إضافتها:
+        // 1) منتجات غير مسموح بها أصلًا
+        // 2) منتجات مسموح بها لكن الكمية المطلوبة أكبر من الكمية الحالية في المهمة
+        $itemsToAdd = $this->resolveItemsToAdd($task, $item_ids, $taskItemIds);
 
-        // المنتجات غير المطابقة (التي ليست ضمن المسموحة) – حسب طلبك
-        $invalid = array_diff($submittedIds, $taskItemIds);
-
-        if (empty($invalid)) {
-            return ['error' => 'No non-matching items found to add'];
+        if (empty($itemsToAdd)) {
+            return ['error' => 'No items to add'];
         }
-
-        // تصفية المصفوفة الأصلية للحصول على العناصر الكاملة (id + quantity) للمنتجات غير المطابقة
-        $itemsToAdd = array_filter($item_ids, function ($item) use ($invalid) {
-            return in_array($item['id'], $invalid);
-        });
-        $itemsToAdd = array_values($itemsToAdd);
-
-        // ملاحظة: لا نتحقق من $alreadyRegistered لأننا سنحذف القديم في الـ Repository
 
         return $this->employeeRepositoryInterface->define_system_attachments($employee, $task, $itemsToAdd);
     }
@@ -745,6 +740,60 @@ class EmployeeService
         return $this->employeeRepositoryInterface->update_consumable_material($employee, $task_id, $consumables);
     }
 
+    private function resolveItemsToAdd($task, array $submittedItems, array $allowedProductIds): array
+    {
+        $taskable = $task->taskable;
+
+        if (!$taskable || !$taskable->object_entity) {
+            return [];
+        }
+
+        $existingQuantities = [];
+
+        if ($taskable->object_entity_type === \App\Models\Subscribe_offer::class) {
+            $existingItems = $taskable->object_entity?->offer?->Items ?? collect();
+        } elseif ($taskable->object_entity_type === \App\Models\Order_list::class) {
+            $existingItems = $taskable->object_entity?->Items ?? collect();
+        } else {
+            return [];
+        }
+
+        foreach ($existingItems as $existingItem) {
+            $productId = (int) ($existingItem->product_id ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $existingQuantities[$productId] = ($existingQuantities[$productId] ?? 0) + (int) ($existingItem->quantity ?? 0);
+        }
+
+        $itemsToAdd = [];
+
+        foreach ($submittedItems as $submittedItem) {
+            $productId = (int) ($submittedItem['id'] ?? 0);
+            $requestedQty = max(1, (int) ($submittedItem['quantity'] ?? 1));
+
+            if ($productId <= 0) {
+                continue;
+            }
+
+            $existingQty = $existingQuantities[$productId] ?? 0;
+
+            if (!in_array($productId, $allowedProductIds, true)) {
+                $itemsToAdd[] = ['id' => $productId, 'quantity' => $requestedQty];
+                continue;
+            }
+
+            $additionalQty = $requestedQty - $existingQty;
+
+            if ($additionalQty > 0) {
+                $itemsToAdd[] = ['id' => $productId, 'quantity' => $additionalQty];
+            }
+        }
+
+        return $itemsToAdd;
+    }
+
     private function resolveTaskItemIds($task): array
     {
         $taskable = $task->taskable;
@@ -754,11 +803,26 @@ class EmployeeService
         }
 
         if ($taskable->object_entity_type === \App\Models\Subscribe_offer::class) {
-            return $taskable->object_entity?->offer?->Items->pluck('id')->toArray() ?? [];
+            return $taskable
+                ->object_entity
+                ?->offer
+                ?->Items()
+                ->pluck('product_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all() ?? [];
         }
 
         if ($taskable->object_entity_type === \App\Models\Order_list::class) {
-            return $taskable->object_entity?->Items->pluck('id')->toArray() ?? [];
+            return $taskable
+                ->object_entity
+                ?->Items()
+                ->pluck('product_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all() ?? [];
         }
 
         return [];

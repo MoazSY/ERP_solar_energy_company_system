@@ -31,6 +31,7 @@ use App\Services\OsrmService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Carbon;
+use App\Services\ApiSyriaService;
 
 class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInterface
 {
@@ -388,7 +389,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
         $commissionAmount = 0;
         if ($policy) {
             if ($invoice->currency == 'USD') {
-                $totalamount = $invoice->total_amount * 14200;
+                $totalamount = $invoice->total_amount * app(ApiSyriaService::class)->getLatestUsdToSypRate();
             } else {
                 $totalamount = $invoice->total_amount;
             }
@@ -574,6 +575,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'deliverable_object_id' => $orderList->id,
                 'order_list_id' => $orderList->id,
                 'delivery_fee' => $delivery_fee,
+                'net_profit'=> 0.7 * $delivery_fee,
                 'currency' => 'SY',
                 'delivery_status' => 'pending',
                 'address_id' => $address->id ?? null,
@@ -650,6 +652,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'deliverable_object_id' => $invoice->id,
                 'order_list_id' => $invoice->order_list_id ?? null,
                 'delivery_fee' => $delivery_fee,
+                'net_profit' => 0.7 * $delivery_fee,
                 'currency' => $invoice->currency ?? 'SY',
                 'delivery_status' => 'pending',
                 'address_id' => $address->id ?? null,
@@ -754,6 +757,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'task_type' => $task_type,
                 'task_type_new' => $request->input('task_type', 'installation'),
                 'task_fee' => $invoice->installation_fee,
+                'net_profit' => 0.5 * $invoice->installation_fee,
                 'manager_payed' => false,
                 'task_status' => 'pending',
                 'task_images' => null,
@@ -1057,7 +1061,7 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 $payment_object = 'App\Models\Project_task';
             }
             $payment = $company->paymentsMade()->create([
-                'amount' => $amount * 100,  // old
+                'amount' => $amount ,  // old
                 'currency' => $task->currency,
                 'payment_object_type_name' => 'other',
                 'target_table_type' => 'App\Models\Company_agency_employee',  // employee

@@ -1169,6 +1169,11 @@ class SolarCompanyManagerService
             if ($amount <= 0) {
                 return ['error' => 'This project task does not have a task fee set, payment cannot be processed'];
             }
+            if($request->payment_method=='syriatel_cash'||$request->payment_method=='shamcash'){
+            $project_task->manager_payed=true;
+            }
+            $project_task->manager_payed_at=now();
+            $project_task->save();
             $amount = $this->apiSyriaService->convertAmountToSyp($amount, (string) $project_task->currency);
         }
         if ($request->payment_method !== 'syriatel_cash' && $request->payment_method !== 'shamcash' && $request->payment_method !== 'cash') {

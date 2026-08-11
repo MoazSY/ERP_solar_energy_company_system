@@ -249,7 +249,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 });
             });
         }
-
+    
         return $query->get();
     }
 

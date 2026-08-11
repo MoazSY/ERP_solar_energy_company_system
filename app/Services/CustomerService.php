@@ -349,6 +349,9 @@ class CustomerService
         if (!$offer->offer_available) {
             return ['error' => 'offer is not available'];
         }
+        if(now()->gt($offer->offer_expired_date)){
+            return ['error' => 'offer is not available'];
+        }
 
         if ($offer->public_private === 'private' && (int) $offer->customer_id !== (int) $customer->id) {
             return ['error' => 'offer is not assigned to this customer'];
@@ -1494,9 +1497,11 @@ class CustomerService
         // $requestedCurrency = $request->input('currency');
 
         $sourceType = $request->input('source_type');
-        $defaultSourceRate = $sourceType === 'ampere' ? 10000 : 1000;
+        $defaultSourceRate = $sourceType === 'ampere' ? 15000 : 1600;
 
         $sourceRate = (float) $request->input('source_rate', $defaultSourceRate);
+        // $sourceRate = $this->apiSyriaService->convertAmountToSyp((float) $sourceRate, $offerCurrency);
+
         if ($offerCurrency === 'USD') {
             $sourceRate = round($sourceRate / 14000, 2);  // convert from lira to dollar
         }

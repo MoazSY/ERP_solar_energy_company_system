@@ -780,6 +780,7 @@ class EmployeeController extends Controller
             'customer_name' => 'sometimes|string',
             'is_completed' => 'sometimes|boolean',
             'payment_received' => 'sometimes|boolean',
+            'manager_payed' => 'sometimes|boolean',
             'min_fee' => 'sometimes|numeric|min:0',
             'max_fee' => 'sometimes|numeric|min:0',
         ]);
