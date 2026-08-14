@@ -474,7 +474,7 @@ class SolarCompanyManagerService
             if ($product->disscount_type === 'percentage') {
                 $discount = ((float) $product->disscount_value / 100) * $lineSubTotal;
             } else {
-                $discount = (float) $product->disscount_value * $quantity;
+                $discount = (float) $product->disscount_value/100 * $quantity; // مشان التحويل للعملة الجديدة السورية
             }
 
             $customDiscount = $this->calculateSpecificDiscountAmount(
@@ -1897,7 +1897,7 @@ class SolarCompanyManagerService
             return ($discountValue / 100) * $lineSubtotal;
         }
 
-        return $discountValue * $quantity;
+        return $discountValue/100 * $quantity;
     }
 
     public function filter_inner_sales(array $filters)

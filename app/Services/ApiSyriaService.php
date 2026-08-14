@@ -178,84 +178,7 @@ class ApiSyriaService
         }
     }
 
-    public function getShamcashBalance(string $accountAddress): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Api-Key' => $this->apiKey,
-                'Accept' => 'application/json',
-            ])->get($this->baseUrl, [
-                'resource' => 'shamcash',
-                'action' => 'balance',
-                'account_address' => $accountAddress,
-            ]);
-
-            $result = $this->handleResponse($response);
-            if ($result['success'] ?? false) {
-                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('ApiSyriaService getShamcashBalance exception', ['message' => $e->getMessage(), 'account_address' => $accountAddress]);
-            return ['success' => false, 'message' => 'ShamCash balance request failed', 'data' => null];
-        }
-    }
-
-    public function getShamcashLogs(string $accountAddress): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Api-Key' => $this->apiKey,
-                'Accept' => 'application/json',
-            ])->get($this->baseUrl, [
-                'resource' => 'shamcash',
-                'action' => 'logs',
-                'account_address' => $accountAddress,
-            ]);
-
-            $result = $this->handleResponse($response);
-            if ($result['success'] ?? false) {
-                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('ApiSyriaService getShamcashLogs exception', ['message' => $e->getMessage(), 'account_address' => $accountAddress]);
-            return ['success' => false, 'message' => 'ShamCash logs request failed', 'data' => null];
-        }
-    }
-
-    public function findShamcashTransaction(string $accountAddress, string $tx): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Api-Key' => $this->apiKey,
-                'Accept' => 'application/json',
-            ])->get($this->baseUrl, [
-                'resource' => 'shamcash',
-                'action' => 'find_tx',
-                'account_address' => $accountAddress,
-                'tx' => $tx,
-            ]);
-
-            $result = $this->handleResponse($response);
-            if ($result['success'] ?? false) {
-                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('ApiSyriaService findShamcashTransaction exception', [
-                'message' => $e->getMessage(),
-                'account_address' => $accountAddress,
-                'tx' => $tx,
-            ]);
-            return ['success' => false, 'message' => 'ShamCash transaction lookup request failed', 'data' => null];
-        }
-    }
-
-    public function getLatestUsdToSypRate(): float
+  public function getLatestUsdToSypRate(): float
     {
         if ($this->usdToSypRate !== null) {
             return $this->usdToSypRate;
@@ -299,33 +222,131 @@ class ApiSyriaService
 
         return round($amount * $this->getLatestUsdToSypRate(), 2);
     }
-       private function extractExternalIdFromEntry(array $entry): ?string
+
+public function convertSypToCurrency(float $amountSyp, string $targetCurrency): float
+{
+    if (strtoupper($targetCurrency) === 'SYP') {
+        return $amountSyp;
+    }
+
+       if ($targetCurrency === 'USD') {
+        return round($amountSyp * $this->getLatestUsdToSypRate(), 2);
+    }
+ Log::warning('Unknown currency, treating as SYP', ['currency' => $targetCurrency]);
+    return $amountSyp;
+
+}
+
+   public function getShamcashBalance(string $accountAddress, bool $normalize = false): array
     {
-        $possibleKeys = [
-            'transaction_no',
-            'billcode', 
-            'transaction_id',
-            'tx_id',
-            'txn_id',
-            'reference_id',
-            'payment_id',
-            'id',
-            'external_id'
-        ];
-        
-        foreach ($possibleKeys as $key) {
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key' => $this->apiKey,
+                'Accept' => 'application/json',
+            ])->get($this->baseUrl, [
+                'resource' => 'shamcash',
+                'action' => 'balance',
+                'account_address' => $accountAddress,
+            ]);
+
+            $result = $this->handleResponse($response);
+            if ($normalize && ($result['success'] ?? false)) {
+                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
+            }
+
+            return $result;
+        } catch (Exception $e) {
+            Log::error('ApiSyriaService getShamcashBalance exception', ['message' => $e->getMessage(), 'account_address' => $accountAddress]);
+            return ['success' => false, 'message' => 'ShamCash balance request failed', 'data' => null];
+        }
+    }
+
+
+
+public function getShamcashLogs(string $accountAddress, bool $normalize = false): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key' => $this->apiKey,
+                'Accept' => 'application/json',
+            ])->get($this->baseUrl, [
+                'resource' => 'shamcash',
+                'action' => 'logs',
+                'account_address' => $accountAddress,
+            ]);
+
+            $result = $this->handleResponse($response);
+            if ($normalize && ($result['success'] ?? false)) {
+                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
+            }
+
+            return $result;
+        } catch (Exception $e) {
+            Log::error('ApiSyriaService getShamcashLogs exception', ['message' => $e->getMessage(), 'account_address' => $accountAddress]);
+            return ['success' => false, 'message' => 'ShamCash logs request failed', 'data' => null];
+        }
+    }
+
+
+
+
+  public function findShamcashTransaction(string $accountAddress, string $tx, bool $normalize = false): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-Api-Key' => $this->apiKey,
+                'Accept' => 'application/json',
+            ])->get($this->baseUrl, [
+                'resource' => 'shamcash',
+                'action' => 'find_tx',
+                'account_address' => $accountAddress,
+                'tx' => $tx,
+            ]);
+
+            $result = $this->handleResponse($response);
+            if ($normalize && ($result['success'] ?? false)) {
+                $result['data'] = $this->normalizeShamcashAmounts($result['data'] ?? null);
+            }
+
+            return $result;
+        } catch (Exception $e) {
+            Log::error('ApiSyriaService findShamcashTransaction exception', [
+                'message' => $e->getMessage(),
+                'account_address' => $accountAddress,
+                'tx' => $tx,
+            ]);
+            return ['success' => false, 'message' => 'ShamCash transaction lookup request failed', 'data' => null];
+        }
+    }
+
+
+  public function extractExternalIdFromEntry(array $entry): ?string
+    {
+        // المفاتيح ذات الأولوية (تطابق ما يستخدم في التخزين)
+        $priorityKeys = ['tran_id','transaction_no', 'billcode', 'transaction_id', 'tx_id', 'id'];
+        foreach ($priorityKeys as $key) {
             if (isset($entry[$key]) && !empty($entry[$key])) {
                 return trim(strtolower((string) $entry[$key]));
             }
         }
-        
-        // Fallback: استخدام hash من البيانات
+
+        // مفاتيح إضافية كحل أخير
+        $additionalKeys = ['txn_id', 'reference_id', 'payment_id', 'external_id'];
+        foreach ($additionalKeys as $key) {
+            if (isset($entry[$key]) && !empty($entry[$key])) {
+                return trim(strtolower((string) $entry[$key]));
+            }
+        }
+
+        // Fallback آمن
+        Log::warning('ApiSyriaService: No known transaction ID found, using fallback hash', ['entry_keys' => array_keys($entry)]);
         return 'tx_' . md5(json_encode($entry));
     }
 
-    /**
-     * التحقق من أن المعاملة لم تُستخدم من قبل
-     */
+
+
+
+
     private function isTransactionAlreadyUsed(string $externalId): bool
     {
         if (empty($externalId)) {
@@ -345,267 +366,203 @@ class ApiSyriaService
         }
     }
 
-    // public function verifyShamcashPaymentFromLogs(string $targetAccountAddress, float $requiredAmount, ?string $expectedSenderAccountAddress = null): array
-    // {
-    //     $normalizedTarget = trim(strtolower($targetAccountAddress));
-    //     $normalizedExpectedSender = $expectedSenderAccountAddress !== null
-    //         ? trim(strtolower($expectedSenderAccountAddress))
-    //         : null;
 
-    //     $accountsToCheck = [];
-    //     if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
-    //         $accountsToCheck[] = $expectedSenderAccountAddress;
-    //     }
-    //     $accountsToCheck[] = $targetAccountAddress;
-    //     $accountsToCheck = array_values(array_unique(array_filter($accountsToCheck)));
+/**
+ * التحقق من صحة الدفع من سجلات ShamCash
+ * 
+ * التعديلات النهائية:
+ * 1. استخدام getShamcashLogs مع normalize = false للحصول على المبالغ الأصلية
+ * 2. استخراج العملة وتحويل المبلغ إلى SYP قبل المقارنة
+ * 3. استخراج external_id من tran_id (المفتاح الصحيح)
+ * 4. استخدام account كمفتاح لاستخراج حساب المرسل
+ * 5. تشديد شرط senderMatches ليكون صارماً عند وجود مرسل متوقع
+ * 6. تبسيط accountMatches بالاعتماد على normalizedLogsAccount
+ * 7. التحقق من عدم استخدام المعاملة مسبقاً
+ */
+public function verifyShamcashPaymentFromLogs(
+    string $targetAccountAddress,
+    float $requiredAmount,
+    ?string $expectedSenderAccountAddress = null
+): array {
+    // توحيد المدخلات (تحويل إلى حروف صغيرة وإزالة المسافات)
+    $normalizedTarget = trim(strtolower($targetAccountAddress));
+    $normalizedExpectedSender = $expectedSenderAccountAddress !== null
+        ? trim(strtolower($expectedSenderAccountAddress))
+        : null;
 
-    //     $lastErrorMessage = null;
-    //     $hadSuccessfulLogsCall = false;
+    // تحديد الحسابات التي سنجلب سجلاتها
+    $accountsToCheck = [];
+    if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
+        $accountsToCheck[] = $expectedSenderAccountAddress;
+    }
+    $accountsToCheck[] = $targetAccountAddress;
+    $accountsToCheck = array_values(array_unique(array_filter($accountsToCheck)));
 
-    //     foreach ($accountsToCheck as $logsAccount) {
-    //         $logsResponse = $this->getShamcashLogs($logsAccount);
-    //         if (!($logsResponse['success'] ?? false)) {
-    //             $lastErrorMessage = $logsResponse['message'] ?? 'Unable to verify ShamCash logs';
-    //             continue;
-    //         }
+    $lastErrorMessage = null;
+    $hadSuccessfulLogsCall = false;
 
-    //         $hadSuccessfulLogsCall = true;
-    //         $normalizedLogsAccount = trim(strtolower((string) $logsAccount));
-    //         $entries = $this->flattenShamcashLogEntries($logsResponse['data'] ?? []);
-    //         $debugLoggedEntries = 0;
-
-    //         foreach ($entries as $entry) {
-    //             if (!is_array($entry)) {
-    //                 continue;
-    //             }
-
-    //             $entryTargetAccount = trim(strtolower((string) (
-    //                 $entry['to_account_address']
-    //                     ?? $entry['target_account']
-    //                     ?? $entry['destination_account']
-    //                     ?? $entry['account_to']
-    //                     ?? $entry['to']
-    //                     ?? ''
-    //             )));
-
-    //             $entrySenderAccount = trim(strtolower((string) (
-    //                 $entry['from_account_address']
-    //                     ?? $entry['source_account']
-    //                     ?? $entry['sender_account']
-    //                     ?? $entry['account_from']
-    //                     ?? $entry['from']
-    //                     ?? ''
-    //             )));
-
-    //             $entryAmountRaw = $entry['amount']
-    //                 ?? $entry['value']
-    //                 ?? $entry['sum']
-    //                 ?? 0;
-    //             $entryAmount = $this->extractNumericAmount($entryAmountRaw) ?? 0.0;
-
-    //             $entryStatus = strtolower((string) (
-    //                 $entry['status']
-    //                     ?? $entry['state']
-    //                     ?? $entry['transaction_status']
-    //                     ?? ''
-    //             ));
-
-    //             $amountMatches = $entryAmount + 0.00001 >= $requiredAmount;
-    //             $statusMatches = $entryStatus === '' ||
-    //                 str_contains($entryStatus, 'success') ||
-    //                 str_contains($entryStatus, 'complete') ||
-    //                 str_contains($entryStatus, 'paid') ||
-    //                 str_contains($entryStatus, 'received') ||
-    //                 str_contains($entryStatus, 'done');
-
-    //             $accountContextMatches = $normalizedLogsAccount === $normalizedTarget ||
-    //                 ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '' && $normalizedLogsAccount === $normalizedExpectedSender);
-
-    //             $accountMatches = $entryTargetAccount === '' ||
-    //                 $entryTargetAccount === $normalizedTarget ||
-    //                 $accountContextMatches;
-
-    //             $senderMatches = $normalizedExpectedSender === null ||
-    //                 $normalizedExpectedSender === '' ||
-    //                 $entrySenderAccount === '' ||
-    //                 $entrySenderAccount === $normalizedExpectedSender;
-
-    //             if ($debugLoggedEntries < 5) {
-    //                 Log::info('ShamCash verify debug', [
-    //                     'logs_account' => $normalizedLogsAccount,
-    //                     'required_amount' => $requiredAmount,
-    //                     'entry_amount' => $entryAmount,
-    //                     'target_expected' => $normalizedTarget,
-    //                     'target_entry' => $entryTargetAccount,
-    //                     'sender_expected' => $normalizedExpectedSender,
-    //                     'sender_entry' => $entrySenderAccount,
-    //                     'entry_status' => $entryStatus,
-    //                     'amount_matches' => $amountMatches,
-    //                     'account_matches' => $accountMatches,
-    //                     'sender_matches' => $senderMatches,
-    //                     'status_matches' => $statusMatches,
-    //                 ]);
-    //                 $debugLoggedEntries++;
-    //             }
-
-    //             if ($amountMatches && $accountContextMatches && $accountMatches && $senderMatches && $statusMatches) {
-    //                 return [
-    //                     'success' => true,
-    //                     'matched_log' => $entry,
-    //                 ];
-    //             }
-    //         }
-    //     }
-
-    //     if (!$hadSuccessfulLogsCall) {
-    //         return [
-    //             'success' => false,
-    //             'message' => $lastErrorMessage ?? 'Unable to verify ShamCash logs',
-    //         ];
-    //     }
-
-    //     return [
-    //         'success' => false,
-    //         'message' => 'You did not complete the required ShamCash payment yet',
-    //     ];
-    // }
-        public function verifyShamcashPaymentFromLogs(
-        string $targetAccountAddress, 
-        float $requiredAmount, 
-        ?string $expectedSenderAccountAddress = null
-    ): array {
-        $normalizedTarget = trim(strtolower($targetAccountAddress));
-        $normalizedExpectedSender = $expectedSenderAccountAddress !== null
-            ? trim(strtolower($expectedSenderAccountAddress))
-            : null;
-
-        $accountsToCheck = [];
-        if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
-            $accountsToCheck[] = $expectedSenderAccountAddress;
+    // التكرار على الحسابات المطلوب فحصها
+    foreach ($accountsToCheck as $logsAccount) {
+        // جلب السجلات دون تطبيع المبالغ (normalize = false)
+        $logsResponse = $this->getShamcashLogs($logsAccount, false);
+        if (!($logsResponse['success'] ?? false)) {
+            $lastErrorMessage = $logsResponse['message'] ?? 'Unable to verify ShamCash logs';
+            continue;
         }
-        $accountsToCheck[] = $targetAccountAddress;
-        $accountsToCheck = array_values(array_unique(array_filter($accountsToCheck)));
 
-        $lastErrorMessage = null;
-        $hadSuccessfulLogsCall = false;
+        $hadSuccessfulLogsCall = true;
+        $normalizedLogsAccount = trim(strtolower((string) $logsAccount));
+        $entries = $this->flattenShamcashLogEntries($logsResponse['data'] ?? []);
+        $debugLoggedEntries = 0;
 
-        foreach ($accountsToCheck as $logsAccount) {
-            $logsResponse = $this->getShamcashLogs($logsAccount);
-            if (!($logsResponse['success'] ?? false)) {
-                $lastErrorMessage = $logsResponse['message'] ?? 'Unable to verify ShamCash logs';
+        // التكرار على كل معاملة في السجلات
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
                 continue;
             }
 
-            $hadSuccessfulLogsCall = true;
-            $normalizedLogsAccount = trim(strtolower((string) $logsAccount));
-            $entries = $this->flattenShamcashLogEntries($logsResponse['data'] ?? []);
-            $debugLoggedEntries = 0;
+            // ============================================================
+            // 1. استخراج بيانات المعاملة من السجل
+            // ============================================================
 
-            foreach ($entries as $entry) {
-                if (!is_array($entry)) {
-                    continue;
-                }
+            // حساب المستلم (يحاول عدة مفاتيح)
+            $entryTargetAccount = trim(strtolower((string) (
+                $entry['to_account_address']
+                ?? $entry['target_account']
+                ?? $entry['destination_account']
+                ?? $entry['account_to']
+                ?? $entry['to']
+                ?? ''
+            )));
 
-                $entryTargetAccount = trim(strtolower((string) (
-                    $entry['to_account_address']
-                        ?? $entry['target_account']
-                        ?? $entry['destination_account']
-                        ?? $entry['account_to']
-                        ?? $entry['to']
-                        ?? ''
-                )));
+            // حساب المرسل (مع إضافة 'account' كمفتاح أساسي)
+            $entrySenderAccount = trim(strtolower((string) (
+                $entry['from_account_address']
+                ?? $entry['source_account']
+                ?? $entry['sender_account']
+                ?? $entry['account_from']
+                ?? $entry['from']
+                ?? $entry['account']  // 🔑 المفتاح الجديد - يحتوي على حساب المرسل في ShamCash
+                ?? ''
+            )));
 
-                $entrySenderAccount = trim(strtolower((string) (
-                    $entry['from_account_address']
-                        ?? $entry['source_account']
-                        ?? $entry['sender_account']
-                        ?? $entry['account_from']
-                        ?? $entry['from']
-                        ?? ''
-                )));
+            // المبلغ الخام (كما هو في السجل)
+            $entryAmountRaw = $entry['amount']
+                ?? $entry['value']
+                ?? $entry['sum']
+                ?? 0;
+            $entryAmount = $this->extractNumericAmount($entryAmountRaw) ?? 0.0;
 
-                $entryAmountRaw = $entry['amount']
-                    ?? $entry['value']
-                    ?? $entry['sum']
-                    ?? 0;
-                $entryAmount = $this->extractNumericAmount($entryAmountRaw) ?? 0.0;
+            // العملة (مع افتراض SYP إذا لم توجد)
+            $entryCurrency = strtoupper(trim((string) (
+                $entry['currency']
+                ?? $entry['currency_code']
+                ?? $entry['currency_symbol']
+                ?? 'SYP'
+            )));
 
-                $entryStatus = strtolower((string) (
-                    $entry['status']
-                        ?? $entry['state']
-                        ?? $entry['transaction_status']
-                        ?? ''
-                ));
+            // تحويل المبلغ إلى SYP
+            $entryAmountInSyp = $this->convertSypToCurrency($entryAmount, $entryCurrency);
 
-                $amountMatches = $entryAmount + 0.00001 >= $requiredAmount;
-                $statusMatches = $entryStatus === '' ||
-                    str_contains($entryStatus, 'success') ||
-                    str_contains($entryStatus, 'complete') ||
-                    str_contains($entryStatus, 'paid') ||
-                    str_contains($entryStatus, 'received') ||
-                    str_contains($entryStatus, 'done');
+            // حالة المعاملة
+            $entryStatus = strtolower((string) (
+                $entry['status']
+                ?? $entry['state']
+                ?? $entry['transaction_status']
+                ?? ''
+            ));
 
-                $accountContextMatches = $normalizedLogsAccount === $normalizedTarget ||
-                    ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '' && $normalizedLogsAccount === $normalizedExpectedSender);
+            // ============================================================
+            // 2. التحقق من الشروط
+            // ============================================================
 
-                $accountMatches = $entryTargetAccount === '' ||
-                    $entryTargetAccount === $normalizedTarget ||
-                    $accountContextMatches;
+            // 2.1 مطابقة المبلغ (بعد التحويل إلى SYP)
+            $amountMatches = $entryAmountInSyp + 0.00001 >= $requiredAmount;
 
-                $senderMatches = $normalizedExpectedSender === null ||
-                    $normalizedExpectedSender === '' ||
-                    $entrySenderAccount === '' ||
-                    $entrySenderAccount === $normalizedExpectedSender;
+            // 2.2 مطابقة الحالة
+            $statusMatches = $entryStatus === '' ||
+                str_contains($entryStatus, 'success') ||
+                str_contains($entryStatus, 'complete') ||
+                str_contains($entryStatus, 'paid') ||
+                str_contains($entryStatus, 'received') ||
+                str_contains($entryStatus, 'done');
 
-                //  استخراج معرف المعاملة
-                $externalId = $this->extractExternalIdFromEntry($entry);
+            // 2.3 مطابقة الحساب (نعتمد على الحساب الذي جلبنا السجلات منه)
+            $accountMatches = ($normalizedLogsAccount === $normalizedTarget);
+            if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
+                $accountMatches = $accountMatches || ($normalizedLogsAccount === $normalizedExpectedSender);
+            }
 
-                //  التحقق من عدم استخدام المعاملة
-                $isTransactionUsed = $this->isTransactionAlreadyUsed($externalId);
+            // 2.4 مطابقة المرسل (صارم - يجب أن يتطابق إذا كان متوقعاً)
+            $senderMatches = true;
+            if ($normalizedExpectedSender !== null && $normalizedExpectedSender !== '') {
+                $senderMatches = ($entrySenderAccount === $normalizedExpectedSender);
+            }
 
-                if ($debugLoggedEntries < 5) {
-                    Log::info('ShamCash verify debug', [
-                        'logs_account' => $normalizedLogsAccount,
-                        'required_amount' => $requiredAmount,
-                        'entry_amount' => $entryAmount,
-                        'target_expected' => $normalizedTarget,
-                        'target_entry' => $entryTargetAccount,
-                        'sender_expected' => $normalizedExpectedSender,
-                        'sender_entry' => $entrySenderAccount,
-                        'entry_status' => $entryStatus,
-                        'external_id' => $externalId,
-                        'is_transaction_used' => $isTransactionUsed,
-                        'amount_matches' => $amountMatches,
-                        'account_matches' => $accountMatches,
-                        'sender_matches' => $senderMatches,
-                        'status_matches' => $statusMatches,
-                    ]);
-                    $debugLoggedEntries++;
-                }
+            // ============================================================
+            // 3. التحقق من عدم استخدام المعاملة مسبقاً
+            // ============================================================
+            $externalId = $this->extractExternalIdFromEntry($entry);
+            $isTransactionUsed = $this->isTransactionAlreadyUsed($externalId);
 
-                //  إضافة شرط !$isTransactionUsed
-                if ($amountMatches && $accountContextMatches && $accountMatches && $senderMatches && $statusMatches && !$isTransactionUsed) {
-                    return [
-                        'success' => true,
-                        'matched_log' => $entry,
-                        'external_id' => $externalId,
-                    ];
-                }
+            // ============================================================
+            // 4. تسجيل التصحيح (أول 5 معاملات فقط)
+            // ============================================================
+            if ($debugLoggedEntries < 5) {
+                Log::info('ShamCash verify debug', [
+                    'logs_account' => $normalizedLogsAccount,
+                    'required_amount' => $requiredAmount,
+                    'entry_amount_raw' => $entryAmount,
+                    'entry_currency' => $entryCurrency,
+                    'entry_amount_syp' => $entryAmountInSyp,
+                    'target_expected' => $normalizedTarget,
+                    'sender_expected' => $normalizedExpectedSender,
+                    'entry_target_account' => $entryTargetAccount,
+                    'entry_sender_account' => $entrySenderAccount,
+                    'entry_status' => $entryStatus,
+                    'external_id' => $externalId,
+                    'is_transaction_used' => $isTransactionUsed,
+                    'amount_matches' => $amountMatches,
+                    'account_matches' => $accountMatches,
+                    'sender_matches' => $senderMatches,
+                    'status_matches' => $statusMatches,
+                ]);
+                $debugLoggedEntries++;
+            }
+
+            // ============================================================
+            // 5. قبول المعاملة إذا تحققت جميع الشروط
+            // ============================================================
+            if ($amountMatches && $accountMatches && $senderMatches && $statusMatches && !$isTransactionUsed) {
+                return [
+                    'success' => true,
+                    'matched_log' => $entry,
+                    'external_id' => $externalId,
+                ];
             }
         }
+    }
 
-        if (!$hadSuccessfulLogsCall) {
-            return [
-                'success' => false,
-                'message' => $lastErrorMessage ?? 'Unable to verify ShamCash logs',
-            ];
-        }
-
+    // ============================================================
+    // 6. لم نجد معاملة صالحة
+    // ============================================================
+    if (!$hadSuccessfulLogsCall) {
         return [
             'success' => false,
-            'message' => 'You did not complete the required ShamCash payment yet',
+            'message' => $lastErrorMessage ?? 'Unable to verify ShamCash logs',
         ];
     }
+
+    return [
+        'success' => false,
+        'message' => 'You did not complete the required ShamCash payment yet',
+    ];
+}
+
+
+
+
+
 
     private function flattenShamcashLogEntries(mixed $payload): array
     {
@@ -662,7 +619,7 @@ class ApiSyriaService
             if (in_array((string) $key, $amountKeys, true)) {
                 $numericValue = $this->extractNumericAmount($value);
                 if ($numericValue !== null) {
-                    $normalized[$key] = $numericValue * 100;
+                    $normalized[$key] = $numericValue ;
                     continue;
                 }
             }
