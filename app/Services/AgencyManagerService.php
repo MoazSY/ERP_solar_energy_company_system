@@ -342,6 +342,17 @@ class AgencyManagerService
         });
     }
 
+    public function filter_most_amount_sales_company(array $filters = [])
+    {
+        $agency_manager = Auth::guard('agency_manager')->user();
+
+        if (!$agency_manager) {
+            return collect();
+        }
+
+        return $this->agencyManagerRepositoryInterface->filter_most_amount_sales_company($agency_manager, $filters);
+    }
+
     public function create_custom_discount($data, $solar_company_id)
     {
         return $this->agencyManagerRepositoryInterface->create_custom_discount($data, $solar_company_id);

@@ -19,6 +19,7 @@ interface AgencyManagerRepositoryInterface
     public function add_agency_product_solar_panel($request, $product_id);
     public function filter_agency_products($filters);
     public function filter_solar_companies($filters);
+    public function filter_most_amount_sales_company($agencyManager, array $filters = []);
     public function create_custom_discount($data, $solar_company_id);
     public function show_custom_discounts($solar_company_id);
     public function update_custom_discount($discount_id, $data);
@@ -33,5 +34,5 @@ interface AgencyManagerRepositoryInterface
     public function assign_delivery_task($request, $agency, $orderList);
     public function show_delivery_tasks($agency);
     public function filter_delivery_tasks($agency, $filters);
-    public function paid_to_driver($request,$task,$agency,$paymentResponse=null);
+    public function paid_to_driver($request, $task, $agency, $paymentResponse = null);
 }

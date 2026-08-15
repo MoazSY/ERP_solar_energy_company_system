@@ -249,7 +249,7 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 });
             });
         }
-    
+
         return $query->get();
     }
 
@@ -354,7 +354,11 @@ class SystemAdminRepository implements SystemAdminRepositoryInterface
                 'id' => $report->id,
                 'company_id' => $report->company_id,
                 'company_name' => $report->company?->company_name ?? null,
+                'company_email'=>$report->company?->company_email??null,
+                'company_phone'=>$report->company?->company_phone??null,
                 'customer_id' => $report->customer_id,
+                'customer_phone'=>$report->customer?->phoneNumber??null,
+                'customer_email'=>$report->customer?->email??null,
                 'customer_name' => $report->customer?->first_name . ' ' . $report->customer?->last_name,
                 'report_type' => $report->report_type,
                 'report_subject' => $report->report_subject,

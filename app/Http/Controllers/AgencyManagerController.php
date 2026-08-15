@@ -896,10 +896,43 @@ class AgencyManagerController extends Controller
             'payment' => $result,
         ], 200);
     }
+    public function filter_most_amount_sales_company(Request $request)
+    {
+        /*
+        يقوم هذا التابع بجلب الشركات التي حققت الوكالة اكبر كمية مبيعات لها
+        يتم جلب كميات المبيعات من خلال جمع المبالغ النهائية في الفواتير التي أنشأتها الوكالة للشركة
+        يقدم التابع فلترة على الشركات من أجل معرفة المبيعات لشركة محددة
+        فلترة على مجال تاريخ معين
+        فلترة بحسب الكمية المطلوبة من المبيعات، فيتم جلب الشركات التي تجتاز هذا المبلغ
+        لكن بشرط أن تكون الفواتير مدفوعة
+        */
+        $validate = Validator::make($request->all(), [
+            'company_id' => 'sometimes|exists:solar_companies,id',
+            'company_name' => 'sometimes|string',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'min_amount' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $sales = $this->agencyManagerService->filter_most_amount_sales_company($filters);
+
+        return response()->json([
+            'message' => 'Top sales companies filtered successfully',
+            'count' => count($sales),
+            'sales' => $sales,
+        ], 200);
+    }
+
+
 
     public function show_company_profits(Request $request){}
      public function show_company_expenses(Request $request){}
      public function filter_company_profits(Request $request){}
      public function filter_company_expenses(Request $request){}
-     
+
 }

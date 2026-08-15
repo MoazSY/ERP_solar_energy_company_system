@@ -9,10 +9,11 @@ use App\Models\Employee;
 use App\Models\Order_list;
 use App\Models\Payment_transactions;
 use App\Models\Products;
+use App\Models\Purchase_invoice;
 use App\Models\Solar_company;
 use App\Models\Subscribe_polices;
-use App\Support\CompanyBanHelper;
 use App\Services\OsrmService;
+use App\Support\CompanyBanHelper;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -687,9 +688,69 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             });
         }
 
-        return $query->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])->withAvg('companyRateFeedbacks as company_rating', 'rate')
+        return $query
+            ->with(['addresses.governorate', 'addresses.area', 'addresses.neighborhood', 'products'])
+            ->withAvg('companyRateFeedbacks as company_rating', 'rate')
             ->with(['companyRateFeedbacks.customer:id,first_name,last_name'])
             ->get();
+    }
+
+    public function filter_most_amount_sales_company($agencyManager, array $filters = [])
+    {
+        $agency = $agencyManager->agencies()->first();
+
+        if (!$agency) {
+            return collect();
+        }
+
+        $query = Purchase_invoice::query()
+            ->where('seller_entity_type', Agency::class)
+            ->where('seller_entity_id', $agency->id)
+            ->where('payment_status', 'paid');
+
+        if (!empty($filters['company_id'])) {
+            $query
+                ->where('buyer_entity_type', Solar_company::class)
+                ->where('buyer_entity_id', $filters['company_id']);
+        }
+
+        if (!empty($filters['company_name'])) {
+            $query->where('buyer_name', 'like', '%' . $filters['company_name'] . '%');
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('invoice_date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('invoice_date', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['min_amount'])) {
+            $query->where('total_amount', '>=', (float) $filters['min_amount']);
+        }
+
+        return $query
+            ->select(
+                'buyer_entity_type',
+                'buyer_entity_id',
+                'currency',
+                DB::raw('SUM(total_amount) as total_sales'),
+                DB::raw('COUNT(*) as invoice_count')
+            )
+            ->with(['buyer_entity'])
+            ->groupBy('buyer_entity_type', 'buyer_entity_id', 'currency')
+            ->orderByDesc('total_sales')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'company' => $row->buyer_entity,
+                    'currency' => $row->currency,
+                    'total_sales' => (float) $row->total_sales,
+                    'invoice_count' => (int) $row->invoice_count,
+                ];
+            })
+            ->values();
     }
 
     public function create_custom_discount($data, $solar_company_id)
