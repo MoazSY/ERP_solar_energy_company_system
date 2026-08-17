@@ -396,9 +396,10 @@ class CustomerRepository implements CustomerRepositoryInterface
         return Payment::create($data);
     }
 
-    public function update_invoice_payment_status($invoice, $status)
+    public function update_invoice_payment_status($invoice, $status,$request)
     {
         $invoice->payment_status = $status;
+        $invoice->payment_method=$request->payment_method ?? $invoice->payment_method;
         $invoice->save();
 
         return $invoice;

@@ -392,17 +392,18 @@ class EmployeeService
         if (!$company) {
             return ['error' => 'Company not found'];
         }
-        if ($request->hasFile('product_image')) {
-            $product_image = $request->file('product_image')->getClientOriginalName();
-            $product_image_path = $request->file('product_image')->storeAs('AgencyManager/product_images', $product_image, 'public');
-            $data['product_image'] = $product_image_path;
-            $product_image_URL = asset('storage/' . $product_image_path);
-        } else {
-            $data['product_image'] = null;
-            $product_image_URL = null;
-        }
+        // if ($request->hasFile('product_image')) {
+        //     $product_image = $request->file('product_image')->getClientOriginalName();
+        //     $product_image_path = $request->file('product_image')->storeAs('AgencyManager/product_images', $product_image, 'public');
+        //     $data['product_image'] = $product_image_path;
+        //     $product_image_URL = asset('storage/' . $product_image_path);
+        // } else {
+        //     $data['product_image'] = null;
+        //     $product_image_URL = null;
+        // }
+
         $result = $this->employeeRepositoryInterface->insert_product_to_stock($data, $company);
-        return [$result, $product_image_URL];
+        return [$result, null];
     }
 
     public function add_inventory_product_battery($data, $product_id)

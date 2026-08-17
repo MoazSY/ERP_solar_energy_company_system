@@ -37,7 +37,7 @@ interface CustomerRepositoryInterface
     public function show_invoices_details($customer_id);
     public function find_customer_invoice($customer_id, $invoice_id);
     public function create_payment(array $data);
-    public function update_invoice_payment_status($invoice, $status);
+    public function update_invoice_payment_status($invoice, $status,$request);
     public function find_project_task($task_id);
     public function update_project_task($task, array $data);
     public function upsert_customer_rate_feedback($customer_id, $task_id, array $data);

@@ -315,7 +315,7 @@ class EmployeeController extends Controller
             'disscount_value' => 'sometimes|numeric|min:0',
             'currency' => 'required|string|in:USD,SY',
             'manufacture_date' => 'sometimes|date',
-            'product_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'product_image' => 'sometimes|string|max:2048',
             'with_technical_details' => 'sometimes|boolean',
             'product_name_for_validation' => 'sometimes|string'
         ];

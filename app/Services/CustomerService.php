@@ -921,7 +921,7 @@ class CustomerService
             'response' => $paymentResponse,
         ]);
 
-        $invoice = $this->customerRepositoryInterface->update_invoice_payment_status($invoice, $payment->status);
+        $invoice = $this->customerRepositoryInterface->update_invoice_payment_status($invoice, $payment->status,$request);
 
         return [
             'invoice' => $invoice,

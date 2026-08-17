@@ -121,12 +121,13 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 're_subscribed' => $request->re_subscribed,
                 'status' => $paymentData ? 'paid' : 'pending',
             ]);
+                $externalId = app(apiSyriaService::class)->extractExternalIdFromEntry($paymentData['data']);
 
             if ($paymentData && isset($paymentData['data'])) {
                 Payment_transactions::create([
                     'payment_id' => $payment->id,
                     'gateway' => $request->payment_method,
-                    'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+                    'external_id' => $externalId,
                     'payment_url' => $paymentData['data']['payment_url'] ?? null,
                     'status' => 'paid',
                     'response' => $paymentData,
