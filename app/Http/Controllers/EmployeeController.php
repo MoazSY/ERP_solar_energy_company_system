@@ -802,6 +802,42 @@ class EmployeeController extends Controller
         ], 200);
     }
 
+    public function filter_delivery_tasks(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'delivery_id' => 'sometimes|integer|exists:deliveries,id',
+            'order_list_id' => 'sometimes|integer|exists:order_lists,id',
+            'delivery_status' => 'sometimes|string|in:pending,in_transit,delivered,canceled',
+            'driver_approved_delivery_task' => 'sometimes|string|in:pending,approve,reject',
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'contact_name' => 'sometimes|string',
+            'contact_phone' => 'sometimes|string',
+            'is_completed' => 'sometimes|boolean',
+            'client_recieve_delivery' => 'sometimes|boolean',
+            'min_fee' => 'sometimes|numeric|min:0',
+            'max_fee' => 'sometimes|numeric|min:0',
+            'min_weight' => 'sometimes|numeric|min:0',
+            'max_weight' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $tasks = $this->employeeService->filter_delivery_tasks($filters);
+
+        if (isset($tasks['error'])) {
+            return response()->json(['message' => $tasks['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Delivery tasks filtered successfully',
+            'tasks' => $tasks,
+        ], 200);
+    }
+
     public function proccess_installation_task(Request $request)
     {
         $validate = Validator::make($request->all(), [
@@ -1123,6 +1159,35 @@ class EmployeeController extends Controller
 
         return response()->json([
             'message' => 'Installation tasks profits filtered successfully',
+            'data' => $result,
+        ], 200);
+    }
+
+    public function filter_profits_from_delivery_tasks(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'date_from' => 'sometimes|date',
+            'date_to' => 'sometimes|date|after_or_equal:date_from',
+            'delivery_status' => 'sometimes|string|in:pending,in_transit,delivered,canceled',
+            'driver_approved_delivery_task' => 'sometimes|string|in:pending,approve,reject',
+            'company_name' => 'sometimes|string',
+            'min_profit' => 'sometimes|numeric|min:0',
+            'max_profit' => 'sometimes|numeric|min:0',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json(['message' => $validate->errors()], 422);
+        }
+
+        $filters = $validate->validated();
+        $result = $this->employeeService->filter_profits_from_delivery_tasks($filters);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 400);
+        }
+
+        return response()->json([
+            'message' => 'Delivery tasks profits filtered successfully',
             'data' => $result,
         ], 200);
     }

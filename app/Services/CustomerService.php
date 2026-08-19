@@ -73,8 +73,8 @@ class CustomerService
         $customer = Auth::guard('customer')->user();
         $profile = $this->customerRepositoryInterface->customer_profile($customer->id);
         $imageUrl = $profile->image ? asset('storage/' . $profile->image) : null;
-
-        return ['customer' => $profile, 'imageUrl' => $imageUrl];
+        $address=$profile->addresses()->latest('id')->first();
+        return ['customer' => $profile, 'imageUrl' => $imageUrl, 'address'=>$address];
     }
 
     public function update_profile($request, $data)

@@ -177,6 +177,7 @@ Route::middleware('check_employee')->group(function () {
     Route::post('proccess_delivery_task', [EmployeeController::class, 'proccess_delivery_task']);
     Route::post('deliver_orderList', [EmployeeController::class, 'deliver_orderList']);
     Route::post('task_start', [EmployeeController::class, 'delivery_task_start']);
+    Route::post('employee_filter_delivery_tasks', [EmployeeController::class, 'filter_delivery_tasks']);
     Route::post('employee_filter_installation_tasks', [EmployeeController::class, 'filter_installation_tasks']);
     Route::post('proccess_installation_task', [EmployeeController::class, 'proccess_installation_task']);
     Route::post('installation_task_start', [EmployeeController::class, 'installation_task_start']);
@@ -184,6 +185,7 @@ Route::middleware('check_employee')->group(function () {
     Route::post('installation_task_complete', [EmployeeController::class, 'installation_task_complete']);
     Route::post('show_system_attachments_for_technician', [EmployeeController::class, 'show_system_attachments_for_technician']);
     Route::post('filter_profits_from_installation_tasks', [EmployeeController::class, 'filter_profits_from_installation_tasks']);
+    Route::post('filter_profits_from_delivery_tasks', [EmployeeController::class, 'filter_profits_from_delivery_tasks']);
     Route::post('define_system_attachments', [EmployeeController::class, 'define_system_attachments']);
     Route::post('register_consumable_material', [EmployeeController::class, 'register_consumable_material']);
     Route::post('update_consumable_material', [EmployeeController::class, 'update_consumable_material']);

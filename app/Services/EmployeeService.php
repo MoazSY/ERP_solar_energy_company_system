@@ -497,6 +497,18 @@ class EmployeeService
         return $this->employeeRepositoryInterface->filter_installation_tasks($employee, $filters);
     }
 
+    public function filter_delivery_tasks($filters)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        if ($employee->employee_type != 'driver') {
+            return ['error' => 'Unauthorized'];
+        }
+
+        return $this->employeeRepositoryInterface->filter_delivery_tasks($employee, $filters);
+    }
+
     public function proccess_installation_task($request)
     {
         $employee_id = Auth::guard('employee')->user()->id;
@@ -633,6 +645,18 @@ class EmployeeService
         }
 
         return $this->employeeRepositoryInterface->filter_profits_from_installation_tasks($employee, $filters);
+    }
+
+    public function filter_profits_from_delivery_tasks($filters)
+    {
+        $employee_id = Auth::guard('employee')->user()->id;
+        $employee = Employee::findOrFail($employee_id);
+
+        if ($employee->employee_type !== 'driver') {
+            return ['error' => 'Unauthorized: Only drivers can view delivery profits'];
+        }
+
+        return $this->employeeRepositoryInterface->filter_profits_from_delivery_tasks($employee, $filters);
     }
 
     public function show_product_nearing_out_of_stock(int $threshold = 5)

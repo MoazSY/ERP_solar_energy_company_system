@@ -704,7 +704,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                     $incomingQuantity = (int) ($data['quentity'] ?? 0);
                     $existingProduct->quentity = $existingQuantity + $incomingQuantity;
                     $existingProduct->price = $data['price'] ?? $existingProduct->price;
-                    $existingProduct->currency=$data['currency']?? $existingProduct->currency;
+                    $existingProduct->currency = $data['currency'] ?? $existingProduct->currency;
                     $existingProduct->save();
 
                     $product = $existingProduct->load(['batteries', 'inverters', 'solarPanals']);
@@ -1231,7 +1231,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             $query->where('payment_received', (bool) $filters['payment_received']);
         }
         if (array_key_exists('manager_payed', $filters)) {
-        $query->where('manager_payed', (bool) $filters['manager_payed']);
+            $query->where('manager_payed', (bool) $filters['manager_payed']);
         }
 
         if (!empty($filters['min_fee'])) {
@@ -1254,6 +1254,97 @@ class EmployeeRepository implements EmployeeRepositoryInterface
                 'address' => $task->taskable?->buyer_entity?->addresses()?->latest('id')->first(),
                 'is_completed' => !is_null($task->completed_at),
             ], $task);
+        });
+    }
+
+    public function filter_delivery_tasks($employee, array $filters)
+    {
+        $query = $employee
+            ->driverDeliveries()
+            ->with([
+                'orderList.request_entity',
+                'entity_type',
+                'address.governorate',
+                'address.area',
+                'driver.employee',
+            ]);
+
+        if (!empty($filters['delivery_id'])) {
+            $query->where('id', $filters['delivery_id']);
+        }
+
+        if (!empty($filters['order_list_id'])) {
+            $query->where('order_list_id', $filters['order_list_id']);
+        }
+
+        if (!empty($filters['delivery_status'])) {
+            $query->where('delivery_status', $filters['delivery_status']);
+        }
+
+        if (!empty($filters['driver_approved_delivery_task'])) {
+            $query->where('driver_approved_delivery_task', $filters['driver_approved_delivery_task']);
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('scheduled_delivery_datetime', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('scheduled_delivery_datetime', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['contact_name'])) {
+            $query->where('contact_name', 'like', '%' . $filters['contact_name'] . '%');
+        }
+
+        if (!empty($filters['contact_phone'])) {
+            $query->where('contact_phone', 'like', '%' . $filters['contact_phone'] . '%');
+        }
+
+        if (array_key_exists('is_completed', $filters)) {
+            if ((bool) $filters['is_completed']) {
+                $query->where(function ($q) {
+                    $q->where('delivery_status', 'delivered')->orWhereNotNull('delivered_at');
+                });
+            } else {
+                $query->where('delivery_status', '!=', 'delivered')->whereNull('delivered_at');
+            }
+        }
+
+        if (array_key_exists('client_recieve_delivery', $filters)) {
+            $query->where('client_recieve_delivery', (bool) $filters['client_recieve_delivery']);
+        }
+
+        if (!empty($filters['min_fee'])) {
+            $query->where('delivery_fee', '>=', $filters['min_fee']);
+        }
+
+        if (!empty($filters['max_fee'])) {
+            $query->where('delivery_fee', '<=', $filters['max_fee']);
+        }
+
+        if (!empty($filters['min_weight'])) {
+            $query->where('weight_kg', '>=', $filters['min_weight']);
+        }
+
+        if (!empty($filters['max_weight'])) {
+            $query->where('weight_kg', '<=', $filters['max_weight']);
+        }
+
+        return $query->latest('id')->get()->map(function ($delivery) {
+            $targetEntity = $delivery->deliverable_object?->request_entity;
+
+            return [
+                'delivery' => $delivery,
+                'order_list' => $delivery->orderList,
+                'entity_source' => $delivery->entity_type,
+                'entity_target' => $targetEntity,
+                'address' => $delivery->address,
+                'governorate' => $delivery->address?->governorate,
+                'area' => $delivery->address?->area,
+                'items' => $delivery->orderList?->Items()->with('product')->get() ?? collect(),
+                'is_completed' => !is_null($delivery->delivered_at) || $delivery->delivery_status === 'delivered',
+            ];
         });
     }
 
@@ -1389,6 +1480,76 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             'tasks' => $tasks,
             'total_profit' => $totalProfit,
             'tasks_count' => count($tasks),
+        ];
+    }
+
+    public function filter_profits_from_delivery_tasks($employee, array $filters)
+    {
+        $query = $employee
+            ->driverDeliveries()
+            ->where('delivery_status', 'delivered')
+            ->whereNotNull('delivered_at')
+            ->with(['orderList.request_entity', 'entity_type', 'address.governorate', 'address.area']);
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('delivered_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('delivered_at', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['delivery_status'])) {
+            $query->where('delivery_status', $filters['delivery_status']);
+        }
+
+        if (!empty($filters['driver_approved_delivery_task'])) {
+            $query->where('driver_approved_delivery_task', $filters['driver_approved_delivery_task']);
+        }
+
+        if (!empty($filters['company_name'])) {
+            $companyName = '%' . $filters['company_name'] . '%';
+            $query->whereHasMorph('entity_type', [Solar_company::class, Agency::class], function ($morphQuery, $type) use ($companyName) {
+                if ($type === Solar_company::class) {
+                    $morphQuery->where('company_name', 'like', $companyName);
+                }
+
+                if ($type === Agency::class) {
+                    $morphQuery->where('agency_name', 'like', $companyName);
+                }
+            });
+        }
+
+        if (isset($filters['min_profit'])) {
+            $query->where('net_profit', '>=', $filters['min_profit']);
+        }
+
+        if (isset($filters['max_profit'])) {
+            $query->where('net_profit', '<=', $filters['max_profit']);
+        }
+
+        $deliveries = $query->latest('delivered_at')->get();
+
+        $totalProfit = 0;
+
+        $deliveries = $deliveries->map(function ($delivery) use (&$totalProfit) {
+            $profit = $delivery->net_profit ?? 0;
+            $totalProfit += $profit;
+
+            return [
+                'task' => $delivery,
+                'task_type' => 'delivery',
+                'completed_at' => $delivery->delivered_at,
+                'profit' => $delivery->net_profit,
+                'entity_source' => $delivery->entity_type,
+                'order_list' => $delivery->orderList,
+            ];
+        });
+
+        return [
+            'tasks' => $deliveries,
+            'total_profit' => $totalProfit,
+            'tasks_count' => count($deliveries),
         ];
     }
 

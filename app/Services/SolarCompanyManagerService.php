@@ -303,6 +303,8 @@ class SolarCompanyManagerService
         $agencies = $this->solarCompanyManagerRepositoryInterface->show_all_agency();
         $agencies = $agencies->map(function ($item) {
             $manager_account = Agency_manager::findOrFail($item->agency_manager_id)->first()->account_number;
+        $agencyAddress = $item->addresses()->latest('id')->first();
+            
             $agency_logo = $item->agency_logo;
             if ($agency_logo == null) {
                 $agency_logoUrl = null;
@@ -313,6 +315,7 @@ class SolarCompanyManagerService
                 'agency' => $item,
                 'agency_logoUrl' => $agency_logoUrl,
                 'account_number' => $manager_account,
+                'agencyAddress' => $agencyAddress,
                 'rating' => RatingHelper::forAgency($item),
             ];
         });
