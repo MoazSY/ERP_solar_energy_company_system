@@ -262,6 +262,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
         // Handle image upload if provided
         if ($request->hasFile('product_image')) {
             $imagePath = $request->file('product_image')->store('products', 'public');
+            $imagePath = $request->file('product_image')->store('AgencyManager/product_images', 'public');
             $data['product_image'] = $imagePath;
             $product_image_URL = asset('storage/' . $data['product_image']);
         } else {
