@@ -105,4 +105,9 @@ class Purchase_invoice extends Model
     {
         return $this->hasMany(Commision_charges::class, 'invoice_id');
     }
+
+    public function Items()
+    {
+        return $this->object_entity?->Items();
+    }
 }
