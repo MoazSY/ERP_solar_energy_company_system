@@ -435,7 +435,7 @@ class EmployeeRepository implements EmployeeRepositoryInterface
         $input_output_request = Input_output_request::query()
             ->where('inventory_manager_id', $employee->id)
             ->where('request_type', 'input')
-            ->with(['order', 'order.request_entity', 'order.Items', 'order.Items.product', 'order.Items.product.inverters', 'order.Items.product.batteries'])
+            ->with(['order', 'order.request_entity', 'order.Items', 'order.Items.product', 'order.Items.product.inverters', 'order.Items.product.batteries','order.Items.product.solarPanals'])
             ->get();
         return $input_output_request;
     }
