@@ -20,6 +20,7 @@ use App\Models\Request_solar_system;
 use App\Models\Solar_company;
 use App\Models\Subscribe_offer;
 use App\Models\System_admin;
+use App\Services\apiSyriaService;
 use App\Models\Technical_inspection_request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -361,11 +362,12 @@ class CustomerRepository implements CustomerRepositoryInterface
                     'paid_at' => Carbon::now(),
                     'status' => $paymentData ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
                 ]);
+                $externalId = app(apiSyriaService::class)->extractExternalIdFromEntry($paymentData['data']);
 
                 $transaction = Payment_transactions::create([
                     'payment_id' => $payment->id,
                     'gateway' => $paymentMethod,
-                    'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+                    'external_id' => $externalId,
                     'payment_url' => $paymentData['data']['payment_url'] ?? null,
                     'status' => $payment->status,
                     'response' => $paymentData,

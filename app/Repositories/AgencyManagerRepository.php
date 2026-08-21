@@ -945,7 +945,7 @@ class AgencyManagerRepository implements AgencyManagerRepositoryInterface
             'total_discount' => $orderList->total_discount_amount ?? 0,
             'total_amount' => $orderList->total_amount ?? 0,
             'payment_status' => 'paid',
-            'net_profit' => 0,
+            'net_profit' => 0.7*$delivery_fee,
         ]);
         if ($delivery_fee > 0) {
             // notify the driver to deliver the order

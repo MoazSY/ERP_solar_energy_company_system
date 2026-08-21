@@ -911,11 +911,12 @@ class CustomerService
             'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
             're_subscribed' => false,
         ]);
+                $externalId = app(apiSyriaService::class)->extractExternalIdFromEntry($paymentResponse['data']);
 
         $transaction = Payment_transactions::create([
             'payment_id' => $payment->id,
             'gateway' => $request->payment_method,
-            'external_id' => $paymentData['data']['transaction_no'] ?? $paymentData['data']['billcode'] ?? null,
+            'external_id' => $externalId,
             'payment_url' => $paymentData['data']['payment_url'] ?? null,
             'status' => $payment->status,
             'response' => $paymentResponse,
@@ -1055,7 +1056,8 @@ class CustomerService
                 'message' => 'ShamCash payment verified from logs',
                 'data' => $verificationResult['matched_log'] ?? null,
             ];
-            $transactionData['external_id'] = $paymentResponse['data']['transaction_id'] ?? $paymentResponse['data']['external_id'] ?? null;
+                $externalId = app(apiSyriaService::class)->extractExternalIdFromEntry($paymentResponse['data']);
+            $transactionData['external_id'] =$externalId;
             $transactionData['response'] = $paymentResponse;
         } else {
             $paymentStatus = 'pending';

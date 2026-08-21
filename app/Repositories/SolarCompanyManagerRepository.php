@@ -1072,11 +1072,12 @@ class SolarCompanyManagerRepository implements SolarCompanyManagerRepositoryInte
                 'paid_at' => Carbon::now(),
                 'status' => $paymentResponse ? ($request->payment_method == 'cash' ? 'pending' : 'paid') : 'pending',
             ]);
+                $externalId = app(apiSyriaService::class)->extractExternalIdFromEntry($paymentResponse['data']);
             if ($paymentResponse && isset($paymentResponse['data'])) {
                 Payment_transactions::create([
                     'payment_id' => $payment->id,
                     'gateway' => $request->payment_method,
-                    'external_id' => $paymentResponse['data']['transaction_no'] ?? $paymentResponse['data']['billcode'] ?? null,
+                    'external_id' => $externalId,
                     'payment_url' => $paymentResponse['data']['payment_url'] ?? null,
                     'status' => $payment->status,
                     'response' => $paymentResponse,
