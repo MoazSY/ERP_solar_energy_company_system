@@ -1336,13 +1336,13 @@ class EmployeeRepository implements EmployeeRepositoryInterface
 
             return [
                 'delivery' => $delivery,
-                'order_list' => $delivery->orderList,
+                'order_list' => $delivery->deliverable_object,
                 'entity_source' => $delivery->entity_type,
                 'entity_target' => $targetEntity,
                 'address' => $delivery->address,
                 'governorate' => $delivery->address?->governorate,
                 'area' => $delivery->address?->area,
-                'items' => $delivery->orderList?->Items()->with('product')->get() ?? collect(),
+                'items' => $delivery->deliverable_object->Items()->with('product')->get() ?? collect(),
                 'is_completed' => !is_null($delivery->delivered_at) || $delivery->delivery_status === 'delivered',
             ];
         });
